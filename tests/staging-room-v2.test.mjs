@@ -96,7 +96,7 @@ test('self-target attacks are staged without defense; foreign or duplicate insta
 });
 test('structural attack rejects armor-only and two main weapons but allows add-ons',()=>{
  const s=room();
- assert.throws(()=>send(s,attack(s,{orderedInstanceIds:[s.players[0].hand[4].instanceId]})),/Attack must start/);
+ assert.throws(()=>send(s,attack(s,{orderedInstanceIds:[s.players[0].hand[4].instanceId]})),/Not a structural attack/);
  assert.throws(()=>send(s,attack(s,{orderedInstanceIds:[s.players[0].hand[0].instanceId,s.players[0].hand[1].instanceId]})),/Not a structural attack/);
  const add=send(s,attack(s,{orderedInstanceIds:[s.players[0].hand[2].instanceId]}));
  assert.equal(add.state.pending.attackInstanceIds.length,1);
@@ -173,7 +173,9 @@ test('offensive miracle may open an attack, while Aura alone may not',()=>{
  assert.equal(good.state.phase,'defense');
  assert.deepEqual(good.state.pending.attackInstanceIds,[hand[0].instanceId]);
  assert.throws(()=>send(source,attack(source,{orderedInstanceIds:[hand[1].instanceId]})),/Attack must start/);
- assert.throws(()=>send(source,attack(source,{orderedInstanceIds:[hand[2].instanceId,hand[0].instanceId]})),/Not a structural attack/);
+ // G2 only stages this selection; detailed miracle ordering belongs to G3.
+ const staged=send(source,attack(source,{orderedInstanceIds:[hand[2].instanceId,hand[0].instanceId]}));
+ assert.deepEqual(staged.state.pending.attackInstanceIds,[hand[2].instanceId,hand[0].instanceId]);
 });
 test('ordered weapon, plus miracle and spirit selections survive staging untouched',()=>{
  const source=createStagingRoom({seats:[
