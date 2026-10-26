@@ -164,6 +164,10 @@ export function defend(state,{playerId,handIndices=[],wallHandIndex=null,wallLea
   if(!Array.isArray(handIndices))throw new TypeError('Selection must be array');
   const indices=handIndices.length?normalizeIndexes(handIndices,p.hand):[];
   const cards=indices.map(i=>validCard(p.hand[i]));
+  // Observed server constraint: the attribute-removal curtain is only
+  // allowed as the FIRST card in the ordered defense selection.
+  if(cards.some((card,i)=>card.kind==='defense_item' && card.effect==='strip_element' && i!==0))
+    throw new Error('Rainbow curtain must be selected first');
   if(wallHandIndex !== null || wallLearnedId !== null) {
     if(wallHandIndex !== null && wallLearnedId !== null) throw new Error('Choose one wall source');
     // Wall may be paired with Rainbow Curtain; until further verification,
