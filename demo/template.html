@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>カード対戦・ルール検証デモ</title>
+<style>
+:root{color-scheme:dark;font-family:system-ui,-apple-system,sans-serif;background:#101725;color:#eef4ff}
+*{box-sizing:border-box}body{margin:0}button{font:inherit;cursor:pointer;touch-action:manipulation}
+main{max-width:1080px;margin:auto;padding:16px}
+h1{font-size:clamp(20px,3vw,28px);margin:0}.subtitle{color:#a6bad4;font-size:12px;margin:6px 0 0}
+header{display:flex;align-items:center;justify-content:space-between;gap:12px}
+aside{border:1px solid #35546d;background:#192b3e;border-radius:12px;padding:10px 14px;margin:16px 0;font-size:12px;color:#b9dafa;line-height:1.65}
+.players{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.player{border:1px solid #34465e;background:#1a2637;padding:13px;border-radius:13px}
+.player.now{border-color:#69c5fd}.player label{font-size:12px;color:#b6cfec}
+.stats{display:flex;flex-wrap:wrap;gap:14px;margin-top:9px;font-weight:750}.stats small{font-size:11px;font-weight:400;color:#abc4da}
+.board{border:1px solid #33465f;border-radius:14px;background:#172233;padding:16px;margin:15px 0;min-height:300px}
+.hint{color:#a9bed8;font-size:13px;line-height:1.5}
+.hand{display:grid;grid-template-columns:repeat(auto-fill,minmax(125px,1fr));gap:8px;margin:18px 0}
+.card{min-height:105px;border-radius:11px;border:2px solid #496181;background:#253750;color:#e8f4ff;padding:10px;text-align:left}
+.card strong{display:block;font-size:13px}.card small{display:block;font-size:11px;margin-top:8px;color:#b3cce6}.card.chosen{border-color:#ffdf7b;background:#3c493d}
+.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.action{border:0;border-radius:11px;background:#317aca;color:white;padding:12px 15px;font-weight:700;min-height:44px}
+.action.alt{background:#3b4f68}.switch{text-align:center;padding:35px 10px}.switch button{min-width:210px}
+.error{background:#5c2731;padding:10px;border-radius:8px;color:#ffced2;font-size:13px}
+#history{font-size:12px;color:#afc4e4;background:#141e2d;border-radius:12px;padding:12px}
+#history details{line-height:1.6}#history ol{margin-bottom:0}
+@media(min-width:750px){.hand{grid-template-columns:repeat(6,minmax(0,1fr))}}
+@media(max-width:450px){.hand{grid-template-columns:repeat(3,minmax(0,1fr))}.stats{gap:5px 10px}}
+</style></head><body><main id="app"></main>
+<script>
+'use strict';
+/*__ENGINE__*/
+(function(){
+var app=document.getElementById('app');
+var pool=['w006','w007','w016','w018','w021','w024','a001','a003','d001','d004','d005','d015','d018','w026','w027','m002','m003','m005','m004','i001','i002'];
+var state,selection=[],revealed=false,error='';
+function draw(){return findVerifiedBasicCard(pool[Math.floor(Math.random()*pool.length)]);}
+function h(v){return String(v).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+function player(){return state.players.find(function(p){return p.id===state.activePlayerId;});}
+function other(id){return state.players.find(function(p){return p.id!==id;}).id;}
+function info(c){
+ if(c.kind==='weapon')return '攻'+c.attack+' '+(c.guard===undefined?'':'守'+c.guard+' ')+c.element;
+ if(c.kind==='armor')return '守'+c.guard+(c.attackBonus?' 攻＋'+c.attackBonus:'');
+ if(c.kind==='miracle')return 'MP'+c.mpCost+(c.attack===undefined?' 補助':' 攻'+c.attack);
+ return c.effect==='reflect_any'?'反射':c.effect==='strip_element'?'属性解除':'道具';
+}
+function render(){
+ var p=player(),done=state.phase==='finished',who=state.activePlayerId;
+ var ps=state.players.map(function(q){return '<div class="player '+(q.id===who?'now':'')+'"><label>'+h(q.id)+' / '+(q.hp<=0?'脱落':q.id===who?'操作中':'待機')+'</label><div class="stats"><span><small>HP</small> '+q.hp+'</span><span><small>MP</small> '+q.mp+'</span><span><small>円</small> '+q.money+'</span></div><p class="subtitle">手札 '+q.hand.length+'枚、習得 '+q.learned.length+'種類</p></div>';}).join('');
+ var content='';
+ if(done)content='<div class="switch"><h2>勝者：'+h(state.winnerId||'なし')+'</h2><button class="action" data-act="reset">もう一度</button></div>';
+ else if(!revealed)content='<div class="switch"><h2>'+h(p.id)+' の操作</h2><p class="hint">プレーヤーを交代し、本人だけが手札を開いてください。</p><button class="action" data-act="reveal">手札を開く</button></div>';
+ else {
+ var cards=p.hand.map(function(c,i){return '<button data-card="'+i+'" class="card '+(selection.includes(i)?'chosen':'')+'" aria-pressed="'+(selection.includes(i)?'true':'false')+'"><strong>'+h(c.referenceName||c.id)+'</strong><small>'+h(info(c))+'</small></button>';}).join('');
+ var acts=[];
+ if(state.phase==='turn'){
+  if(selection.length){
+   acts.push(['attack','攻撃']);
+   if(selection.length===1&&p.hand[selection[0]].kind==='miracle'&&p.hand[selection[0]].role==='attack')acts.push(['miracle','奇跡単体']);
+   if(selection.some(function(i){return p.hand[i].role==='boost_weapon';}))acts.push(['aura','オーラ＋武器']);
+   if(selection.some(function(i){return p.hand[i].plusAttack;}))acts.push(['plus','＋攻奇跡']);
+   acts.push(['discard','捨てる']);
+  }
+  acts.push(['pray','祈る']);
+ } else{
+  acts.push(['defend','防御する／受ける']);
+  if(selection.some(function(i){return p.hand[i].role==='stop';}))acts.push(['wall','壁で止める']);
+ }
+ var buttons=acts.map(function(a){return '<button class="action '+(a[0]==='discard'||a[0]==='pray'?'alt':'')+'" data-act="'+a[0]+'">'+a[1]+'</button>';}).join('');
+ content='<p class="hint">'+(state.phase==='turn'?'使用カードを選んで攻撃、奇跡、捨てる、祈るを選択。':'防具を選んで防御。何も選ばなければ無防御で受けます。')+'</p><div class="hand">'+cards+'</div><div class="actions">'+buttons+'</div>';
+ }
+ var log=state.events.slice(-6).map(function(e){return '<li>'+h(e.type)+' '+h(e.sourceId||e.playerId||e.targetId||'')+' '+(e.damage===undefined?'':'ダメージ'+e.damage)+'</li>';}).join('');
+ app.innerHTML='<header><div><h1>カード対戦・ルール検証</h1><p class="subtitle">1vs1 / 同一端末で交代 / オフライン</p></div><button class="action alt" data-act="reset">最初から</button></header>'+
+ '<aside><b>検証用デモ（未完成）</b>：カードは一部のみ、配布確率は原作と異なります。公式作品とは無関係です。対戦通信はありません。</aside>'+
+ '<div class="players">'+ps+'</div><section class="board"><p class="subtitle">'+(done?'終了':state.phase==='turn'?'攻撃する手番':'攻撃された人の防御')+'</p>'+
+ (error?'<p class="error" role="alert">'+h(error)+'</p>':'')+content+'</section>'+
+ '<div id="history"><details><summary>処理ログ（'+state.events.length+'件）</summary><ol>'+log+'</ol></details></div>';
+}
+function act(name){
+ if(name==='reset')return start();
+ if(name==='reveal'){revealed=true;error='';return render();}
+ var p=player(),id=p.id,t=other(id),ix=selection.slice();
+ try{
+  var next;
+  if(name==='attack')next=playAttack(state,{playerId:id,targetId:t,handIndices:ix},draw);
+  if(name==='defend')next=defend(state,{playerId:id,handIndices:ix},draw);
+  if(name==='miracle')next=playMiracleAttack(state,{playerId:id,targetId:t,handIndex:ix[0]},draw);
+  if(name==='pray')next=pray(state,{playerId:id},draw);
+  if(name==='discard')next=discardCards(state,{playerId:id,handIndices:ix});
+  if(name==='wall'){var w=ix.find(function(i){return p.hand[i].role==='stop';});next=defend(state,{playerId:id,wallHandIndex:w,handIndices:ix.filter(function(i){return i!==w;})},draw);}
+  if(name==='aura'){var a=ix.find(function(i){return p.hand[i].role==='boost_weapon';});next=playAuraWeaponAttack(state,{playerId:id,targetId:t,auraHandIndex:a,handIndices:ix.filter(function(i){return i!==a;})},draw);}
+  if(name==='plus'){var z=ix.find(function(i){return p.hand[i].plusAttack;});next=playPlusMiracleAttack(state,{playerId:id,targetId:t,plusHandIndex:z,handIndices:ix.filter(function(i){return i!==z;})},draw);}
+  if(!next)throw new Error('未対応の操作');
+  state=next;selection=[];revealed=false;error='';
+ }catch(e){error=e.message||String(e);}
+ render();
+}
+app.addEventListener('click',function(e){
+ var button=e.target.closest('button');
+ if(!button)return;
+ if(button.hasAttribute('data-card')){
+  var n=Number(button.getAttribute('data-card'));
+  selection=selection.includes(n)?selection.filter(function(x){return x!==n;}):selection.concat([n]);
+  error='';render();return;
+ }
+ if(button.hasAttribute('data-act'))act(button.getAttribute('data-act'));
+});
+function start(){state=createMatch({playerIds:['P1','P2'],draw:draw,rng:Math.random});revealed=false;selection=[];error='';render();}
+start();
+})();
+</script></body></html>
