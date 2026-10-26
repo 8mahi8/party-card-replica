@@ -128,7 +128,9 @@ export function playMiracleAttack(state,{playerId,targetId,handIndex=null,learne
   const s=clone(state),source=person(s,playerId);
   source.mp-=miracle.mpCost;
   source.learned=learnFrom(source.learned,miracle);
-  // Miracle remains learned/in hand. Every cast grants exactly one draw.
+  // First use transfers miracle from hand to learned; the miracle draw
+  // replaces that slot. Recasts from learned add a card.
+  if (handIndex!==null) source.hand=take(source.hand,[handIndex]);
   s.pending={originalAttackerId:playerId,sourceId:playerId,targetId,
     attack:miracle.attack,element:miracle.element,attackKind:'miracle',armor:0,
     spentByPlayer:{[playerId]:1}};
@@ -185,7 +187,7 @@ export function defend(state,{playerId,handIndices=[],wallHandIndex=null,wallLea
     const s=clone(state),defender=person(s,playerId);
     defender.mp-=wall.mpCost;
     defender.learned=learnFrom(defender.learned,wall);
-    defender.hand=take(defender.hand,indices);
+    defender.hand=take(defender.hand,wallHandIndex===null?indices:[...indices,wallHandIndex]);
     s.pending.spentByPlayer={...s.pending.spentByPlayer,[playerId]:(s.pending.spentByPlayer[playerId]??0)+cards.length+1};
     s.pending.stopped=true;
     s.events.push({type:'stop',playerId,source:'wall',mpCost:wall.mpCost});
@@ -286,7 +288,11 @@ export function playAuraWeaponAttack(state,{
   const attacker=person(s,playerId);
   attacker.mp-=aura.mpCost;
   attacker.learned=learnFrom(attacker.learned,aura);
-  // The currently implemented miracle model grants a draw per cast.
+  if (auraHandIndex!==null) {
+    const adjusted=auraHandIndex-indices.filter(i=>i<auraHandIndex).length;
+    attacker.hand=take(attacker.hand,[adjusted]);
+  }
+  // First cast replaces the hand miracle with a card; a recast grows hand.
   // First-use miracle hand handling remains to be verified against live UI.
   s.pending.spentByPlayer={...s.pending.spentByPlayer,
     [playerId]:(s.pending.spentByPlayer[playerId]??0)+1};
