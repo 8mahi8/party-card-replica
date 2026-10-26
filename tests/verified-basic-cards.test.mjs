@@ -25,8 +25,8 @@ test('data records the original slots as whole multiples of 0.2 percent',()=>{
 });
 
 test('card numbers, price, attributes, slot and combined guard are source-backed',()=>{
- assert.deepEqual(({attack,guard,price,slot})=>({attack,guard,price,slot}))(findVerifiedBasicCard('w005')),
- {attack:2,guard:6,price:10,slot:'main'});
+ const {attack,guard,price,slot}=findVerifiedBasicCard('w005');
+ assert.deepEqual({attack,guard,price,slot},{attack:2,guard:6,price:10,slot:'main'});
  assert.equal(findVerifiedBasicCard('w018').element,'fire');
  assert.equal(findVerifiedBasicCard('a005').attack,5);
  assert.equal(findVerifiedBasicCard('a005').slot,'addon');
