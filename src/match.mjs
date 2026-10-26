@@ -1,5 +1,6 @@
 /**
  * 2+ player *basic attack/defense laboratory* for checking source-backed rules.
+ * Hybrid main weapons with an explicit guard value can be used for defense.
  * NOT the complete God Field game: special cards, status, catastrophes,
  * end-of-world and networking are intentionally not modelled.
  *
@@ -15,7 +16,7 @@ function validCard(card) {
   if (!card || typeof card !== 'object' || typeof card.id !== 'string' || !card.id) throw new TypeError('Invalid card');
   if (card.effect !== undefined || card.special !== undefined) throw new Error('Special effects not implemented');
   if (card.kind === 'weapon') {
-    if (!['main','addon'].includes(card.slot) || !Number.isInteger(card.attack) || card.attack < 0 || !ELEMENTS.includes(card.element)) throw new TypeError('Invalid weapon');
+    if (!['main','addon'].includes(card.slot) || !Number.isInteger(card.attack) || card.attack < 0 || !ELEMENTS.includes(card.element) || (card.guard !== undefined && (!Number.isInteger(card.guard) || card.guard < 0))) throw new TypeError('Invalid weapon');
   } else if (card.kind === 'armor') {
     if (!Number.isInteger(card.guard) || card.guard < 0 || !ELEMENTS.includes(card.element)) throw new TypeError('Invalid armor');
   } else {
@@ -120,7 +121,7 @@ export function defend(state,{playerId,handIndices=[]},draw) {
   if(!Array.isArray(handIndices))throw new TypeError('Selection must be array');
   const indices=handIndices.length?normalizeIndexes(handIndices,p.hand):[];
   const cards=indices.map(i=>validCard(p.hand[i]));
-  if(cards.some(c=>c.kind!=='armor' || !canBlock(state.pending.element,c.element))) throw new Error('Illegal shield for attack element');
+  if(cards.some(c=>!((c.kind==='armor') || (c.kind==='weapon' && Number.isInteger(c.guard))) || !canBlock(state.pending.element,c.element))) throw new Error('Illegal shield for attack element');
   const s=clone(state);
   const defender=person(s,playerId);
   defender.hand=take(defender.hand,indices);
