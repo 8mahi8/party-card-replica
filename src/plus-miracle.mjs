@@ -9,6 +9,7 @@
  */
 import {combineElements, ELEMENTS, MAX_LEARNED_MIRACLES} from './rules.mjs';
 import {playAttack} from './match.mjs';
+import {priceMiracleSequence} from './spirit-sequence.mjs';
 
 function cardFromPlayer(player, {plusHandIndex,learnedPlusId},handIndices) {
   if ((plusHandIndex === null) === (learnedPlusId === null)) {
@@ -69,7 +70,7 @@ export function playPlusMiracleAttack(state,{
  * spirits, stacked Aura, or other unverified order is accepted.
  */
 export function playStackedPlusMiracles(state,{
-  playerId,targetId,handIndices,plusHandIndices
+  playerId,targetId,handIndices,plusHandIndices,spiritHandIndex=null
 },draw) {
   if(!state || state.phase!=='turn' || state.activePlayerId!==playerId)
     throw new Error('Not active turn');
@@ -89,7 +90,20 @@ export function playStackedPlusMiracles(state,{
   if(miracles.some(m=>!m||m.kind!=='miracle'||m.role!=='attack'||m.plusAttack!==true||
      !Number.isInteger(m.mpCost)||m.mpCost<0||!Number.isInteger(m.attack)||m.attack<0||
      !ELEMENTS.includes(m.element)))throw new Error('Only additive attack miracles supported');
-  const cost=miracles.reduce((a,m)=>a+m.mpCost,0);
+  let spirit=null;
+  if(spiritHandIndex!==null){
+    if(!Number.isInteger(spiritHandIndex)||spiritHandIndex<0||
+       spiritHandIndex>=caster.hand.length||combined.includes(spiritHandIndex))
+      throw new RangeError('Invalid spirit hand index');
+    spirit=caster.hand[spiritHandIndex];
+    if(!spirit||spirit.kind!=='support_item'||spirit.effect!=='free_previous_miracle')
+      throw new Error('Not a spirit item');
+  }
+  const cost=priceMiracleSequence([
+    ...handIndices.map(()=>({type:'weapon'})),
+    ...miracles.map(m=>({type:'miracle',mpCost:m.mpCost})),
+    ...(spirit?[{type:'spirit'}]:[])
+  ]).payableMP;
   if(caster.mp<cost)throw new Error('Not enough MP');
   const result=playAttack(state,{playerId,targetId,handIndices},draw);
   const owner=result.players.find(p=>p.id===playerId);
@@ -100,12 +114,12 @@ export function playStackedPlusMiracles(state,{
       owner.learned=[...owner.learned,miracle].slice(-MAX_LEARNED_MIRACLES);
   }
   owner.mp-=cost;
-  const shifted=plusHandIndices.map(i=>i-handIndices.filter(j=>j<i).length);
+  const shifted=[...plusHandIndices,...(spirit?[spiritHandIndex]:[])].map(i=>i-handIndices.filter(j=>j<i).length);
   owner.hand=owner.hand.filter((_,i)=>!shifted.includes(i));
   result.pending.spentByPlayer={...result.pending.spentByPlayer,
-    [playerId]:result.pending.spentByPlayer[playerId]+miracles.length};
+    [playerId]:result.pending.spentByPlayer[playerId]+miracles.length+(spirit?1:0)};
   result.events.push({type:'stacked_plus_miracles',playerId,
     miracleIds:miracles.map(m=>m.id),attackAfter:result.pending.attack,
-    elementAfter:result.pending.element,mpCost:cost});
+    elementAfter:result.pending.element,mpCost:cost,spiritId:spirit?.id??null});
   return result;
 }
