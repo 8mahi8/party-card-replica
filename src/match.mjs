@@ -18,7 +18,7 @@ function validCard(card) {
   if (card.kind === 'weapon') {
     if (!['main','addon'].includes(card.slot) || !Number.isInteger(card.attack) || card.attack < 0 || !ELEMENTS.includes(card.element) || (card.guard !== undefined && (!Number.isInteger(card.guard) || card.guard < 0))) throw new TypeError('Invalid weapon');
   } else if (card.kind === 'armor') {
-    if (!Number.isInteger(card.guard) || card.guard < 0 || !ELEMENTS.includes(card.element)) throw new TypeError('Invalid armor');
+    if (!Number.isInteger(card.guard) || card.guard < 0 || !ELEMENTS.includes(card.element) || (card.attackBonus !== undefined && (!Number.isInteger(card.attackBonus) || card.attackBonus < 0))) throw new TypeError('Invalid armor');
   } else {
     throw new Error(`Unsupported card category: ${card.kind}`);
   }
@@ -102,10 +102,12 @@ export function playAttack(state,{playerId,targetId,handIndices},draw) {
   person(state,targetId);
   const indices=normalizeIndexes(handIndices,attacker.hand);
   const cards=indices.map(i=>validCard(attacker.hand[i]));
-  if(cards.some(c=>c.kind!=='weapon') || cards.filter(c=>c.slot==='main').length>1) throw new Error('Attack requires <=1 main weapon and only add-ons');
-  const attack=cards.reduce((sum,c)=>sum+c.attack,0);
-  let element=cards[0].element;
-  for(const card of cards.slice(1)) element=combineElements(element,card.element);
+  const weapons=cards.filter(c=>c.kind==='weapon');
+  const bonuses=cards.filter(c=>c.kind==='armor' && c.attackBonus > 0);
+  if (weapons.length===0 || bonuses.length+weapons.length!==cards.length || weapons.filter(c=>c.slot==='main').length>1) throw new Error('Attack needs weapon(s), <=1 main weapon, and attack-bonus armor only');
+  const attack=weapons.reduce((sum,c)=>sum+c.attack,0)+bonuses.reduce((sum,c)=>sum+c.attackBonus,0);
+  let element=weapons[0].element;
+  for(const card of weapons.slice(1)) element=combineElements(element,card.element);
   const s=clone(state);
   const source=person(s,playerId);
   source.hand=take(source.hand,indices);
