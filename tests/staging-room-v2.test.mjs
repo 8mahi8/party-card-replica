@@ -84,16 +84,19 @@ test('wrong seat and dead target cannot attack',()=>{
  s.players[1].hp=0;
  assert.throws(()=>send(s,attack(s)),/Invalid G2 target/);
 });
-test('cannot attack oneself, choose foreign or duplicate physical instance',()=>{
+test('self-target attacks are staged without defense; foreign or duplicate instances are rejected',()=>{
  const s=room();
- assert.throws(()=>send(s,attack(s,{targetId:'A'})),/Invalid G2 target/);
+ const self=send(s,attack(s,{targetId:'A'}));
+ assert.equal(self.state.phase,'resolving');assert.equal(self.state.activePlayerId,null);
+ assert.equal(self.state.pending.targetId,'A');assert.equal(self.state.players[0].hp,40);
+ assert.throws(()=>send(s,attack(s,{targetId:'unknown-seat'})),/Unknown seat/);
  assert.throws(()=>send(s,attack(s,{orderedInstanceIds:[s.players[1].hand[0].instanceId]})),/not held/);
  const cid=s.players[0].hand[0].instanceId;
  assert.throws(()=>send(s,attack(s,{orderedInstanceIds:[cid,cid]})),/Repeated card instance/);
 });
 test('structural attack rejects armor-only and two main weapons but allows add-ons',()=>{
  const s=room();
- assert.throws(()=>send(s,attack(s,{orderedInstanceIds:[s.players[0].hand[4].instanceId]})),/Not a structural attack/);
+ assert.throws(()=>send(s,attack(s,{orderedInstanceIds:[s.players[0].hand[4].instanceId]})),/Attack must start/);
  assert.throws(()=>send(s,attack(s,{orderedInstanceIds:[s.players[0].hand[0].instanceId,s.players[0].hand[1].instanceId]})),/Not a structural attack/);
  const add=send(s,attack(s,{orderedInstanceIds:[s.players[0].hand[2].instanceId]}));
  assert.equal(add.state.pending.attackInstanceIds.length,1);
@@ -158,4 +161,27 @@ test('seat validation and hand cap reject invalid room creation',()=>{
  assert.throws(()=>createStagingRoom(s,catalog),/Duplicate seat/);
  assert.throws(()=>createStagingRoom({seats:[{id:'A',handDefinitionIds:Array(19).fill('w006')},{id:'B',handDefinitionIds:[]}],firstSeatId:'A'},catalog),/starting hand/);
  assert.throws(()=>createStagingRoom({seats:[{id:'A',handDefinitionIds:['nonexistent']},{id:'B',handDefinitionIds:[]}],firstSeatId:'A'},catalog),/Unknown card definition/);
+});
+
+test('offensive miracle may open an attack, while Aura alone may not',()=>{
+ const source=createStagingRoom({seats:[
+  {id:'A',handDefinitionIds:['m002','m004','m005']},
+  {id:'B',handDefinitionIds:['d001']}
+ ],firstSeatId:'A'},catalog);
+ const hand=source.players[0].hand;
+ const good=send(source,attack(source,{orderedInstanceIds:[hand[0].instanceId]}));
+ assert.equal(good.state.phase,'defense');
+ assert.deepEqual(good.state.pending.attackInstanceIds,[hand[0].instanceId]);
+ assert.throws(()=>send(source,attack(source,{orderedInstanceIds:[hand[1].instanceId]})),/Attack must start/);
+ assert.throws(()=>send(source,attack(source,{orderedInstanceIds:[hand[2].instanceId,hand[0].instanceId]})),/Not a structural attack/);
+});
+test('ordered weapon, plus miracle and spirit selections survive staging untouched',()=>{
+ const source=createStagingRoom({seats:[
+  {id:'A',handDefinitionIds:['w016','m005','i003']},
+  {id:'B',handDefinitionIds:['d001']}
+ ],firstSeatId:'A'},catalog);
+ const ids=source.players[0].hand.map(x=>x.instanceId);
+ const staged=send(source,attack(source,{orderedInstanceIds:ids}));
+ assert.deepEqual(staged.state.pending.attackInstanceIds,ids);
+ assert.equal(staged.state.phase,'defense');
 });
