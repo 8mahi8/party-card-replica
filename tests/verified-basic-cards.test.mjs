@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {VERIFIED_BASIC_CARDS,findVerifiedBasicCard,PARTIAL_CARD_SOURCE} from '../src/verified-basic-cards.mjs';
-import {auditCatalog} from '../src/catalog-audit.mjs';
+import {auditCatalog,createAuditedDraw} from '../src/catalog-audit.mjs';
 import {createMatch,playAttack,defend,pray} from '../src/match.mjs';
 
 const draw=()=>VERIFIED_BASIC_CARDS[0];
@@ -81,4 +81,8 @@ test('combined guard values on two mixed armor/weapon cards stack as expected',(
  const p=playAttack(s,{playerId:'A',targetId:'B',handIndices:[0]},draw);
  const r=defend(p,{playerId:'B',handIndices:[0,1]},draw);
  assert.equal(r.players[1].hp,37);
+});
+
+test('partial catalog is rejected by audited production-oriented draw factory',()=>{
+ assert.throws(()=>createAuditedDraw(VERIFIED_BASIC_CARDS),/Catalog incomplete/);
 });
