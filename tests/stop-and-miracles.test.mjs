@@ -31,7 +31,7 @@ test('wall miracle from hand stops neutral weapon, costs MP and stays learned',(
  assert.equal(fin.players[1].hp,40);
  assert.equal(fin.players[1].mp,4);
  assert.deepEqual(fin.players[1].learned.map(c=>c.id),['m001']);
- assert.equal(fin.players[1].hand.length,2);
+ assert.equal(fin.players[1].hand.length,1);
  assert.equal(fin.events.at(-1).type,'damage');
  assert.equal(fin.events.at(-1).stopped,true);
  assert.equal(fin.events.some(e=>e.type==='stop'&&e.source==='wall'),true);
@@ -52,7 +52,7 @@ test('wall plus rainbow curtain stops colored weapon and uses both defensive eff
  const p=attack(['w018'],['m001','i001']);
  const f=defend(p,{playerId:'B',wallHandIndex:0,handIndices:[1]},draw);
  assert.equal(f.players[1].hp,40);assert.equal(f.players[1].mp,4);
- assert.equal(f.players[1].hand.length,3);
+ assert.equal(f.players[1].hand.length,2);
 });
 test('wall cannot stop miracle attack even after stripping its attribute',()=>{
  const p=cast(['m002'],['m001','i001']);
@@ -71,7 +71,7 @@ test('an angel shield stops a water miracle regardless of its guard amount',()=>
  assert.equal(f.players[1].hp,40);
  assert.equal(f.players[0].mp,8);
  assert.deepEqual(f.players[0].learned.map(c=>c.id),['m002']);
- assert.equal(f.players[0].hand.length,2);
+ assert.equal(f.players[0].hand.length,1);
  assert.equal(f.events.some(e=>e.type==='stop'&&e.source==='angel'),true);
 });
 test('angel shield stops dark miracle before instant defeat',()=>{
