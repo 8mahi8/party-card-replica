@@ -19,7 +19,7 @@ test('light attack cannot normally be shielded even with neutral armor',()=>{
 });
 test('rainbow curtain removes light element so neutral shield becomes legal',()=>{
  const s=state('w024',['d001','i001']);
- const r=defend(s,{playerId:'B',handIndices:[0,1]},draw);
+ const r=defend(s,{playerId:'B',handIndices:[1,0]},draw);
  assert.equal(r.players[1].hp,38); // attack 3 - shield 1
  assert.equal(r.events.find(e=>e.type==='defense').stripElement,true);
  assert.equal(r.players[1].hand.length,2);
