@@ -11,10 +11,11 @@ import {
   STARTING_STATS, MAX_HAND_SIZE, ELEMENTS, combineElements,
   calculateHit, canBlock, initialHand, refillHand, reflectTarget,
 } from './rules.mjs';
+import {priceMiracleSequence} from './spirit-sequence.mjs';
 
 function validCard(card) {
   if (!card || typeof card !== 'object' || typeof card.id !== 'string' || !card.id) throw new TypeError('Invalid card');
-  if (card.special !== undefined || (card.effect !== undefined && !(card.kind === 'defense_item' && ['strip_element','reflect_any'].includes(card.effect)))) throw new Error('Special effects not implemented');
+  if (card.special !== undefined || (card.effect !== undefined && !((card.kind === 'defense_item' && ['strip_element','reflect_any'].includes(card.effect)) || (card.kind === 'support_item' && card.effect === 'free_previous_miracle')))) throw new Error('Special effects not implemented');
   if (card.kind === 'weapon') {
     if (!['main','addon'].includes(card.slot) || !Number.isInteger(card.attack) || card.attack < 0 || !ELEMENTS.includes(card.element) || (card.guard !== undefined && (!Number.isInteger(card.guard) || card.guard < 0))) throw new TypeError('Invalid weapon');
     if (card.reaction !== undefined && (!['reflect','deflect'].includes(card.reaction) || card.reactionScope !== 'neutral_weapon')) throw new Error('Unknown weapon reaction');
@@ -26,6 +27,8 @@ function validCard(card) {
     if (card.role==='boost_weapon' && card.boost!=='double_weapon') throw new Error('Unknown boost miracle');
     if (card.role === 'attack' && (!Number.isInteger(card.attack) || card.attack<0 || !ELEMENTS.includes(card.element))) throw new TypeError('Invalid miracle attack');
     if (card.role === 'stop' && card.stopScope !== 'neutral_weapon') throw new Error('Unknown miracle stop scope');
+  } else if (card.kind === 'support_item') {
+    if (card.effect !== 'free_previous_miracle') throw new Error('Unsupported spirit item');
   } else if (card.kind === 'defense_item') {
     if (!['strip_element','reflect_any'].includes(card.effect)) throw new Error('Unsupported defense item');
   } else {
@@ -113,7 +116,7 @@ function learnFrom(learned, miracle) {
   if(learned.some(c=>c.id===miracle.id)) return [...learned];
   return [...learned, miracle].slice(-6);
 }
-export function playMiracleAttack(state,{playerId,targetId,handIndex=null,learnedId=null},draw) {
+export function playMiracleAttack(state,{playerId,targetId,handIndex=null,learnedId=null,spiritHandIndex=null},draw) {
   expectTurn(state,playerId);
   const caster=person(state,playerId);
   person(state,targetId);
@@ -124,17 +127,29 @@ export function playMiracleAttack(state,{playerId,targetId,handIndex=null,learne
     miracle=validCard(caster.hand[handIndex]);
   }else miracle=validCard(caster.learned?.find(x=>x.id===learnedId));
   if(miracle.kind!=='miracle' || miracle.role!=='attack')throw new Error('Not an offensive miracle');
-  if(caster.mp<miracle.mpCost)throw new Error('Not enough MP');
+  let spirit=null;
+  if(spiritHandIndex!==null) {
+    if(!Number.isInteger(spiritHandIndex)||spiritHandIndex<0||
+       spiritHandIndex>=caster.hand.length||spiritHandIndex===handIndex)
+      throw new RangeError('Invalid spirit hand index');
+    spirit=validCard(caster.hand[spiritHandIndex]);
+    if(spirit.kind!=='support_item'||spirit.effect!=='free_previous_miracle')
+      throw new Error('Not a spirit item');
+  }
+  // Selection order is explicit: miracle, then (optional) spirit.
+  const price=priceMiracleSequence([{type:'miracle',mpCost:miracle.mpCost},
+    ...(spirit?[{type:'spirit'}]:[])]).payableMP;
+  if(caster.mp<price)throw new Error('Not enough MP');
   const s=clone(state),source=person(s,playerId);
-  source.mp-=miracle.mpCost;
+  source.mp-=price;
   source.learned=learnFrom(source.learned,miracle);
   // First use transfers miracle from hand to learned; the miracle draw
   // replaces that slot. Recasts from learned add a card.
-  if (handIndex!==null) source.hand=take(source.hand,[handIndex]);
+  source.hand=take(source.hand,[...(handIndex===null?[]:[handIndex]),...(spiritHandIndex===null?[]:[spiritHandIndex])]);
   s.pending={originalAttackerId:playerId,sourceId:playerId,targetId,
     attack:miracle.attack,element:miracle.element,attackKind:'miracle',armor:0,
-    spentByPlayer:{[playerId]:1}};
-  s.events.push({type:'miracle',sourceId:playerId,targetId,cardId:miracle.id,mpCost:miracle.mpCost});
+    spentByPlayer:{[playerId]:1+(spirit?1:0)}};
+  s.events.push({type:'miracle',sourceId:playerId,targetId,cardId:miracle.id,mpCost:price,spiritId:spirit?.id??null});
   if(targetId===playerId)return finishAndDraw(s,draw);
   s.phase='defense';s.activePlayerId=targetId;
   return s;
