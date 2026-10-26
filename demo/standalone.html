@@ -1,0 +1,936 @@
+<!doctype html>
+<html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>カード対戦・ルール検証デモ</title>
+<style>
+:root{color-scheme:dark;font-family:system-ui,-apple-system,sans-serif;background:#101725;color:#eef4ff}
+*{box-sizing:border-box}body{margin:0}button{font:inherit;cursor:pointer;touch-action:manipulation}
+main{max-width:1080px;margin:auto;padding:16px}
+h1{font-size:clamp(20px,3vw,28px);margin:0}.subtitle{color:#a6bad4;font-size:12px;margin:6px 0 0}
+header{display:flex;align-items:center;justify-content:space-between;gap:12px}
+aside{border:1px solid #35546d;background:#192b3e;border-radius:12px;padding:10px 14px;margin:16px 0;font-size:12px;color:#b9dafa;line-height:1.65}
+.players{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.player{border:1px solid #34465e;background:#1a2637;padding:13px;border-radius:13px}
+.player.now{border-color:#69c5fd}.player label{font-size:12px;color:#b6cfec}
+.stats{display:flex;flex-wrap:wrap;gap:14px;margin-top:9px;font-weight:750}.stats small{font-size:11px;font-weight:400;color:#abc4da}
+.board{border:1px solid #33465f;border-radius:14px;background:#172233;padding:16px;margin:15px 0;min-height:300px}
+.hint{color:#a9bed8;font-size:13px;line-height:1.5}
+.hand{display:grid;grid-template-columns:repeat(auto-fill,minmax(125px,1fr));gap:8px;margin:18px 0}
+.card{min-height:105px;border-radius:11px;border:2px solid #496181;background:#253750;color:#e8f4ff;padding:10px;text-align:left}
+.card strong{display:block;font-size:13px}.card small{display:block;font-size:11px;margin-top:8px;color:#b3cce6}.card.chosen{border-color:#ffdf7b;background:#3c493d}
+.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.action{border:0;border-radius:11px;background:#317aca;color:white;padding:12px 15px;font-weight:700;min-height:44px}
+.action.alt{background:#3b4f68}.switch{text-align:center;padding:35px 10px}.switch button{min-width:210px}
+.error{background:#5c2731;padding:10px;border-radius:8px;color:#ffced2;font-size:13px}
+#history{font-size:12px;color:#afc4e4;background:#141e2d;border-radius:12px;padding:12px}
+#history details{line-height:1.6}#history ol{margin-bottom:0}
+@media(min-width:750px){.hand{grid-template-columns:repeat(6,minmax(0,1fr))}}
+@media(max-width:450px){.hand{grid-template-columns:repeat(3,minmax(0,1fr))}.stats{gap:5px 10px}}
+</style></head><body><main id="app"></main>
+<script>
+'use strict';
+
+// src/rules.mjs
+/**
+ * 原作参照型カード対戦のルール検証モジュール。未実装の効果は推測で補わない。
+ * データ来源: docs/SOURCE_LEDGER.md。ゲーム完成版ではありません。
+ *
+ * Cards are data objects. This module deliberately uses generic card IDs and
+ * test-only fixtures; no third-party art/assets/text are bundled.
+ */
+const STARTING_STATS = Object.freeze({hp: 40, mp: 10, money: 20});
+const INITIAL_HAND_SIZE = 9;
+const MAX_HAND_SIZE = 18;
+const MAX_RESOURCE_VALUE = 99;
+const MAX_LEARNED_MIRACLES = 6;
+
+const ELEMENTS = Object.freeze([
+  'none', 'fire', 'water', 'wood', 'earth', 'light', 'dark'
+]);
+
+/** Wiki (2025-09-19) table. A defense's matching property is independent
+ *  of its guard strength. Light attacks bypass all normal attribute shields.
+ */
+const ALLOWED_SHIELD_ELEMENTS = Object.freeze({
+  none: Object.freeze([...ELEMENTS]),
+  fire: Object.freeze(['water', 'light']),
+  water: Object.freeze(['fire', 'light']),
+  wood: Object.freeze(['earth', 'light']),
+  earth: Object.freeze(['wood', 'light']),
+  light: Object.freeze([]),
+  dark: Object.freeze([...ELEMENTS])
+});
+
+/** 500-slot 7-element/category distribution; not a complete 353-card catalog. */
+const CATEGORY_DISTRIBUTION = Object.freeze({
+  trade: Object.freeze([60,0,0,0,0,0,0]),
+  weapon_single: Object.freeze([110,9,7,7,5,7,7]),
+  weapon_area: Object.freeze([0,4,4,3,3,3,1]),
+  armor_normal: Object.freeze([101,10,8,8,7,2,0]),
+  armor_ring: Object.freeze([2,1,1,1,1,1,1]),
+  armor_other: Object.freeze([4,0,0,0,0,0,0]),
+  miracle: Object.freeze([11,4,5,2,2,4,2]),
+  item: Object.freeze([92,0,0,0,0,0,0])
+});
+
+const ELEMENTAL_FOUR = new Set(['fire','water','wood','earth']);
+function assertElement(e) {
+  if (!ELEMENTS.includes(e)) throw new TypeError(`Unknown element: ${e}`);
+}
+function nonnegativeInt(v, label) {
+  if (!Number.isInteger(v) || v < 0) throw new RangeError(`${label} must be a nonnegative integer`);
+}
+function canBlock(attackElement, shieldElement, {rainbowCurtain=false}={}) {
+  assertElement(attackElement);
+  assertElement(shieldElement);
+  if (rainbowCurtain && attackElement !== 'none') attackElement='none';
+  return ALLOWED_SHIELD_ELEMENTS[attackElement].includes(shieldElement);
+}
+/** Mixing attack elements. 'Dye' overrides if supplied; other extra-card
+ * effect order is not inferred here. */
+function combineElements(a, b, {dye=null}={}) {
+  assertElement(a); assertElement(b);
+  if (dye !== null) { assertElement(dye); return dye; }
+  if (a === b) return a;
+  if (a === 'light' && ELEMENTAL_FOUR.has(b)) return b;
+  if (b === 'light' && ELEMENTAL_FOUR.has(a)) return a;
+  return 'none';
+}
+/** Calculate damage. Include armor as a sum of valid shields only.
+ * No silent capping at HP or addition of unverified extra effects.
+ */
+function calculateHit({attack, element='none', armor=0, hp=STARTING_STATS.hp, rainbowCurtain=false}) {
+  nonnegativeInt(attack, 'attack'); nonnegativeInt(armor,'armor');
+  nonnegativeInt(hp,'hp'); assertElement(element);
+  const effectiveElement = rainbowCurtain ? 'none' : element;
+  const damage = Math.max(0, attack - armor);
+  // Dark-element damage of at least 1 causes instant defeat.
+  const instantDefeat = effectiveElement === 'dark' && damage > 0;
+  const hpAfter = instantDefeat ? 0 : Math.max(0, hp - damage);
+  return Object.freeze({damage, instantDefeat, hpAfter, effectiveElement});
+}
+/** Validate and sum the selected shields; attacks made on oneself cannot be defended. */
+function sumLegalArmor(attackElement, shields, {selfTarget=false,rainbowCurtain=false}={}) {
+  assertElement(attackElement);
+  if (!Array.isArray(shields)) throw new TypeError('shields must be array');
+  if (selfTarget && shields.length) throw new Error('Self-target attacks cannot be defended');
+  return shields.reduce((total, shield) => {
+    if (!shield || typeof shield !== 'object') throw new TypeError('shield must be object');
+    nonnegativeInt(shield.guard,'shield.guard');
+    if (!canBlock(attackElement,shield.element,{rainbowCurtain})) {
+      throw new Error(`incompatible shield: ${shield.element} against ${attackElement}`);
+    }
+    return total + shield.guard;
+  }, 0);
+}
+/** Random draws are WITH replacement. All probabilities are integer slots, not a shrinking pile.
+ * Requires fully audited card catalog to model original actual odds.
+ */
+function drawWeighted(catalog, rng=Math.random) {
+  if (!Array.isArray(catalog) || !catalog.length) throw new Error('catalog is empty');
+  let total=0;
+  for (const card of catalog) {
+    if (!Number.isInteger(card.weight) || card.weight <= 0) throw new RangeError('invalid weight');
+    total += card.weight;
+  }
+  const n = rng();
+  if (!Number.isFinite(n) || n < 0 || n >= 1) throw new RangeError('rng must return [0,1)');
+  let cursor=n*total;
+  for (const card of catalog) {
+    cursor -= card.weight;
+    if (cursor < 0) return card;
+  }
+  throw new Error('unreachable draw');
+}
+function totalSlots(distribution=CATEGORY_DISTRIBUTION) {
+  return Object.values(distribution).flat().reduce((s,n)=>s+n,0);
+}
+function refillHand(hand, count, draw) {
+  if (!Array.isArray(hand) || typeof draw !== 'function') throw new TypeError('invalid refill arguments');
+  nonnegativeInt(count,'count');
+  if (hand.length > MAX_HAND_SIZE) throw new RangeError('hand exceeds cap');
+  const next=[...hand];
+  for (let i=0; i<count && next.length<MAX_HAND_SIZE; i++) next.push(draw());
+  return next;
+}
+function initialHand(draw) { return refillHand([], INITIAL_HAND_SIZE, draw); }
+/** A newly used miracle becomes learned and may be recast with sufficient MP;
+ * on the seventh learned miracle the earliest is forgotten.
+ */
+function learnMiracle(learned, miracleId) {
+  if (!Array.isArray(learned) || !miracleId) throw new TypeError('invalid miracle');
+  if (learned.includes(miracleId)) return [...learned];
+  const next=[...learned, miracleId];
+  return next.slice(-MAX_LEARNED_MIRACLES);
+}
+function payMiracle(mp, cost) {
+  nonnegativeInt(mp,'mp'); nonnegativeInt(cost,'cost');
+  if (mp < cost) throw new Error('Not enough MP');
+  return mp-cost;
+}
+/** Paid price is taken in money -> MP -> HP order. Remaining shortfall after
+ * hitting 0 HP is not represented as a negative resource. No seller rewards
+ * are calculated here (max-resource and transfer corner cases unverified). */
+function payForcedSale({hp,mp,money}, price) {
+  nonnegativeInt(price,'price');
+  [hp,mp,money].forEach((v)=>nonnegativeInt(v,'resource'));
+  let due=price;
+  let paidMoney=Math.min(money,due);money-=paidMoney;due-=paidMoney;
+  let paidMp=Math.min(mp,due);mp-=paidMp;due-=paidMp;
+  let paidHp=Math.min(hp,due);hp-=paidHp;due-=paidHp;
+  return {buyer:{hp,mp,money},paid:{hp:paidHp,mp:paidMp,money:paidMoney},unpaid:due};
+}
+/** Return only new attack source/target; multi-reflection engine TBD. */
+function reflectTarget({source,target,actor,mode,living,rng=Math.random}) {
+  if (!Array.isArray(living) || !living.includes(actor)) throw new Error('actor must be alive');
+  if (source===target && actor===target) throw new Error('self-hit cannot react');
+  if (actor!==target) throw new Error('only attack target may react');
+  if (mode==='reflect') return {source:actor,target:source};
+  if (mode==='deflect') {
+    const n=rng(); if(n<0||n>=1||!Number.isFinite(n)) throw new RangeError('bad rng');
+    return {source:actor,target:living[Math.floor(n*living.length)]};
+  }
+  throw new Error('invalid reaction mode');
+}
+
+// src/spirit-sequence.mjs
+/**
+ * Pure ordered-selection rule for spirit items. The spirit item waives the
+ * MP cost of the immediately preceding miracle, never an earlier miracle.
+ * Reference: https://w.atwiki.jp/gfplusa/pages/19.html
+ * and https://note.com/oreapo_note/n/n7791e8e30943
+ *
+ * This does not decide if arbitrary card sequences are otherwise playable.
+ */
+function priceMiracleSequence(sequence) {
+  if (!Array.isArray(sequence) || sequence.length === 0) throw new Error('Empty miracle sequence');
+  let payableMP = 0;
+  const discountedPositions = [];
+  let previousType = null;
+  for (let i = 0; i < sequence.length; i++) {
+    const entry = sequence[i];
+    if (!entry || typeof entry !== 'object') throw new TypeError('Invalid selection entry');
+    if (entry.type === 'miracle') {
+      if (!Number.isSafeInteger(entry.mpCost) || entry.mpCost < 0)
+        throw new RangeError('Invalid miracle cost');
+      payableMP += entry.mpCost;
+    } else if (entry.type === 'spirit') {
+      if (previousType !== 'miracle') throw new Error('Spirit must immediately follow one miracle');
+      const miracle = sequence[i - 1];
+      payableMP -= miracle.mpCost;
+      discountedPositions.push(i - 1);
+    } else if (entry.type !== 'weapon') {
+      throw new Error('Unknown selection entry type');
+    }
+    previousType = entry.type;
+  }
+  return Object.freeze({payableMP, discountedPositions:Object.freeze(discountedPositions)});
+}
+
+// src/match.mjs
+/**
+ * 2+ player *basic attack/defense laboratory* for checking source-backed rules.
+ * Hybrid main weapons with an explicit guard value can be used for defense.
+ * NOT the complete God Field game: special cards, status, catastrophes,
+ * end-of-world and networking are intentionally not modelled.
+ *
+ * In-memory state contains only serializable data. Draw/RNG are injected so
+ * online authoritative replay and deterministic tests can use the same rules.
+ */
+
+
+function validCard(card) {
+  if (!card || typeof card !== 'object' || typeof card.id !== 'string' || !card.id) throw new TypeError('Invalid card');
+  if (card.special !== undefined || (card.effect !== undefined && !((card.kind === 'defense_item' && ['strip_element','reflect_any'].includes(card.effect)) || (card.kind === 'support_item' && card.effect === 'free_previous_miracle')))) throw new Error('Special effects not implemented');
+  if (card.kind === 'weapon') {
+    if (!['main','addon'].includes(card.slot) || !Number.isInteger(card.attack) || card.attack < 0 || !ELEMENTS.includes(card.element) || (card.guard !== undefined && (!Number.isInteger(card.guard) || card.guard < 0))) throw new TypeError('Invalid weapon');
+    if (card.reaction !== undefined && (!['reflect','deflect'].includes(card.reaction) || card.reactionScope !== 'neutral_weapon')) throw new Error('Unknown weapon reaction');
+  } else if (card.kind === 'armor') {
+    if (!Number.isInteger(card.guard) || card.guard < 0 || !ELEMENTS.includes(card.element) || (card.attackBonus !== undefined && (!Number.isInteger(card.attackBonus) || card.attackBonus < 0))) throw new TypeError('Invalid armor');
+    if (card.stopScope !== undefined && card.stopScope !== 'miracle') throw new Error('Unknown stop scope');
+  } else if (card.kind === 'miracle') {
+    if (!Number.isInteger(card.mpCost) || card.mpCost < 0 || !['attack','stop','boost_weapon'].includes(card.role)) throw new TypeError('Invalid miracle');
+    if (card.role==='boost_weapon' && card.boost!=='double_weapon') throw new Error('Unknown boost miracle');
+    if (card.role === 'attack' && (!Number.isInteger(card.attack) || card.attack<0 || !ELEMENTS.includes(card.element))) throw new TypeError('Invalid miracle attack');
+    if (card.role === 'stop' && card.stopScope !== 'neutral_weapon') throw new Error('Unknown miracle stop scope');
+  } else if (card.kind === 'support_item') {
+    if (card.effect !== 'free_previous_miracle') throw new Error('Unsupported spirit item');
+  } else if (card.kind === 'defense_item') {
+    if (!['strip_element','reflect_any'].includes(card.effect)) throw new Error('Unsupported defense item');
+  } else {
+    throw new Error(`Unsupported card category: ${card.kind}`);
+  }
+  return card;
+}
+function normalizeIndexes(indices, hand) {
+  if (!Array.isArray(indices) || !indices.length || indices.some(i => !Number.isInteger(i) || i < 0 || i >= hand.length)) throw new RangeError('Invalid selection');
+  if (new Set(indices).size !== indices.length) throw new Error('Repeated hand index');
+  return indices;
+}
+function take(hand,indices) {
+  const ix=new Set(indices);
+  return hand.filter((_,i)=>!ix.has(i));
+}
+function expectTurn(state,playerId) {
+  if (state.phase !== 'turn' || state.activePlayerId !== playerId) throw new Error('Not active turn');
+}
+function person(state,id) {
+  const p=state.players.find(p=>p.id===id);
+  if (!p || p.hp<=0) throw new Error('Player not alive');
+  return p;
+}
+function clone(state) {
+  return {
+    ...state,
+    players: state.players.map(p=>({...p, hand:[...p.hand], learned:[...(p.learned ?? [])]})),
+    pending: state.pending ? {...state.pending} : null,
+    events:[...state.events],
+  };
+}
+function nextAlive(players, afterId) {
+  const from=players.findIndex(p=>p.id===afterId);
+  for(let offset=1;offset<=players.length;offset++) {
+    const candidate=players[(from+offset)%players.length];
+    if(candidate.hp>0) return candidate.id;
+  }
+  return null;
+}
+function finishAndDraw(match, draw) {
+  if (typeof draw !== 'function') throw new TypeError('draw callback required');
+  const s=clone(match);
+  const p=s.pending;
+  if (!p) throw new Error('No pending attack');
+  const to=person(s,p.targetId);
+  const hit=p.stopped ? {damage:0,instantDefeat:false,hpAfter:to.hp} : calculateHit({attack:p.attack,element:p.element,armor:p.armor,hp:to.hp,rainbowCurtain:!!p.rainbowCurtain});
+  to.hp=hit.hpAfter;
+  s.events.push({type:'damage',targetId:to.id,damage:hit.damage,instantDefeat:hit.instantDefeat,hpAfter:to.hp,stopped:!!p.stopped});
+  s.pending=null;
+  // The response completes before hand replacement; sequence within the
+  // replacement step remains a hypothesis until checked in the live game.
+  // Redirects change the apparent attacker. Keep the ORIGINAL turn owner for
+  // turn order, while replenishing cards spent by EACH surviving participant.
+  // Exact replenishment order still awaits comparison with a live match.
+  for (const player of s.players) {
+    const spent=p.spentByPlayer[player.id] ?? 0;
+    if(player.hp>0 && spent>0) player.hand=refillHand(player.hand,spent,()=>validCard(draw()));
+  }
+  const living=s.players.filter(x=>x.hp>0);
+  if(living.length<=1) {
+    s.phase='finished';s.activePlayerId=null;
+    s.winnerId=living.length===1?living[0].id:null;
+    s.events.push({type:'match_end',winnerId:s.winnerId});
+  } else {
+    s.phase='turn';s.activePlayerId=nextAlive(s.players,p.originalAttackerId);
+    s.turnCount+=1;
+  }
+  return s;
+}
+function createMatch({playerIds,draw,rng=Math.random,firstPlayerId=null}) {
+  if(!Array.isArray(playerIds) || playerIds.length<2 || playerIds.length>9 ||
+     playerIds.some(id=>typeof id!=='string' || !id) || new Set(playerIds).size!==playerIds.length) {
+    throw new Error('Need 2-9 distinct nonempty player IDs');
+  }
+  if(typeof draw!=='function' || typeof rng!=='function') throw new TypeError('draw and rng required');
+  const r=rng();
+  if(!Number.isFinite(r)||r<0||r>=1)throw new RangeError('rng must return [0,1)');
+  const first=firstPlayerId??playerIds[Math.floor(r*playerIds.length)];
+  if(!playerIds.includes(first))throw new Error('Invalid first player');
+  const players=playerIds.map(id=>({...STARTING_STATS,id,hand:initialHand(()=>validCard(draw())),learned:[]}));
+  return {players,activePlayerId:first,phase:'turn',pending:null,turnCount:0,winnerId:null,events:[]};
+}
+function learnFrom(learned, miracle) {
+  if(learned.some(c=>c.id===miracle.id)) return [...learned];
+  return [...learned, miracle].slice(-6);
+}
+function playMiracleAttack(state,{playerId,targetId,handIndex=null,learnedId=null,spiritHandIndex=null},draw) {
+  expectTurn(state,playerId);
+  const caster=person(state,playerId);
+  person(state,targetId);
+  if((handIndex===null)===(learnedId===null)) throw new Error('Choose exactly one miracle source');
+  let miracle;
+  if(handIndex!==null){
+    if(!Number.isInteger(handIndex)||handIndex<0||handIndex>=caster.hand.length) throw new RangeError('Invalid miracle index');
+    miracle=validCard(caster.hand[handIndex]);
+  }else miracle=validCard(caster.learned?.find(x=>x.id===learnedId));
+  if(miracle.kind!=='miracle' || miracle.role!=='attack')throw new Error('Not an offensive miracle');
+  let spirit=null;
+  if(spiritHandIndex!==null) {
+    if(!Number.isInteger(spiritHandIndex)||spiritHandIndex<0||
+       spiritHandIndex>=caster.hand.length||spiritHandIndex===handIndex)
+      throw new RangeError('Invalid spirit hand index');
+    spirit=validCard(caster.hand[spiritHandIndex]);
+    if(spirit.kind!=='support_item'||spirit.effect!=='free_previous_miracle')
+      throw new Error('Not a spirit item');
+  }
+  // Selection order is explicit: miracle, then (optional) spirit.
+  const price=priceMiracleSequence([{type:'miracle',mpCost:miracle.mpCost},
+    ...(spirit?[{type:'spirit'}]:[])]).payableMP;
+  if(caster.mp<price)throw new Error('Not enough MP');
+  const s=clone(state),source=person(s,playerId);
+  source.mp-=price;
+  source.learned=learnFrom(source.learned,miracle);
+  // First use transfers miracle from hand to learned; the miracle draw
+  // replaces that slot. Recasts from learned add a card.
+  source.hand=take(source.hand,[...(handIndex===null?[]:[handIndex]),...(spiritHandIndex===null?[]:[spiritHandIndex])]);
+  s.pending={originalAttackerId:playerId,sourceId:playerId,targetId,
+    attack:miracle.attack,element:miracle.element,attackKind:'miracle',armor:0,
+    spentByPlayer:{[playerId]:1+(spirit?1:0)}};
+  s.events.push({type:'miracle',sourceId:playerId,targetId,cardId:miracle.id,mpCost:price,spiritId:spirit?.id??null});
+  if(targetId===playerId)return finishAndDraw(s,draw);
+  s.phase='defense';s.activePlayerId=targetId;
+  return s;
+}
+function playAttack(state,{playerId,targetId,handIndices},draw) {
+  expectTurn(state,playerId);
+  const attacker=person(state,playerId);
+  person(state,targetId);
+  const indices=normalizeIndexes(handIndices,attacker.hand);
+  const cards=indices.map(i=>validCard(attacker.hand[i]));
+  const weapons=cards.filter(c=>c.kind==='weapon');
+  const bonuses=cards.filter(c=>c.kind==='armor' && c.attackBonus > 0);
+  if (weapons.length===0 || bonuses.length+weapons.length!==cards.length || weapons.filter(c=>c.slot==='main').length>1) throw new Error('Attack needs weapon(s), <=1 main weapon, and attack-bonus armor only');
+  const attack=weapons.reduce((sum,c)=>sum+c.attack,0)+bonuses.reduce((sum,c)=>sum+c.attackBonus,0);
+  let element=weapons[0].element;
+  for(const card of weapons.slice(1)) element=combineElements(element,card.element);
+  const s=clone(state);
+  const source=person(s,playerId);
+  source.hand=take(source.hand,indices);
+  s.pending={originalAttackerId:playerId,sourceId:playerId,targetId,attack,element,attackKind:'weapon',armor:0,spentByPlayer:{[playerId]:cards.length}};
+  s.events.push({type:'attack',sourceId:playerId,targetId,attack,element,spent:cards.length});
+  if(targetId===playerId) return finishAndDraw(s,draw); // Self-hit cannot be defended.
+  s.phase='defense';s.activePlayerId=targetId;
+  return s;
+}
+function defend(state,{playerId,handIndices=[],wallHandIndex=null,wallLearnedId=null},draw,rng=Math.random) {
+  if(state.phase!=='defense'||!state.pending||state.pending.targetId!==playerId)throw new Error('Not your defense');
+  const p=person(state,playerId);
+  if(!Array.isArray(handIndices))throw new TypeError('Selection must be array');
+  const indices=handIndices.length?normalizeIndexes(handIndices,p.hand):[];
+  const cards=indices.map(i=>validCard(p.hand[i]));
+  // Observed server constraint: the attribute-removal curtain is only
+  // allowed as the FIRST card in the ordered defense selection.
+  if(cards.some((card,i)=>card.kind==='defense_item' && card.effect==='strip_element' && i!==0))
+    throw new Error('Rainbow curtain must be selected first');
+  if(wallHandIndex !== null || wallLearnedId !== null) {
+    if(wallHandIndex !== null && wallLearnedId !== null) throw new Error('Choose one wall source');
+    // Wall may be paired with Rainbow Curtain; until further verification,
+    // combinations with any other item are deliberately not supported.
+    if(cards.some(c=>c.kind !== 'defense_item' || c.effect !== 'strip_element')) throw new Error('Wall can only be paired with attribute remover');
+    const stripElement=cards.some(c=>c.effect==='strip_element');
+    if(state.pending.attackKind!=='weapon' || (state.pending.element!=='none' && !stripElement))
+      throw new Error('Wall only stops neutral non-miracle attacks');
+    const wall=(wallHandIndex!==null ? p.hand[wallHandIndex] : p.learned?.find(x=>x.id===wallLearnedId));
+    if(wallHandIndex!==null && (!Number.isInteger(wallHandIndex) || wallHandIndex<0 || wallHandIndex>=p.hand.length || handIndices.includes(wallHandIndex)))
+      throw new RangeError('Invalid wall index');
+    validCard(wall);
+    if(wall.kind!=='miracle' || wall.role!=='stop' || wall.stopScope!=='neutral_weapon') throw new Error('Not a wall miracle');
+    if(p.mp < wall.mpCost) throw new Error('Not enough MP');
+    const s=clone(state),defender=person(s,playerId);
+    defender.mp-=wall.mpCost;
+    defender.learned=learnFrom(defender.learned,wall);
+    defender.hand=take(defender.hand,wallHandIndex===null?indices:[...indices,wallHandIndex]);
+    s.pending.spentByPlayer={...s.pending.spentByPlayer,[playerId]:(s.pending.spentByPlayer[playerId]??0)+cards.length+1};
+    s.pending.stopped=true;
+    s.events.push({type:'stop',playerId,source:'wall',mpCost:wall.mpCost});
+    return finishAndDraw(s,draw);
+  }
+  const stopCards=cards.filter(c=>c.kind==='armor' && c.stopScope==='miracle');
+  if(stopCards.length && state.pending.attackKind==='miracle') {
+    // The special armor's guard value is irrelevant: it stops the miracle.
+    if(cards.length!==1) throw new Error('Angel stop armor must be selected alone');
+    const s=clone(state),defender=person(s,playerId);
+    defender.hand=take(defender.hand,indices);
+    s.pending.spentByPlayer={...s.pending.spentByPlayer,[playerId]:(s.pending.spentByPlayer[playerId]??0)+1};
+    s.pending.stopped=true;
+    s.events.push({type:'stop',playerId,source:'angel',cardId:stopCards[0].id});
+    return finishAndDraw(s,draw);
+  }
+  const reactionCards=cards.filter(c=>c.reaction !== undefined || (c.kind==='defense_item' && c.effect==='reflect_any'));
+  if(reactionCards.length) {
+    // Reflection/deflection is an exclusive defense selection. Do not invent
+    // priority rules for mixing with numeric shields or rainbow curtain.
+    if(cards.length!==1) throw new Error('A redirect card must be selected alone');
+    const card=reactionCards[0];
+    if(card.kind==='weapon' && (card.reactionScope!=='neutral_weapon' || state.pending.element!=='none' || state.pending.attackKind!=='weapon'))
+      throw new Error('Reaction cannot redirect this attack');
+    const mode=card.kind==='defense_item' ? 'reflect' : card.reaction;
+    const route=reflectTarget({source:state.pending.sourceId,target:playerId,actor:playerId,mode,
+      living:state.players.filter(p=>p.hp>0).map(p=>p.id),rng});
+    const s=clone(state);
+    const defender=person(s,playerId);
+    defender.hand=take(defender.hand,indices);
+    s.pending.spentByPlayer={...s.pending.spentByPlayer,[playerId]:(s.pending.spentByPlayer[playerId]??0)+1};
+    s.events.push({type:'redirect',mode,by:playerId,from:state.pending.sourceId,to:route.target,cardId:card.id});
+    s.pending.sourceId=route.source;
+    s.pending.targetId=route.target;
+    s.pending.armor=0;
+    s.pending.rainbowCurtain=false;
+    if(route.target===playerId) return finishAndDraw(s,draw); // self-deflection cannot be defended
+    s.phase='defense';s.activePlayerId=route.target;
+    return s;
+  }
+  const stripElement=cards.some(c=>c.kind==='defense_item' && c.effect==='strip_element');
+  if(cards.some(c=>c.kind!=='defense_item' && (!((c.kind==='armor') || (c.kind==='weapon' && Number.isInteger(c.guard))) || !canBlock(state.pending.element,c.element,{rainbowCurtain:stripElement})))) throw new Error('Illegal shield for attack element');
+  const s=clone(state);
+  const defender=person(s,playerId);
+  defender.hand=take(defender.hand,indices);
+  s.pending.armor=cards.reduce((sum,c)=>sum+(c.guard ?? 0),0);
+  s.pending.rainbowCurtain=stripElement;
+  s.pending.spentByPlayer={...s.pending.spentByPlayer,[playerId]:(s.pending.spentByPlayer[playerId]??0)+cards.length};
+  s.events.push({type:'defense',playerId,spent:cards.length,armor:s.pending.armor,stripElement});
+  return finishAndDraw(s,draw);
+}
+function pray(state,{playerId},draw) {
+  expectTurn(state,playerId);
+  const p=person(state,playerId);
+  if(p.hand.some(c=>validCard(c).kind==='weapon'))throw new Error('Pray only when no weapons are available');
+  // The documented at-cap random-discard corner case is deferred rather than guessed.
+  if(p.hand.length===MAX_HAND_SIZE)throw new Error('Pray at 18 cards not implemented');
+  if(typeof draw!=='function')throw new TypeError('draw required');
+  const s=clone(state);
+  person(s,playerId).hand=refillHand(p.hand,1,()=>validCard(draw()));
+  s.events.push({type:'pray',playerId,drawn:1});
+  s.activePlayerId=nextAlive(s.players,playerId);
+  s.turnCount+=1;
+  return s;
+}
+
+/**
+ * Single <Aura> boost: the sum of the selected single-target WEAPONS,
+ * including add-on weapons, is doubled; spent MP and learned miracles follow
+ * the same minimal rules as other miracles.
+ * Restrictions: no self-target, demon armor or stacked boosts until their
+ * original-game effect order is experimentally confirmed.
+ */
+function playAuraWeaponAttack(state,{
+  playerId,targetId,handIndices,auraHandIndex=null,learnedAuraId=null
+},draw) {
+  expectTurn(state,playerId);
+  const caster=person(state,playerId);
+  if(targetId===playerId) throw new Error('Aura self-target combo not yet verified');
+  if((auraHandIndex===null)===(learnedAuraId===null))
+    throw new Error('Choose exactly one aura source');
+  const indices=normalizeIndexes(handIndices,caster.hand);
+  if(indices.some(i=>validCard(caster.hand[i]).kind!=='weapon'))
+    throw new Error('Aura plus attack-bonus armor not verified');
+  if(auraHandIndex!==null &&
+     (!Number.isInteger(auraHandIndex)||auraHandIndex<0||
+      auraHandIndex>=caster.hand.length || indices.includes(auraHandIndex)))
+    throw new RangeError('Invalid aura hand index');
+  const aura=validCard(auraHandIndex===null
+    ? caster.learned?.find(c=>c.id===learnedAuraId)
+    : caster.hand[auraHandIndex]);
+  if(aura.kind!=='miracle'||aura.role!=='boost_weapon'||aura.boost!=='double_weapon')
+    throw new Error('Not an aura miracle');
+  if(caster.mp<aura.mpCost)throw new Error('Not enough MP');
+  const attacked=playAttack(state,{playerId,targetId,handIndices:indices},draw);
+  const s=clone(attacked);
+  s.pending.attack*=2;
+  const attacker=person(s,playerId);
+  attacker.mp-=aura.mpCost;
+  attacker.learned=learnFrom(attacker.learned,aura);
+  if (auraHandIndex!==null) {
+    const adjusted=auraHandIndex-indices.filter(i=>i<auraHandIndex).length;
+    attacker.hand=take(attacker.hand,[adjusted]);
+  }
+  // First cast replaces the hand miracle with a card; a recast grows hand.
+  // First-use miracle hand handling remains to be verified against live UI.
+  s.pending.spentByPlayer={...s.pending.spentByPlayer,
+    [playerId]:(s.pending.spentByPlayer[playerId]??0)+1};
+  s.events.push({type:'weapon_boost',sourceId:playerId,
+    miracleId:aura.id,mpCost:aura.mpCost,attackAfter:s.pending.attack});
+  return s;
+}
+
+/**
+ * Normal phase: discard selected cards and end turn WITHOUT replenishing them.
+ * "Sacrifice" and its extra draw in end-of-world mode remain unimplemented.
+ */
+function discardCards(state,{playerId,handIndices}) {
+  expectTurn(state,playerId);
+  const player=person(state,playerId);
+  const indices=normalizeIndexes(handIndices,player.hand);
+  const s=clone(state);
+  const discarded=indices.map(i=>player.hand[i].id);
+  person(s,playerId).hand=take(player.hand,indices);
+  s.events.push({type:'discard',playerId,cardIds:discarded,spent:indices.length});
+  s.activePlayerId=nextAlive(s.players,playerId);
+  s.turnCount++;
+  return s;
+}
+
+// src/plus-miracle.mjs
+/**
+ * Minimal +attack miracle combinations (Fireball, Meteor).
+ * Original game sources:
+ * https://w.atwiki.jp/piong/pages/20.html
+ * https://note.com/oreapo_note/n/n7791e8e30943
+ *
+ * Does not guess stacked miracle, self-attack, demon armor, or other unusual
+ * action order effects. Inputs use explicit hand indices and learned IDs.
+ */
+
+
+
+function cardFromPlayer(player, {plusHandIndex,learnedPlusId},handIndices) {
+  if ((plusHandIndex === null) === (learnedPlusId === null)) {
+    throw new Error('Select exactly one plus miracle source');
+  }
+  if (plusHandIndex !== null) {
+    if (!Number.isInteger(plusHandIndex) || plusHandIndex < 0 ||
+        plusHandIndex >= player.hand.length || handIndices.includes(plusHandIndex)) {
+      throw new RangeError('Invalid plus miracle hand index');
+    }
+    return player.hand[plusHandIndex];
+  }
+  if(typeof learnedPlusId !== 'string' || !learnedPlusId) throw new TypeError('Invalid learned miracle ID');
+  return player.learned?.find(c => c.id===learnedPlusId);
+}
+function playPlusMiracleAttack(state,{
+  playerId,targetId,handIndices,plusHandIndex=null,learnedPlusId=null
+},draw) {
+  if(!state || state.phase!=='turn' || state.activePlayerId!==playerId)
+    throw new Error('Not active turn');
+  const player=state.players.find(p=>p.id===playerId && p.hp>0);
+  if(!player) throw new Error('Player not alive');
+  if(targetId===playerId) throw new Error('Plus miracle self-target sequence not verified');
+  if(!Array.isArray(handIndices) || handIndices.length===0 || new Set(handIndices).size!==handIndices.length)
+    throw new RangeError('Invalid hand selection');
+  const miracle=cardFromPlayer(player,{plusHandIndex,learnedPlusId},handIndices);
+  if(!miracle || miracle.kind!=='miracle' || miracle.role!=='attack' || miracle.plusAttack!==true ||
+    !Number.isInteger(miracle.attack) || miracle.attack<0 || !Number.isInteger(miracle.mpCost) || miracle.mpCost<0 ||
+    !ELEMENTS.includes(miracle.element) || !miracle.id) throw new Error('Not a plus-attack miracle');
+  if(player.mp<miracle.mpCost) throw new Error('Not enough MP');
+  if(handIndices.some(i=>player.hand[i]?.kind!=='weapon'))
+    throw new Error('Only weapons may accompany plus miracles in this version');
+  const next=playAttack(state,{playerId,targetId,handIndices},draw);
+  next.pending.attack += miracle.attack;
+  next.pending.element=combineElements(next.pending.element, miracle.element);
+  const caster=next.players.find(p=>p.id===playerId);
+  caster.mp-=miracle.mpCost;
+  if(!caster.learned.some(c=>c.id===miracle.id)) {
+    caster.learned=[...caster.learned,miracle].slice(-MAX_LEARNED_MIRACLES);
+  }
+  // A first casting transfers the hand miracle to the learned list;
+  // the resulting card draw replaces that slot. Recasts increase hand size.
+  if (plusHandIndex!==null) {
+    const adjusted=plusHandIndex-handIndices.filter(i=>i<plusHandIndex).length;
+    caster.hand=caster.hand.filter((_,i)=>i!==adjusted);
+  }
+  next.pending.spentByPlayer={...next.pending.spentByPlayer,
+    [playerId]:next.pending.spentByPlayer[playerId]+1};
+  next.events.push({type:'plus_miracle',playerId,miracleId:miracle.id,
+    attackAfter:next.pending.attack,elementAfter:next.pending.element,
+    mpCost:miracle.mpCost});
+  return next;
+}
+
+/**
+ * Narrow source-backed sequence: single-target weapon(s) first, then two
+ * additive miracle cards selected from hand. No arbitrary miracle-first,
+ * spirits, stacked Aura, or other unverified order is accepted.
+ */
+function playStackedPlusMiracles(state,{
+  playerId,targetId,handIndices,plusHandIndices,spiritHandIndex=null
+},draw) {
+  if(!state || state.phase!=='turn' || state.activePlayerId!==playerId)
+    throw new Error('Not active turn');
+  if(targetId===playerId)throw new Error('Self-target miracle combination unverified');
+  const caster=state.players.find(p=>p.id===playerId && p.hp>0);
+  if(!caster)throw new Error('Player not alive');
+  if(!Array.isArray(handIndices)||!handIndices.length ||
+     !Array.isArray(plusHandIndices)||plusHandIndices.length!==2)
+    throw new Error('Only two hand-based additive miracles supported');
+  const combined=[...handIndices,...plusHandIndices];
+  if(new Set(combined).size!==combined.length ||
+     combined.some(i=>!Number.isInteger(i)||i<0||i>=caster.hand.length))
+    throw new RangeError('Repeated or invalid hand index');
+  if(handIndices.some(i=>caster.hand[i].kind!=='weapon'))
+    throw new Error('Weapons must precede miracles');
+  const miracles=plusHandIndices.map(i=>caster.hand[i]);
+  if(miracles.some(m=>!m||m.kind!=='miracle'||m.role!=='attack'||m.plusAttack!==true||
+     !Number.isInteger(m.mpCost)||m.mpCost<0||!Number.isInteger(m.attack)||m.attack<0||
+     !ELEMENTS.includes(m.element)))throw new Error('Only additive attack miracles supported');
+  let spirit=null;
+  if(spiritHandIndex!==null){
+    if(!Number.isInteger(spiritHandIndex)||spiritHandIndex<0||
+       spiritHandIndex>=caster.hand.length||combined.includes(spiritHandIndex))
+      throw new RangeError('Invalid spirit hand index');
+    spirit=caster.hand[spiritHandIndex];
+    if(!spirit||spirit.kind!=='support_item'||spirit.effect!=='free_previous_miracle')
+      throw new Error('Not a spirit item');
+  }
+  const cost=priceMiracleSequence([
+    ...handIndices.map(()=>({type:'weapon'})),
+    ...miracles.map(m=>({type:'miracle',mpCost:m.mpCost})),
+    ...(spirit?[{type:'spirit'}]:[])
+  ]).payableMP;
+  if(caster.mp<cost)throw new Error('Not enough MP');
+  const result=playAttack(state,{playerId,targetId,handIndices},draw);
+  const owner=result.players.find(p=>p.id===playerId);
+  for(const miracle of miracles){
+    result.pending.attack+=miracle.attack;
+    result.pending.element=combineElements(result.pending.element,miracle.element);
+    if(!owner.learned.some(x=>x.id===miracle.id))
+      owner.learned=[...owner.learned,miracle].slice(-MAX_LEARNED_MIRACLES);
+  }
+  owner.mp-=cost;
+  const shifted=[...plusHandIndices,...(spirit?[spiritHandIndex]:[])].map(i=>i-handIndices.filter(j=>j<i).length);
+  owner.hand=owner.hand.filter((_,i)=>!shifted.includes(i));
+  result.pending.spentByPlayer={...result.pending.spentByPlayer,
+    [playerId]:result.pending.spentByPlayer[playerId]+miracles.length+(spirit?1:0)};
+  result.events.push({type:'stacked_plus_miracles',playerId,
+    miracleIds:miracles.map(m=>m.id),attackAfter:result.pending.attack,
+    elementAfter:result.pending.element,mpCost:cost,spiritId:spirit?.id??null});
+  return result;
+}
+
+// src/verified-basic-cards.mjs
+/**
+ * 資料照合したカードの一部を登録した原作照合サンプル。
+ * この資料上の対象版の353種類を網羅したカードプールではない。これで対戦用山札を作ると
+ * 確率が原作からズレるため、公開版の抽選には絶対に使わないこと。
+ *
+ * 出典:
+ * https://w.atwiki.jp/piong/pages/15.html
+ * https://w.atwiki.jp/piong/pages/17.html
+ * https://macarongamemo.com/entry/godfield-artifact (2026-02-28)
+ *
+ * weight は「500分母あたりの枠数」(0.2%=1)。カード名は
+ * 調査用の参照名で、オリジナルUIの表示素材ではない。
+ */
+const PARTIAL_CARD_SOURCE = 'piong-atwiki-and-macaron-2026-02-28';
+const main=(id,referenceName,attack,price,weight,{element='none',guard,reaction}={})=>
+  Object.freeze({id,referenceName,kind:'weapon',slot:'main',category:'weapon_single',element,attack,price,weight,...(guard===undefined?{}:{guard}),...(reaction===undefined?{}:{reaction,reactionScope:'neutral_weapon'})});
+const add=(id,referenceName,attack,price,weight=1,{element='none'}={})=>
+  Object.freeze({id,referenceName,kind:'weapon',slot:'addon',category:'weapon_single',element,attack,price,weight});
+const shield=(id,referenceName,guard,price,weight,{element='none',attackBonus,stopScope}={})=>
+  Object.freeze({id,referenceName,kind:'armor',category:'armor_normal',element,guard,price,weight,...(attackBonus===undefined?{}:{attackBonus}),...(stopScope===undefined?{}:{stopScope})});
+
+/** Read-only 68-card subset. Do not normalize and sample as the full deck. */
+const VERIFIED_BASIC_CARDS = Object.freeze([
+  main('w001','銅のこん棒',1,1,3),
+  main('w002','銀のこん棒',1,10,1),
+  main('w003','金のこん棒',1,25,1),
+  main('w004','ムチ',2,1,4),
+  main('w005','セイバーロッド',2,10,1,{guard:6}),
+  main('w006','パンチ',3,1,5),
+  main('w007','ハチェット',4,2,6),
+  main('w008','とげベルト',4,3,1,{guard:2}),
+  main('w009','鎖ガマ',5,2,7),
+  main('w010','打撃の鉄板',5,3,1,{guard:7}),
+  main('w011','硬いつち',6,2,8),
+  main('w012','エルボーサック',6,3,1,{guard:3}),
+  main('w013','なぎなたクラシック',7,3,8),
+  main('w014','ファイナル牙',8,3,8),
+  main('w015','パワーハルベルト',9,3,7),
+  main('w016','ワンダーソード',10,4,7),
+  main('w017','神の剣',30,30,1),
+  main('w018','たいまつ',1,1,1,{element:'fire'}),
+  main('w019','ソードシールド',10,15,1,{guard:10}),
+  main('w020','ほむら巻き',4,8,1,{element:'fire',guard:4}),
+  main('w021','つらら',1,1,1,{element:'water'}),
+  main('w022','木刀',1,1,1,{element:'wood'}),
+  main('w023','つるぎ焼き',2,2,1,{element:'earth'}),
+  main('w024','スタースタッフ',3,3,1,{element:'light'}),
+  main('w025','ちくりんちょ',1,10,1,{element:'dark'}),
+  main('w026','乱弾武剣',5,10,7,{reaction:'deflect'}),
+  main('w027','反射剣',10,5,3,{reaction:'reflect'}),
+  add('a001','吹き矢',1,1),
+  add('a002','クロスボウ',2,2),
+  add('a003','ブーメラン',3,3),
+  add('a004','バトルボール',4,4),
+  add('a005','戦士の弓',5,5),
+  add('a006','ジェットヨーヨー',6,6),
+  add('a007','未知の羽根',7,7),
+  add('a008','サイキックカード',8,8),
+  add('a009','ファイヤークロスボウ',4,8,1,{element:'fire'}),
+  add('a010','輝きのカケラ',1,10,1,{element:'light'}),
+  add('a011','冥矢',5,15,1,{element:'dark'}),
+  shield('d001','革の帽子',1,1,10),
+  shield('d002','革の服',2,2,10),
+  shield('d003','アイアンガントレット',3,3,8),
+  shield('d004','アイアンシールド',4,4,8),
+  shield('d005','アイアンアーマー',5,5,8),
+  shield('d006','はがねの小手',6,6,6),
+  shield('d007','はがねのかぶと',7,7,6),
+  shield('d008','はがねの盾',8,8,6),
+  shield('d009','神の盾',30,30,1),
+  shield('d010','鬼のくつ',3,10,1,{attackBonus:5}),
+  shield('d011','鬼の小手',5,15,1,{attackBonus:10}),
+  shield('d012','鬼のかぶと',7,15,1,{attackBonus:10}),
+  shield('d013','鬼のよろい',9,20,1,{attackBonus:15}),
+  shield('d014','フレイムブーツ',3,6,1,{element:'fire'}),
+  shield('d015','アイスブーツ',3,6,1,{element:'water'}),
+  shield('d016','森の盾',6,10,1,{element:'wood'}),
+  shield('d017','石版',1,2,1,{element:'earth'}),
+  shield('d018','エンゼルの小手',9,15,1,{stopScope:'miracle'}),
+  shield('d019','エンゼルの帽子',11,15,1,{stopScope:'miracle'}),
+  shield('d020','エンゼルシールド',13,15,1,{stopScope:'miracle'}),
+  shield('d021','エンゼルアーマー',15,15,1,{stopScope:'miracle'}),
+  Object.freeze({id:'i001',referenceName:'虹のカーテン',kind:'defense_item',category:'item',element:'none',effect:'strip_element',price:15,weight:3}),
+  Object.freeze({id:'i002',referenceName:'スーパーミラー',kind:'defense_item',category:'item',element:'none',effect:'reflect_any',price:10,weight:1}),
+  Object.freeze({id:'m001',referenceName:'壁',kind:'miracle',role:'stop',stopScope:'neutral_weapon',category:'miracle',element:'none',mpCost:6,price:0,weight:1}),
+  Object.freeze({id:'m002',referenceName:'氷',kind:'miracle',role:'attack',category:'miracle',element:'water',attack:4,mpCost:2,price:0,weight:1}),
+  Object.freeze({id:'m003',referenceName:'闇',kind:'miracle',role:'attack',category:'miracle',element:'dark',attack:5,mpCost:5,price:0,weight:1}),
+  Object.freeze({id:'m004',referenceName:'オーラ',kind:'miracle',role:'boost_weapon',boost:'double_weapon',category:'miracle',element:'none',mpCost:6,price:0,weight:1}),
+  Object.freeze({id:'m005',referenceName:'火の玉',kind:'miracle',role:'attack',plusAttack:true,category:'miracle',element:'fire',attack:2,mpCost:2,price:0,weight:1}),
+  Object.freeze({id:'m006',referenceName:'流星',kind:'miracle',role:'attack',plusAttack:true,category:'miracle',element:'light',attack:10,mpCost:7,price:0,weight:1}),
+  Object.freeze({id:'i003',referenceName:'精霊のぬいぐるみ',kind:'support_item',category:'item',element:'none',effect:'free_previous_miracle',price:5,weight:2}),
+]);
+
+function findVerifiedBasicCard(id) {
+  return VERIFIED_BASIC_CARDS.find(c=>c.id===id) ?? null;
+}
+
+// src/catalog-audit.mjs
+/**
+ * Versioned card-data audit. This module does NOT contain the real 353 cards.
+ * Default reference matrix is from the 2025-09-19 AtWiki table, which
+ * disagrees with other community sources; never infer 2026 live odds from it.
+ */
+
+const REFERENCE_DISTRIBUTION_VERSION = 'atwiki-2025-09-19';
+
+/**
+ * Each card record must have {id,category,element,weight}; category keys
+ * match CATEGORY_DISTRIBUTION and weight is an integer number of 500 slots.
+ * Empty and partial arrays are valid audits; complete is true only if
+ * card count, aggregate weight, and every matrix cell match the reference.
+ */
+function auditCatalog(cards, {
+  distribution=CATEGORY_DISTRIBUTION,
+  expectedUnique=353,
+  expectedSlots=500,
+}={}) {
+  if(!Array.isArray(cards))throw new TypeError('cards must be an array');
+  if(!Number.isInteger(expectedUnique)||expectedUnique<1||!Number.isInteger(expectedSlots)||expectedSlots<1)throw new RangeError('invalid expected totals');
+  const categories=Object.keys(distribution);
+  const counts=Object.fromEntries(categories.map(c=>[c,new Array(ELEMENTS.length).fill(0)]));
+  const ids=new Set();
+  let slots=0;
+  for(const card of cards) {
+    if(!card || typeof card.id!=='string'||!card.id || ids.has(card.id))throw new Error('empty or duplicate card id');
+    ids.add(card.id);
+    if(!categories.includes(card.category)) throw new Error(`Unknown category: ${card.category}`);
+    const col=ELEMENTS.indexOf(card.element);
+    if(col<0) throw new Error(`Unknown element: ${card.element}`);
+    if(!Number.isInteger(card.weight)||card.weight<1) throw new Error(`Invalid weight for ${card.id}`);
+    counts[card.category][col]+=card.weight;
+    slots+=card.weight;
+  }
+  const mismatches=[];
+  for(const category of categories) {
+    const expected=distribution[category];
+    if(!Array.isArray(expected)||expected.length!==ELEMENTS.length || expected.some(n=>!Number.isInteger(n)||n<0)) throw new Error('Invalid reference matrix');
+    for(let i=0;i<ELEMENTS.length;i++) {
+      if(counts[category][i]!==expected[i])
+        mismatches.push({category,element:ELEMENTS[i],expected:expected[i],actual:counts[category][i],delta:counts[category][i]-expected[i]});
+    }
+  }
+  const refSlots=totalSlots(distribution);
+  return {
+    source:REFERENCE_DISTRIBUTION_VERSION,
+    unique:cards.length,
+    slots,
+    referenceSlots:refSlots,
+    expectedUnique,
+    expectedSlots,
+    complete:cards.length===expectedUnique && slots===expectedSlots &&
+      refSlots===expectedSlots && mismatches.length===0,
+    mismatches
+  };
+}
+function assertCompleteCatalog(cards,options={}) {
+  const audit=auditCatalog(cards,options);
+  if(!audit.complete)
+    throw new Error(`Catalog incomplete: ${audit.unique}/${audit.expectedUnique} kinds, ${audit.slots}/${audit.expectedSlots} slots, ${audit.mismatches.length} matrix differences`);
+  return audit;
+}
+
+/** Never normalize incomplete card sets into an apparently "real" deck.
+ * This checks structural totals, not authenticity of each source value.
+ */
+function createAuditedDraw(cards, options={}) {
+  assertCompleteCatalog(cards,options);
+  return (rng=Math.random)=>drawWeighted(cards,rng);
+}
+
+(function(){
+var app=document.getElementById('app');
+var pool=['w006','w007','w016','w018','w021','w024','a001','a003','d001','d004','d005','d015','d018','w026','w027','m002','m003','m005','m004','i001','i002'];
+var state,selection=[],revealed=false,error='';
+function draw(){return findVerifiedBasicCard(pool[Math.floor(Math.random()*pool.length)]);}
+function h(v){return String(v).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+function player(){return state.players.find(function(p){return p.id===state.activePlayerId;});}
+function other(id){return state.players.find(function(p){return p.id!==id;}).id;}
+function info(c){
+ if(c.kind==='weapon')return '攻'+c.attack+' '+(c.guard===undefined?'':'守'+c.guard+' ')+c.element;
+ if(c.kind==='armor')return '守'+c.guard+(c.attackBonus?' 攻＋'+c.attackBonus:'');
+ if(c.kind==='miracle')return 'MP'+c.mpCost+(c.attack===undefined?' 補助':' 攻'+c.attack);
+ return c.effect==='reflect_any'?'反射':c.effect==='strip_element'?'属性解除':'道具';
+}
+function render(){
+ var p=player(),done=state.phase==='finished',who=state.activePlayerId;
+ var ps=state.players.map(function(q){return '<div class="player '+(q.id===who?'now':'')+'"><label>'+h(q.id)+' / '+(q.hp<=0?'脱落':q.id===who?'操作中':'待機')+'</label><div class="stats"><span><small>HP</small> '+q.hp+'</span><span><small>MP</small> '+q.mp+'</span><span><small>円</small> '+q.money+'</span></div><p class="subtitle">手札 '+q.hand.length+'枚、習得 '+q.learned.length+'種類</p></div>';}).join('');
+ var content='';
+ if(done)content='<div class="switch"><h2>勝者：'+h(state.winnerId||'なし')+'</h2><button class="action" data-act="reset">もう一度</button></div>';
+ else if(!revealed)content='<div class="switch"><h2>'+h(p.id)+' の操作</h2><p class="hint">プレーヤーを交代し、本人だけが手札を開いてください。</p><button class="action" data-act="reveal">手札を開く</button></div>';
+ else {
+ var cards=p.hand.map(function(c,i){return '<button data-card="'+i+'" class="card '+(selection.includes(i)?'chosen':'')+'" aria-pressed="'+(selection.includes(i)?'true':'false')+'"><strong>'+h(c.referenceName||c.id)+'</strong><small>'+h(info(c))+'</small></button>';}).join('');
+ var acts=[];
+ if(state.phase==='turn'){
+  if(selection.length){
+   acts.push(['attack','攻撃']);
+   if(selection.length===1&&p.hand[selection[0]].kind==='miracle'&&p.hand[selection[0]].role==='attack')acts.push(['miracle','奇跡単体']);
+   if(selection.some(function(i){return p.hand[i].role==='boost_weapon';}))acts.push(['aura','オーラ＋武器']);
+   if(selection.some(function(i){return p.hand[i].plusAttack;}))acts.push(['plus','＋攻奇跡']);
+   acts.push(['discard','捨てる']);
+  }
+  acts.push(['pray','祈る']);
+ } else{
+  acts.push(['defend','防御する／受ける']);
+  if(selection.some(function(i){return p.hand[i].role==='stop';}))acts.push(['wall','壁で止める']);
+ }
+ var buttons=acts.map(function(a){return '<button class="action '+(a[0]==='discard'||a[0]==='pray'?'alt':'')+'" data-act="'+a[0]+'">'+a[1]+'</button>';}).join('');
+ content='<p class="hint">'+(state.phase==='turn'?'使用カードを選んで攻撃、奇跡、捨てる、祈るを選択。':'防具を選んで防御。何も選ばなければ無防御で受けます。')+'</p><div class="hand">'+cards+'</div><div class="actions">'+buttons+'</div>';
+ }
+ var log=state.events.slice(-6).map(function(e){return '<li>'+h(e.type)+' '+h(e.sourceId||e.playerId||e.targetId||'')+' '+(e.damage===undefined?'':'ダメージ'+e.damage)+'</li>';}).join('');
+ app.innerHTML='<header><div><h1>カード対戦・ルール検証</h1><p class="subtitle">1vs1 / 同一端末で交代 / オフライン</p></div><button class="action alt" data-act="reset">最初から</button></header>'+
+ '<aside><b>検証用デモ（未完成）</b>：カードは一部のみ、配布確率は原作と異なります。公式作品とは無関係です。対戦通信はありません。</aside>'+
+ '<div class="players">'+ps+'</div><section class="board"><p class="subtitle">'+(done?'終了':state.phase==='turn'?'攻撃する手番':'攻撃された人の防御')+'</p>'+
+ (error?'<p class="error" role="alert">'+h(error)+'</p>':'')+content+'</section>'+
+ '<div id="history"><details><summary>処理ログ（'+state.events.length+'件）</summary><ol>'+log+'</ol></details></div>';
+}
+function act(name){
+ if(name==='reset')return start();
+ if(name==='reveal'){revealed=true;error='';return render();}
+ var p=player(),id=p.id,t=other(id),ix=selection.slice();
+ try{
+  var next;
+  if(name==='attack')next=playAttack(state,{playerId:id,targetId:t,handIndices:ix},draw);
+  if(name==='defend')next=defend(state,{playerId:id,handIndices:ix},draw);
+  if(name==='miracle')next=playMiracleAttack(state,{playerId:id,targetId:t,handIndex:ix[0]},draw);
+  if(name==='pray')next=pray(state,{playerId:id},draw);
+  if(name==='discard')next=discardCards(state,{playerId:id,handIndices:ix});
+  if(name==='wall'){var w=ix.find(function(i){return p.hand[i].role==='stop';});next=defend(state,{playerId:id,wallHandIndex:w,handIndices:ix.filter(function(i){return i!==w;})},draw);}
+  if(name==='aura'){var a=ix.find(function(i){return p.hand[i].role==='boost_weapon';});next=playAuraWeaponAttack(state,{playerId:id,targetId:t,auraHandIndex:a,handIndices:ix.filter(function(i){return i!==a;})},draw);}
+  if(name==='plus'){var z=ix.find(function(i){return p.hand[i].plusAttack;});next=playPlusMiracleAttack(state,{playerId:id,targetId:t,plusHandIndex:z,handIndices:ix.filter(function(i){return i!==z;})},draw);}
+  if(!next)throw new Error('未対応の操作');
+  state=next;selection=[];revealed=false;error='';
+ }catch(e){error=e.message||String(e);}
+ render();
+}
+app.addEventListener('click',function(e){
+ var button=e.target.closest('button');
+ if(!button)return;
+ if(button.hasAttribute('data-card')){
+  var n=Number(button.getAttribute('data-card'));
+  selection=selection.includes(n)?selection.filter(function(x){return x!==n;}):selection.concat([n]);
+  error='';render();return;
+ }
+ if(button.hasAttribute('data-act'))act(button.getAttribute('data-act'));
+});
+function start(){state=createMatch({playerIds:['P1','P2'],draw:draw,rng:Math.random});revealed=false;selection=[];error='';render();}
+start();
+})();
+</script></body></html>
