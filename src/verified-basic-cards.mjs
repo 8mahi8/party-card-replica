@@ -19,7 +19,7 @@ const add=(id,referenceName,attack,price,weight=1,{element='none'}={})=>
 const shield=(id,referenceName,guard,price,weight,{element='none',attackBonus}={})=>
   Object.freeze({id,referenceName,kind:'armor',category:'armor_normal',element,guard,price,weight,...(attackBonus===undefined?{}:{attackBonus})});
 
-/** Read-only 53-card subset. Do not normalize and sample as the full deck. */
+/** Read-only 54-card subset. Do not normalize and sample as the full deck. */
 export const VERIFIED_BASIC_CARDS = Object.freeze([
   main('w001','銅のこん棒',1,1,3),
   main('w002','銀のこん棒',1,10,1),
@@ -74,6 +74,7 @@ export const VERIFIED_BASIC_CARDS = Object.freeze([
   shield('d015','アイスブーツ',3,6,1,{element:'water'}),
   shield('d016','森の盾',6,10,1,{element:'wood'}),
   shield('d017','石版',1,2,1,{element:'earth'}),
+  Object.freeze({id:'i001',referenceName:'虹のカーテン',kind:'defense_item',category:'item',element:'none',effect:'strip_element',price:15,weight:3}),
 ]);
 
 export function findVerifiedBasicCard(id) {
