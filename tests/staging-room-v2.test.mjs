@@ -99,7 +99,11 @@ test('structural attack rejects armor-only and two main weapons but allows add-o
  assert.equal(add.state.pending.attackInstanceIds.length,1);
 });
 test('structural defense rejects attack-only items and enforces rainbow-first order',()=>{
- const s=send(room(),attack(room())).state;
+ const original=createStagingRoom({seats:[
+  {id:'A',handDefinitionIds:['w016']},
+  {id:'B',handDefinitionIds:['d005','d005','i001','w016']}
+ ],firstSeatId:'A'},catalog);
+ const s=send(original,attack(original)).state;
  const hand=s.players[1].hand;
  assert.throws(()=>send(s,response(s,{orderedInstanceIds:[hand[3].instanceId]})),/Not a defensive card/);
  assert.throws(()=>send(s,response(s,{orderedInstanceIds:[hand[0].instanceId,hand[2].instanceId]})),/Attribute remover must be first/);
