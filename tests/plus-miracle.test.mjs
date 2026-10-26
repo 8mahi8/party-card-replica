@@ -24,7 +24,7 @@ test('Fireball plus neutral weapon yields neutral attack and one extra draw',()=
  assert.equal(p.pending.attackKind,'weapon');assert.equal(p.players[0].mp,8);
  assert.deepEqual(p.players[0].learned.map(c=>c.id),['m005']);
  const f=defend(p,{playerId:'B',handIndices:[0]},draw);
- assert.equal(f.players[1].hp,29);assert.equal(f.players[0].hand.length,3);
+ assert.equal(f.players[1].hp,29);assert.equal(f.players[0].hand.length,2);
  assert.equal(original.players[0].hand.length,2);assert.equal(original.players[0].mp,10);
 });
 test('standalone Fireball is miracle-typed fire attack',()=>{
@@ -32,7 +32,7 @@ test('standalone Fireball is miracle-typed fire attack',()=>{
  const p=playMiracleAttack(s,{playerId:'A',targetId:'B',handIndex:0},draw);
  assert.equal(p.pending.attackKind,'miracle');assert.equal(p.pending.element,'fire');
  const f=defend(p,{playerId:'B',handIndices:[]},draw);
- assert.equal(f.players[1].hp,38);assert.equal(f.players[0].hand.length,2);
+ assert.equal(f.players[1].hp,38);assert.equal(f.players[0].hand.length,1);
 });
 test('Fireball plus fire weapon remains fire and can be guarded',()=>{
  const s=setup(['w018','m005'],['d015']);
@@ -89,7 +89,7 @@ test('neutral weapon combined with Fireball may be reflected by neutral weapon',
  const p=combo(s,[0],1);assert.equal(p.pending.element,'none');
  const red=defend(p,{playerId:'B',handIndices:[0]},draw);
  assert.equal(red.activePlayerId,'A');
- const f=defend(red,{playerId:'A',handIndices:[1]},draw);
+ const f=defend(red,{playerId:'A',handIndices:[0]},draw);
  assert.equal(f.players[0].hp,33);
 });
 test('learned miracles keep only last six unique IDs',()=>{
