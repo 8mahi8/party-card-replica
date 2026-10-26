@@ -20,6 +20,11 @@ function validCard(card) {
     if (card.reaction !== undefined && (!['reflect','deflect'].includes(card.reaction) || card.reactionScope !== 'neutral_weapon')) throw new Error('Unknown weapon reaction');
   } else if (card.kind === 'armor') {
     if (!Number.isInteger(card.guard) || card.guard < 0 || !ELEMENTS.includes(card.element) || (card.attackBonus !== undefined && (!Number.isInteger(card.attackBonus) || card.attackBonus < 0))) throw new TypeError('Invalid armor');
+    if (card.stopScope !== undefined && card.stopScope !== 'miracle') throw new Error('Unknown stop scope');
+  } else if (card.kind === 'miracle') {
+    if (!Number.isInteger(card.mpCost) || card.mpCost < 0 || !['attack','stop'].includes(card.role)) throw new TypeError('Invalid miracle');
+    if (card.role === 'attack' && (!Number.isInteger(card.attack) || card.attack<0 || !ELEMENTS.includes(card.element))) throw new TypeError('Invalid miracle attack');
+    if (card.role === 'stop' && card.stopScope !== 'neutral_weapon') throw new Error('Unknown miracle stop scope');
   } else if (card.kind === 'defense_item') {
     if (!['strip_element','reflect_any'].includes(card.effect)) throw new Error('Unsupported defense item');
   } else {
@@ -47,7 +52,7 @@ function person(state,id) {
 function clone(state) {
   return {
     ...state,
-    players: state.players.map(p=>({...p, hand:[...p.hand]})),
+    players: state.players.map(p=>({...p, hand:[...p.hand], learned:[...(p.learned ?? [])]})),
     pending: state.pending ? {...state.pending} : null,
     events:[...state.events],
   };
@@ -66,9 +71,9 @@ function finishAndDraw(match, draw) {
   const p=s.pending;
   if (!p) throw new Error('No pending attack');
   const to=person(s,p.targetId);
-  const hit=calculateHit({attack:p.attack,element:p.element,armor:p.armor,hp:to.hp,rainbowCurtain:!!p.rainbowCurtain});
+  const hit=p.stopped ? {damage:0,instantDefeat:false,hpAfter:to.hp} : calculateHit({attack:p.attack,element:p.element,armor:p.armor,hp:to.hp,rainbowCurtain:!!p.rainbowCurtain});
   to.hp=hit.hpAfter;
-  s.events.push({type:'damage',targetId:to.id,damage:hit.damage,instantDefeat:hit.instantDefeat,hpAfter:to.hp});
+  s.events.push({type:'damage',targetId:to.id,damage:hit.damage,instantDefeat:hit.instantDefeat,hpAfter:to.hp,stopped:!!p.stopped});
   s.pending=null;
   // The response completes before hand replacement; sequence within the
   // replacement step remains a hypothesis until checked in the live game.
@@ -100,8 +105,36 @@ export function createMatch({playerIds,draw,rng=Math.random,firstPlayerId=null})
   if(!Number.isFinite(r)||r<0||r>=1)throw new RangeError('rng must return [0,1)');
   const first=firstPlayerId??playerIds[Math.floor(r*playerIds.length)];
   if(!playerIds.includes(first))throw new Error('Invalid first player');
-  const players=playerIds.map(id=>({...STARTING_STATS,id,hand:initialHand(()=>validCard(draw()))}));
+  const players=playerIds.map(id=>({...STARTING_STATS,id,hand:initialHand(()=>validCard(draw())),learned:[]}));
   return {players,activePlayerId:first,phase:'turn',pending:null,turnCount:0,winnerId:null,events:[]};
+}
+function learnFrom(learned, miracle) {
+  if(learned.some(c=>c.id===miracle.id)) return [...learned];
+  return [...learned, miracle].slice(-6);
+}
+export function playMiracleAttack(state,{playerId,targetId,handIndex=null,learnedId=null},draw) {
+  expectTurn(state,playerId);
+  const caster=person(state,playerId);
+  person(state,targetId);
+  if((handIndex===null)===(learnedId===null)) throw new Error('Choose exactly one miracle source');
+  let miracle;
+  if(handIndex!==null){
+    if(!Number.isInteger(handIndex)||handIndex<0||handIndex>=caster.hand.length) throw new RangeError('Invalid miracle index');
+    miracle=validCard(caster.hand[handIndex]);
+  }else miracle=validCard(caster.learned?.find(x=>x.id===learnedId));
+  if(miracle.kind!=='miracle' || miracle.role!=='attack')throw new Error('Not an offensive miracle');
+  if(caster.mp<miracle.mpCost)throw new Error('Not enough MP');
+  const s=clone(state),source=person(s,playerId);
+  source.mp-=miracle.mpCost;
+  source.learned=learnFrom(source.learned,miracle);
+  // Miracle remains learned/in hand. Every cast grants exactly one draw.
+  s.pending={originalAttackerId:playerId,sourceId:playerId,targetId,
+    attack:miracle.attack,element:miracle.element,attackKind:'miracle',armor:0,
+    spentByPlayer:{[playerId]:1}};
+  s.events.push({type:'miracle',sourceId:playerId,targetId,cardId:miracle.id,mpCost:miracle.mpCost});
+  if(targetId===playerId)return finishAndDraw(s,draw);
+  s.phase='defense';s.activePlayerId=targetId;
+  return s;
 }
 export function playAttack(state,{playerId,targetId,handIndices},draw) {
   expectTurn(state,playerId);
@@ -124,12 +157,46 @@ export function playAttack(state,{playerId,targetId,handIndices},draw) {
   s.phase='defense';s.activePlayerId=targetId;
   return s;
 }
-export function defend(state,{playerId,handIndices=[]},draw,rng=Math.random) {
+export function defend(state,{playerId,handIndices=[],wallHandIndex=null,wallLearnedId=null},draw,rng=Math.random) {
   if(state.phase!=='defense'||!state.pending||state.pending.targetId!==playerId)throw new Error('Not your defense');
   const p=person(state,playerId);
   if(!Array.isArray(handIndices))throw new TypeError('Selection must be array');
   const indices=handIndices.length?normalizeIndexes(handIndices,p.hand):[];
   const cards=indices.map(i=>validCard(p.hand[i]));
+  if(wallHandIndex !== null || wallLearnedId !== null) {
+    if(wallHandIndex !== null && wallLearnedId !== null) throw new Error('Choose one wall source');
+    // Wall may be paired with Rainbow Curtain; until further verification,
+    // combinations with any other item are deliberately not supported.
+    if(cards.some(c=>c.kind !== 'defense_item' || c.effect !== 'strip_element')) throw new Error('Wall can only be paired with attribute remover');
+    const stripElement=cards.some(c=>c.effect==='strip_element');
+    if(state.pending.attackKind!=='weapon' || (state.pending.element!=='none' && !stripElement))
+      throw new Error('Wall only stops neutral non-miracle attacks');
+    const wall=(wallHandIndex!==null ? p.hand[wallHandIndex] : p.learned?.find(x=>x.id===wallLearnedId));
+    if(wallHandIndex!==null && (!Number.isInteger(wallHandIndex) || wallHandIndex<0 || wallHandIndex>=p.hand.length || handIndices.includes(wallHandIndex)))
+      throw new RangeError('Invalid wall index');
+    validCard(wall);
+    if(wall.kind!=='miracle' || wall.role!=='stop' || wall.stopScope!=='neutral_weapon') throw new Error('Not a wall miracle');
+    if(p.mp < wall.mpCost) throw new Error('Not enough MP');
+    const s=clone(state),defender=person(s,playerId);
+    defender.mp-=wall.mpCost;
+    defender.learned=learnFrom(defender.learned,wall);
+    defender.hand=take(defender.hand,indices);
+    s.pending.spentByPlayer={...s.pending.spentByPlayer,[playerId]:(s.pending.spentByPlayer[playerId]??0)+cards.length+1};
+    s.pending.stopped=true;
+    s.events.push({type:'stop',playerId,source:'wall',mpCost:wall.mpCost});
+    return finishAndDraw(s,draw);
+  }
+  const stopCards=cards.filter(c=>c.kind==='armor' && c.stopScope==='miracle');
+  if(stopCards.length && state.pending.attackKind==='miracle') {
+    // The special armor's guard value is irrelevant: it stops the miracle.
+    if(cards.length!==1) throw new Error('Angel stop armor must be selected alone');
+    const s=clone(state),defender=person(s,playerId);
+    defender.hand=take(defender.hand,indices);
+    s.pending.spentByPlayer={...s.pending.spentByPlayer,[playerId]:(s.pending.spentByPlayer[playerId]??0)+1};
+    s.pending.stopped=true;
+    s.events.push({type:'stop',playerId,source:'angel',cardId:stopCards[0].id});
+    return finishAndDraw(s,draw);
+  }
   const reactionCards=cards.filter(c=>c.reaction !== undefined || (c.kind==='defense_item' && c.effect==='reflect_any'));
   if(reactionCards.length) {
     // Reflection/deflection is an exclusive defense selection. Do not invent
