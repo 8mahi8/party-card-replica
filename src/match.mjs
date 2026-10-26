@@ -9,18 +9,19 @@
  */
 import {
   STARTING_STATS, MAX_HAND_SIZE, ELEMENTS, combineElements,
-  calculateHit, canBlock, initialHand, refillHand,
+  calculateHit, canBlock, initialHand, refillHand, reflectTarget,
 } from './rules.mjs';
 
 function validCard(card) {
   if (!card || typeof card !== 'object' || typeof card.id !== 'string' || !card.id) throw new TypeError('Invalid card');
-  if (card.special !== undefined || (card.effect !== undefined && !(card.kind === 'defense_item' && card.effect === 'strip_element'))) throw new Error('Special effects not implemented');
+  if (card.special !== undefined || (card.effect !== undefined && !(card.kind === 'defense_item' && ['strip_element','reflect_any'].includes(card.effect)))) throw new Error('Special effects not implemented');
   if (card.kind === 'weapon') {
     if (!['main','addon'].includes(card.slot) || !Number.isInteger(card.attack) || card.attack < 0 || !ELEMENTS.includes(card.element) || (card.guard !== undefined && (!Number.isInteger(card.guard) || card.guard < 0))) throw new TypeError('Invalid weapon');
+    if (card.reaction !== undefined && (!['reflect','deflect'].includes(card.reaction) || card.reactionScope !== 'neutral_weapon')) throw new Error('Unknown weapon reaction');
   } else if (card.kind === 'armor') {
     if (!Number.isInteger(card.guard) || card.guard < 0 || !ELEMENTS.includes(card.element) || (card.attackBonus !== undefined && (!Number.isInteger(card.attackBonus) || card.attackBonus < 0))) throw new TypeError('Invalid armor');
   } else if (card.kind === 'defense_item') {
-    if (card.effect !== 'strip_element') throw new Error('Unsupported defense item');
+    if (!['strip_element','reflect_any'].includes(card.effect)) throw new Error('Unsupported defense item');
   } else {
     throw new Error(`Unsupported card category: ${card.kind}`);
   }
@@ -59,7 +60,7 @@ function nextAlive(players, afterId) {
   }
   return null;
 }
-function finishAndDraw(match, selectedDefenseCount, draw) {
+function finishAndDraw(match, draw) {
   if (typeof draw !== 'function') throw new TypeError('draw callback required');
   const s=clone(match);
   const p=s.pending;
@@ -71,16 +72,20 @@ function finishAndDraw(match, selectedDefenseCount, draw) {
   s.pending=null;
   // The response completes before hand replacement; sequence within the
   // replacement step remains a hypothesis until checked in the live game.
-  const attacker=s.players.find(x=>x.id===p.sourceId);
-  if(attacker.hp>0) attacker.hand=refillHand(attacker.hand,p.attackerSpent,()=>validCard(draw()));
-  if(to.hp>0 && to.id!==attacker.id) to.hand=refillHand(to.hand,selectedDefenseCount,()=>validCard(draw()));
+  // Redirects change the apparent attacker. Keep the ORIGINAL turn owner for
+  // turn order, while replenishing cards spent by EACH surviving participant.
+  // Exact replenishment order still awaits comparison with a live match.
+  for (const player of s.players) {
+    const spent=p.spentByPlayer[player.id] ?? 0;
+    if(player.hp>0 && spent>0) player.hand=refillHand(player.hand,spent,()=>validCard(draw()));
+  }
   const living=s.players.filter(x=>x.hp>0);
   if(living.length<=1) {
     s.phase='finished';s.activePlayerId=null;
     s.winnerId=living.length===1?living[0].id:null;
     s.events.push({type:'match_end',winnerId:s.winnerId});
   } else {
-    s.phase='turn';s.activePlayerId=nextAlive(s.players,p.sourceId);
+    s.phase='turn';s.activePlayerId=nextAlive(s.players,p.originalAttackerId);
     s.turnCount+=1;
   }
   return s;
@@ -113,18 +118,42 @@ export function playAttack(state,{playerId,targetId,handIndices},draw) {
   const s=clone(state);
   const source=person(s,playerId);
   source.hand=take(source.hand,indices);
-  s.pending={sourceId:playerId,targetId,attack,element,armor:0,attackerSpent:cards.length};
+  s.pending={originalAttackerId:playerId,sourceId:playerId,targetId,attack,element,attackKind:'weapon',armor:0,spentByPlayer:{[playerId]:cards.length}};
   s.events.push({type:'attack',sourceId:playerId,targetId,attack,element,spent:cards.length});
-  if(targetId===playerId) return finishAndDraw(s,0,draw); // Self-hit cannot be defended.
+  if(targetId===playerId) return finishAndDraw(s,draw); // Self-hit cannot be defended.
   s.phase='defense';s.activePlayerId=targetId;
   return s;
 }
-export function defend(state,{playerId,handIndices=[]},draw) {
+export function defend(state,{playerId,handIndices=[]},draw,rng=Math.random) {
   if(state.phase!=='defense'||!state.pending||state.pending.targetId!==playerId)throw new Error('Not your defense');
   const p=person(state,playerId);
   if(!Array.isArray(handIndices))throw new TypeError('Selection must be array');
   const indices=handIndices.length?normalizeIndexes(handIndices,p.hand):[];
   const cards=indices.map(i=>validCard(p.hand[i]));
+  const reactionCards=cards.filter(c=>c.reaction !== undefined || (c.kind==='defense_item' && c.effect==='reflect_any'));
+  if(reactionCards.length) {
+    // Reflection/deflection is an exclusive defense selection. Do not invent
+    // priority rules for mixing with numeric shields or rainbow curtain.
+    if(cards.length!==1) throw new Error('A redirect card must be selected alone');
+    const card=reactionCards[0];
+    if(card.kind==='weapon' && (card.reactionScope!=='neutral_weapon' || state.pending.element!=='none' || state.pending.attackKind!=='weapon'))
+      throw new Error('Reaction cannot redirect this attack');
+    const mode=card.kind==='defense_item' ? 'reflect' : card.reaction;
+    const route=reflectTarget({source:state.pending.sourceId,target:playerId,actor:playerId,mode,
+      living:state.players.filter(p=>p.hp>0).map(p=>p.id),rng});
+    const s=clone(state);
+    const defender=person(s,playerId);
+    defender.hand=take(defender.hand,indices);
+    s.pending.spentByPlayer={...s.pending.spentByPlayer,[playerId]:(s.pending.spentByPlayer[playerId]??0)+1};
+    s.events.push({type:'redirect',mode,by:playerId,from:state.pending.sourceId,to:route.target,cardId:card.id});
+    s.pending.sourceId=route.source;
+    s.pending.targetId=route.target;
+    s.pending.armor=0;
+    s.pending.rainbowCurtain=false;
+    if(route.target===playerId) return finishAndDraw(s,draw); // self-deflection cannot be defended
+    s.phase='defense';s.activePlayerId=route.target;
+    return s;
+  }
   const stripElement=cards.some(c=>c.kind==='defense_item' && c.effect==='strip_element');
   if(cards.some(c=>c.kind!=='defense_item' && (!((c.kind==='armor') || (c.kind==='weapon' && Number.isInteger(c.guard))) || !canBlock(state.pending.element,c.element,{rainbowCurtain:stripElement})))) throw new Error('Illegal shield for attack element');
   const s=clone(state);
@@ -132,8 +161,9 @@ export function defend(state,{playerId,handIndices=[]},draw) {
   defender.hand=take(defender.hand,indices);
   s.pending.armor=cards.reduce((sum,c)=>sum+(c.guard ?? 0),0);
   s.pending.rainbowCurtain=stripElement;
+  s.pending.spentByPlayer={...s.pending.spentByPlayer,[playerId]:(s.pending.spentByPlayer[playerId]??0)+cards.length};
   s.events.push({type:'defense',playerId,spent:cards.length,armor:s.pending.armor,stripElement});
-  return finishAndDraw(s,cards.length,draw);
+  return finishAndDraw(s,draw);
 }
 export function pray(state,{playerId},draw) {
   expectTurn(state,playerId);
