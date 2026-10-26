@@ -14,11 +14,13 @@ import {
 
 function validCard(card) {
   if (!card || typeof card !== 'object' || typeof card.id !== 'string' || !card.id) throw new TypeError('Invalid card');
-  if (card.effect !== undefined || card.special !== undefined) throw new Error('Special effects not implemented');
+  if (card.special !== undefined || (card.effect !== undefined && !(card.kind === 'defense_item' && card.effect === 'strip_element'))) throw new Error('Special effects not implemented');
   if (card.kind === 'weapon') {
     if (!['main','addon'].includes(card.slot) || !Number.isInteger(card.attack) || card.attack < 0 || !ELEMENTS.includes(card.element) || (card.guard !== undefined && (!Number.isInteger(card.guard) || card.guard < 0))) throw new TypeError('Invalid weapon');
   } else if (card.kind === 'armor') {
     if (!Number.isInteger(card.guard) || card.guard < 0 || !ELEMENTS.includes(card.element) || (card.attackBonus !== undefined && (!Number.isInteger(card.attackBonus) || card.attackBonus < 0))) throw new TypeError('Invalid armor');
+  } else if (card.kind === 'defense_item') {
+    if (card.effect !== 'strip_element') throw new Error('Unsupported defense item');
   } else {
     throw new Error(`Unsupported card category: ${card.kind}`);
   }
@@ -63,7 +65,7 @@ function finishAndDraw(match, selectedDefenseCount, draw) {
   const p=s.pending;
   if (!p) throw new Error('No pending attack');
   const to=person(s,p.targetId);
-  const hit=calculateHit({attack:p.attack,element:p.element,armor:p.armor,hp:to.hp});
+  const hit=calculateHit({attack:p.attack,element:p.element,armor:p.armor,hp:to.hp,rainbowCurtain:!!p.rainbowCurtain});
   to.hp=hit.hpAfter;
   s.events.push({type:'damage',targetId:to.id,damage:hit.damage,instantDefeat:hit.instantDefeat,hpAfter:to.hp});
   s.pending=null;
@@ -123,12 +125,14 @@ export function defend(state,{playerId,handIndices=[]},draw) {
   if(!Array.isArray(handIndices))throw new TypeError('Selection must be array');
   const indices=handIndices.length?normalizeIndexes(handIndices,p.hand):[];
   const cards=indices.map(i=>validCard(p.hand[i]));
-  if(cards.some(c=>!((c.kind==='armor') || (c.kind==='weapon' && Number.isInteger(c.guard))) || !canBlock(state.pending.element,c.element))) throw new Error('Illegal shield for attack element');
+  const stripElement=cards.some(c=>c.kind==='defense_item' && c.effect==='strip_element');
+  if(cards.some(c=>c.kind!=='defense_item' && (!((c.kind==='armor') || (c.kind==='weapon' && Number.isInteger(c.guard))) || !canBlock(state.pending.element,c.element,{rainbowCurtain:stripElement})))) throw new Error('Illegal shield for attack element');
   const s=clone(state);
   const defender=person(s,playerId);
   defender.hand=take(defender.hand,indices);
-  s.pending.armor=cards.reduce((sum,c)=>sum+c.guard,0);
-  s.events.push({type:'defense',playerId,spent:cards.length,armor:s.pending.armor});
+  s.pending.armor=cards.reduce((sum,c)=>sum+(c.guard ?? 0),0);
+  s.pending.rainbowCurtain=stripElement;
+  s.events.push({type:'defense',playerId,spent:cards.length,armor:s.pending.armor,stripElement});
   return finishAndDraw(s,cards.length,draw);
 }
 export function pray(state,{playerId},draw) {
