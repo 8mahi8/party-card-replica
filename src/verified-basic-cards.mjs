@@ -16,10 +16,10 @@ const main=(id,referenceName,attack,price,weight,{element='none',guard}={})=>
   Object.freeze({id,referenceName,kind:'weapon',slot:'main',category:'weapon_single',element,attack,price,weight,...(guard===undefined?{}:{guard})});
 const add=(id,referenceName,attack,price,weight=1,{element='none'}={})=>
   Object.freeze({id,referenceName,kind:'weapon',slot:'addon',category:'weapon_single',element,attack,price,weight});
-const shield=(id,referenceName,guard,price,weight,{element='none'}={})=>
-  Object.freeze({id,referenceName,kind:'armor',category:'armor_normal',element,guard,price,weight});
+const shield=(id,referenceName,guard,price,weight,{element='none',attackBonus}={})=>
+  Object.freeze({id,referenceName,kind:'armor',category:'armor_normal',element,guard,price,weight,...(attackBonus===undefined?{}:{attackBonus})});
 
-/** Read-only 35-card subset. Do not normalize and sample as the full deck. */
+/** Read-only 53-card subset. Do not normalize and sample as the full deck. */
 export const VERIFIED_BASIC_CARDS = Object.freeze([
   main('w001','銅のこん棒',1,1,3),
   main('w002','銀のこん棒',1,10,1),
@@ -39,6 +39,13 @@ export const VERIFIED_BASIC_CARDS = Object.freeze([
   main('w016','ワンダーソード',10,4,7),
   main('w017','神の剣',30,30,1),
   main('w018','たいまつ',1,1,1,{element:'fire'}),
+  main('w019','ソードシールド',10,15,1,{guard:10}),
+  main('w020','ほむら巻き',4,8,1,{element:'fire',guard:4}),
+  main('w021','つらら',1,1,1,{element:'water'}),
+  main('w022','木刀',1,1,1,{element:'wood'}),
+  main('w023','つるぎ焼き',2,2,1,{element:'earth'}),
+  main('w024','スタースタッフ',3,3,1,{element:'light'}),
+  main('w025','ちくりんちょ',1,10,1,{element:'dark'}),
   add('a001','吹き矢',1,1),
   add('a002','クロスボウ',2,2),
   add('a003','ブーメラン',3,3),
@@ -47,6 +54,9 @@ export const VERIFIED_BASIC_CARDS = Object.freeze([
   add('a006','ジェットヨーヨー',6,6),
   add('a007','未知の羽根',7,7),
   add('a008','サイキックカード',8,8),
+  add('a009','ファイヤークロスボウ',4,8,1,{element:'fire'}),
+  add('a010','輝きのカケラ',1,10,1,{element:'light'}),
+  add('a011','冥矢',5,15,1,{element:'dark'}),
   shield('d001','革の帽子',1,1,10),
   shield('d002','革の服',2,2,10),
   shield('d003','アイアンガントレット',3,3,8),
@@ -56,6 +66,14 @@ export const VERIFIED_BASIC_CARDS = Object.freeze([
   shield('d007','はがねのかぶと',7,7,6),
   shield('d008','はがねの盾',8,8,6),
   shield('d009','神の盾',30,30,1),
+  shield('d010','鬼のくつ',3,10,1,{attackBonus:5}),
+  shield('d011','鬼の小手',5,15,1,{attackBonus:10}),
+  shield('d012','鬼のかぶと',7,15,1,{attackBonus:10}),
+  shield('d013','鬼のよろい',9,20,1,{attackBonus:15}),
+  shield('d014','フレイムブーツ',3,6,1,{element:'fire'}),
+  shield('d015','アイスブーツ',3,6,1,{element:'water'}),
+  shield('d016','森の盾',6,10,1,{element:'wood'}),
+  shield('d017','石版',1,2,1,{element:'earth'}),
 ]);
 
 export function findVerifiedBasicCard(id) {
