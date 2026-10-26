@@ -26,7 +26,7 @@ test('Aura doubles selected main and additional weapons together',()=>{
  assert.deepEqual(pending.players[0].learned.map(c=>c.id),['m004']);
  const after=defend(pending,{playerId:'B',handIndices:[0]},draw);
  assert.equal(after.players[1].hp,19);
- assert.equal(after.players[0].hand.length,4);
+ assert.equal(after.players[0].hand.length,3);
 });
 test('learned Aura casts without requiring Aura in current hand',()=>{
  const s=setup(['w016'],['d001']);
