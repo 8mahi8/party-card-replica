@@ -49,12 +49,63 @@ export function playPlusMiracleAttack(state,{
   if(!caster.learned.some(c=>c.id===miracle.id)) {
     caster.learned=[...caster.learned,miracle].slice(-MAX_LEARNED_MIRACLES);
   }
-  // Normal weapons are replaced AND an additional card is drawn for casting.
-  // The miracle itself remains in hand or the learned list.
+  // A first casting transfers the hand miracle to the learned list;
+  // the resulting card draw replaces that slot. Recasts increase hand size.
+  if (plusHandIndex!==null) {
+    const adjusted=plusHandIndex-handIndices.filter(i=>i<plusHandIndex).length;
+    caster.hand=caster.hand.filter((_,i)=>i!==adjusted);
+  }
   next.pending.spentByPlayer={...next.pending.spentByPlayer,
     [playerId]:next.pending.spentByPlayer[playerId]+1};
   next.events.push({type:'plus_miracle',playerId,miracleId:miracle.id,
     attackAfter:next.pending.attack,elementAfter:next.pending.element,
     mpCost:miracle.mpCost});
   return next;
+}
+
+/**
+ * Narrow source-backed sequence: single-target weapon(s) first, then two
+ * additive miracle cards selected from hand. No arbitrary miracle-first,
+ * spirits, stacked Aura, or other unverified order is accepted.
+ */
+export function playStackedPlusMiracles(state,{
+  playerId,targetId,handIndices,plusHandIndices
+},draw) {
+  if(!state || state.phase!=='turn' || state.activePlayerId!==playerId)
+    throw new Error('Not active turn');
+  if(targetId===playerId)throw new Error('Self-target miracle combination unverified');
+  const caster=state.players.find(p=>p.id===playerId && p.hp>0);
+  if(!caster)throw new Error('Player not alive');
+  if(!Array.isArray(handIndices)||!handIndices.length ||
+     !Array.isArray(plusHandIndices)||plusHandIndices.length!==2)
+    throw new Error('Only two hand-based additive miracles supported');
+  const combined=[...handIndices,...plusHandIndices];
+  if(new Set(combined).size!==combined.length ||
+     combined.some(i=>!Number.isInteger(i)||i<0||i>=caster.hand.length))
+    throw new RangeError('Repeated or invalid hand index');
+  if(handIndices.some(i=>caster.hand[i].kind!=='weapon'))
+    throw new Error('Weapons must precede miracles');
+  const miracles=plusHandIndices.map(i=>caster.hand[i]);
+  if(miracles.some(m=>!m||m.kind!=='miracle'||m.role!=='attack'||m.plusAttack!==true||
+     !Number.isInteger(m.mpCost)||m.mpCost<0||!Number.isInteger(m.attack)||m.attack<0||
+     !ELEMENTS.includes(m.element)))throw new Error('Only additive attack miracles supported');
+  const cost=miracles.reduce((a,m)=>a+m.mpCost,0);
+  if(caster.mp<cost)throw new Error('Not enough MP');
+  const result=playAttack(state,{playerId,targetId,handIndices},draw);
+  const owner=result.players.find(p=>p.id===playerId);
+  for(const miracle of miracles){
+    result.pending.attack+=miracle.attack;
+    result.pending.element=combineElements(result.pending.element,miracle.element);
+    if(!owner.learned.some(x=>x.id===miracle.id))
+      owner.learned=[...owner.learned,miracle].slice(-MAX_LEARNED_MIRACLES);
+  }
+  owner.mp-=cost;
+  const shifted=plusHandIndices.map(i=>i-handIndices.filter(j=>j<i).length);
+  owner.hand=owner.hand.filter((_,i)=>!shifted.includes(i));
+  result.pending.spentByPlayer={...result.pending.spentByPlayer,
+    [playerId]:result.pending.spentByPlayer[playerId]+miracles.length};
+  result.events.push({type:'stacked_plus_miracles',playerId,
+    miracleIds:miracles.map(m=>m.id),attackAfter:result.pending.attack,
+    elementAfter:result.pending.element,mpCost:cost});
+  return result;
 }
