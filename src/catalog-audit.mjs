@@ -3,7 +3,7 @@
  * Default reference matrix is from the 2025-09-19 AtWiki table, which
  * disagrees with other community sources; never infer 2026 live odds from it.
  */
-import {CATEGORY_DISTRIBUTION, ELEMENTS, totalSlots} from './rules.mjs';
+import {CATEGORY_DISTRIBUTION, ELEMENTS, totalSlots, drawWeighted} from './rules.mjs';
 
 export const REFERENCE_DISTRIBUTION_VERSION = 'atwiki-2025-09-19';
 
@@ -61,4 +61,12 @@ export function assertCompleteCatalog(cards,options={}) {
   if(!audit.complete)
     throw new Error(`Catalog incomplete: ${audit.unique}/${audit.expectedUnique} kinds, ${audit.slots}/${audit.expectedSlots} slots, ${audit.mismatches.length} matrix differences`);
   return audit;
+}
+
+/** Never normalize incomplete card sets into an apparently "real" deck.
+ * This checks structural totals, not authenticity of each source value.
+ */
+export function createAuditedDraw(cards, options={}) {
+  assertCompleteCatalog(cards,options);
+  return (rng=Math.random)=>drawWeighted(cards,rng);
 }
