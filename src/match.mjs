@@ -22,7 +22,8 @@ function validCard(card) {
     if (!Number.isInteger(card.guard) || card.guard < 0 || !ELEMENTS.includes(card.element) || (card.attackBonus !== undefined && (!Number.isInteger(card.attackBonus) || card.attackBonus < 0))) throw new TypeError('Invalid armor');
     if (card.stopScope !== undefined && card.stopScope !== 'miracle') throw new Error('Unknown stop scope');
   } else if (card.kind === 'miracle') {
-    if (!Number.isInteger(card.mpCost) || card.mpCost < 0 || !['attack','stop'].includes(card.role)) throw new TypeError('Invalid miracle');
+    if (!Number.isInteger(card.mpCost) || card.mpCost < 0 || !['attack','stop','boost_weapon'].includes(card.role)) throw new TypeError('Invalid miracle');
+    if (card.role==='boost_weapon' && card.boost!=='double_weapon') throw new Error('Unknown boost miracle');
     if (card.role === 'attack' && (!Number.isInteger(card.attack) || card.attack<0 || !ELEMENTS.includes(card.element))) throw new TypeError('Invalid miracle attack');
     if (card.role === 'stop' && card.stopScope !== 'neutral_weapon') throw new Error('Unknown miracle stop scope');
   } else if (card.kind === 'defense_item') {
@@ -244,5 +245,65 @@ export function pray(state,{playerId},draw) {
   s.events.push({type:'pray',playerId,drawn:1});
   s.activePlayerId=nextAlive(s.players,playerId);
   s.turnCount+=1;
+  return s;
+}
+
+/**
+ * Single <Aura> boost: the sum of the selected single-target WEAPONS,
+ * including add-on weapons, is doubled; spent MP and learned miracles follow
+ * the same minimal rules as other miracles.
+ * Restrictions: no self-target, demon armor or stacked boosts until their
+ * original-game effect order is experimentally confirmed.
+ */
+export function playAuraWeaponAttack(state,{
+  playerId,targetId,handIndices,auraHandIndex=null,learnedAuraId=null
+},draw) {
+  expectTurn(state,playerId);
+  const caster=person(state,playerId);
+  if(targetId===playerId) throw new Error('Aura self-target combo not yet verified');
+  if((auraHandIndex===null)===(learnedAuraId===null))
+    throw new Error('Choose exactly one aura source');
+  const indices=normalizeIndexes(handIndices,caster.hand);
+  if(indices.some(i=>validCard(caster.hand[i]).kind!=='weapon'))
+    throw new Error('Aura plus attack-bonus armor not verified');
+  if(auraHandIndex!==null &&
+     (!Number.isInteger(auraHandIndex)||auraHandIndex<0||
+      auraHandIndex>=caster.hand.length || indices.includes(auraHandIndex)))
+    throw new RangeError('Invalid aura hand index');
+  const aura=validCard(auraHandIndex===null
+    ? caster.learned?.find(c=>c.id===learnedAuraId)
+    : caster.hand[auraHandIndex]);
+  if(aura.kind!=='miracle'||aura.role!=='boost_weapon'||aura.boost!=='double_weapon')
+    throw new Error('Not an aura miracle');
+  if(caster.mp<aura.mpCost)throw new Error('Not enough MP');
+  const attacked=playAttack(state,{playerId,targetId,handIndices:indices},draw);
+  const s=clone(attacked);
+  s.pending.attack*=2;
+  const attacker=person(s,playerId);
+  attacker.mp-=aura.mpCost;
+  attacker.learned=learnFrom(attacker.learned,aura);
+  // The currently implemented miracle model grants a draw per cast.
+  // First-use miracle hand handling remains to be verified against live UI.
+  s.pending.spentByPlayer={...s.pending.spentByPlayer,
+    [playerId]:(s.pending.spentByPlayer[playerId]??0)+1};
+  s.events.push({type:'weapon_boost',sourceId:playerId,
+    miracleId:aura.id,mpCost:aura.mpCost,attackAfter:s.pending.attack});
+  return s;
+}
+
+/**
+ * Normal phase: discard selected cards and end turn WITHOUT replenishing them.
+ * "Sacrifice" and its extra draw in end-of-world mode remain unimplemented.
+ */
+export function discardCards(state,{playerId,handIndices}) {
+  expectTurn(state,playerId);
+  const player=person(state,playerId);
+  const indices=normalizeIndexes(handIndices,player.hand);
+  const s=clone(state);
+  const discarded=indices.map(i=>player.hand[i].id);
+  person(s,playerId).hand=take(player.hand,indices);
+  s.events.push({type:'discard',playerId,cardIds:discarded,spent:indices.length});
+  s.activePlayerId=nextAlive(s.players,playerId);
+  s.turnCount++;
   return s;
 }
