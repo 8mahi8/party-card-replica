@@ -12,14 +12,14 @@
  * 調査用の参照名で、オリジナルUIの表示素材ではない。
  */
 export const PARTIAL_CARD_SOURCE = 'piong-atwiki-and-macaron-2026-02-28';
-const main=(id,referenceName,attack,price,weight,{element='none',guard}={})=>
-  Object.freeze({id,referenceName,kind:'weapon',slot:'main',category:'weapon_single',element,attack,price,weight,...(guard===undefined?{}:{guard})});
+const main=(id,referenceName,attack,price,weight,{element='none',guard,reaction}={})=>
+  Object.freeze({id,referenceName,kind:'weapon',slot:'main',category:'weapon_single',element,attack,price,weight,...(guard===undefined?{}:{guard}),...(reaction===undefined?{}:{reaction,reactionScope:'neutral_weapon'})});
 const add=(id,referenceName,attack,price,weight=1,{element='none'}={})=>
   Object.freeze({id,referenceName,kind:'weapon',slot:'addon',category:'weapon_single',element,attack,price,weight});
 const shield=(id,referenceName,guard,price,weight,{element='none',attackBonus}={})=>
   Object.freeze({id,referenceName,kind:'armor',category:'armor_normal',element,guard,price,weight,...(attackBonus===undefined?{}:{attackBonus})});
 
-/** Read-only 54-card subset. Do not normalize and sample as the full deck. */
+/** Read-only 57-card subset. Do not normalize and sample as the full deck. */
 export const VERIFIED_BASIC_CARDS = Object.freeze([
   main('w001','銅のこん棒',1,1,3),
   main('w002','銀のこん棒',1,10,1),
@@ -46,6 +46,8 @@ export const VERIFIED_BASIC_CARDS = Object.freeze([
   main('w023','つるぎ焼き',2,2,1,{element:'earth'}),
   main('w024','スタースタッフ',3,3,1,{element:'light'}),
   main('w025','ちくりんちょ',1,10,1,{element:'dark'}),
+  main('w026','乱弾武剣',5,10,7,{reaction:'deflect'}),
+  main('w027','反射剣',10,5,3,{reaction:'reflect'}),
   add('a001','吹き矢',1,1),
   add('a002','クロスボウ',2,2),
   add('a003','ブーメラン',3,3),
@@ -75,6 +77,7 @@ export const VERIFIED_BASIC_CARDS = Object.freeze([
   shield('d016','森の盾',6,10,1,{element:'wood'}),
   shield('d017','石版',1,2,1,{element:'earth'}),
   Object.freeze({id:'i001',referenceName:'虹のカーテン',kind:'defense_item',category:'item',element:'none',effect:'strip_element',price:15,weight:3}),
+  Object.freeze({id:'i002',referenceName:'スーパーミラー',kind:'defense_item',category:'item',element:'none',effect:'reflect_any',price:10,weight:1}),
 ]);
 
 export function findVerifiedBasicCard(id) {
