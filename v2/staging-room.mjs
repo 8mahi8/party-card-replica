@@ -97,7 +97,7 @@ export function createStagingRoom({seats,firstSeatId,rulesetId='lab-v2',rngSeed=
   return {
     schemaVersion:2,rulesetId,revision:0,phase:'turn',
     activePlayerId:firstSeatId,players,nextInstanceSerial:serial,
-    rngSeed,pending:null,processedCommands:[]
+    rngSeed,pending:null,processedCommands:[],turnCount:0,winnerId:null
   };
 }
 /**
