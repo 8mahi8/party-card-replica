@@ -56,13 +56,17 @@ function takeLegalSelection(player,instanceIds,catalog,mode,{allowEmpty=false}={
   });
   if(mode==='attack') {
     const mainCount=defs.filter(c=>c.playModes.includes('mainAttack')).length;
-    if(mainCount>1 || !defs.every(c=>c.playModes.includes('mainAttack')||c.playModes.includes('addAttack')))
+    if(mainCount>1 || !defs.every(c=>c.playModes.some(m=>['mainAttack','addAttack','cast','support'].includes(m))))
       throw new Error('Not a structural attack selection');
-    if(!defs.some(c=>c.family==='weapon'))
-      throw new Error('A weapon must initiate this G2 attack');
-    // NOTE: exact selected order and miracle combination validity are G3.
+    const first=defs[0];
+    if(first.family!=='weapon' &&
+       !(first.family==='miracle' && first.playModes.includes('cast') && first.stats.attack>0))
+      throw new Error('Attack must start with a weapon or offensive miracle');
+    // Exact later combination legality is compiled in G3, not guessed here.
   } else if(mode==='defense') {
-    if(!defs.every(c=>c.playModes.includes('defend')))throw new Error('Not a defensive card');
+    if(!defs.every(c=>c.playModes.includes('defend')||c.playModes.includes('support')) ||
+       (defs.length>0 && !defs[0].playModes.includes('defend')))
+      throw new Error('Not a defensive card');
     const rainbowIndex=defs.findIndex(c=>c.effects.some(e=>e.type==='stripElement'));
     if(rainbowIndex>0)throw new Error('Attribute remover must be first');
     // Exact defense combinations, MP costs, reflection and stop priority: G3.
@@ -133,14 +137,17 @@ export function applyStagingCommand(state,command,catalog,{authorizedSeatId}={})
     if(state.phase!=='turn')throw new Error('Not an attacking turn');
     id(command.targetId,'target ID');
     const target=seat(state,command.targetId);
-    if(target.hp<=0||target.id===actor.id)throw new Error('Invalid G2 target');
+    if(target.hp<=0)throw new Error('Invalid G2 target');
     if(actor.hp<=0)throw new Error('Dead actor');
     const selected=takeLegalSelection(actor,command.orderedInstanceIds,catalog,'attack');
     pending={
       type:'attack',originalAttackerId:actor.id,targetId:target.id,
       attackInstanceIds:selected.map(x=>x.instanceId),defense:null
     };
-    phase='defense';activePlayerId=target.id;
+    // A self-targeting attack skips defense, as in the old rules engine.
+    // G3 will decide damage and possible self-defeat.
+    phase=target.id===actor.id?'resolving':'defense';
+    activePlayerId=target.id===actor.id?null:target.id;
   } else {
     if(state.phase!=='defense'||!state.pending||
        state.pending.targetId!==actor.id)throw new Error('Not the defending seat');
