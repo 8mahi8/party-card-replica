@@ -12,10 +12,10 @@ const setup=(a,b)=>{
 const attack=(a,b)=>playAttack(setup(a,b),{playerId:'A',targetId:'B',handIndices:[0]},draw);
 const cast=(a,b,handIndex=0)=>playMiracleAttack(setup(a,b),{playerId:'A',targetId:'B',handIndex},draw);
 
-test('seven research-backed stopper and miracle cards bring subset to 64, not full deck',()=>{
- assert.equal(VERIFIED_BASIC_CARDS.length,64);
+test('seven research-backed stopper and miracle cards bring subset to 65, not full deck',()=>{
+ assert.equal(VERIFIED_BASIC_CARDS.length,65);
  const audit=auditCatalog(VERIFIED_BASIC_CARDS);
- assert.equal(audit.slots,181);assert.equal(audit.complete,false);
+ assert.equal(audit.slots,182);assert.equal(audit.complete,false);
  assert.throws(()=>createAuditedDraw(VERIFIED_BASIC_CARDS),/incomplete/);
  for (const [id,guard] of [['d018',9],['d019',11],['d020',13],['d021',15]]){
   assert.equal(card(id).guard,guard);assert.equal(card(id).stopScope,'miracle');
