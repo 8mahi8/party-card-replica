@@ -7,9 +7,9 @@ import {createMatch,playAttack,defend,pray} from '../src/match.mjs';
 const draw=()=>VERIFIED_BASIC_CARDS[0];
 const start=()=>createMatch({playerIds:['A','B'],firstPlayerId:'A',rng:()=>0,draw});
 
-test('catalog is a fixed 83-entry partial research sample, never a complete deck',()=>{
- assert.equal(VERIFIED_BASIC_CARDS.length,83);
- assert.equal(new Set(VERIFIED_BASIC_CARDS.map(c=>c.id)).size,83);
+test('catalog is a fixed 85-entry partial research sample, never a complete deck',()=>{
+ assert.equal(VERIFIED_BASIC_CARDS.length,85);
+ assert.equal(new Set(VERIFIED_BASIC_CARDS.map(c=>c.id)).size,85);
  assert.equal(PARTIAL_CARD_SOURCE,'piong-atwiki-and-macaron-2026-02-28');
  assert.equal(auditCatalog(VERIFIED_BASIC_CARDS).complete,false);
  assert.ok(auditCatalog(VERIFIED_BASIC_CARDS).slots<500);
