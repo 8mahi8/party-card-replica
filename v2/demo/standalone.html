@@ -2068,6 +2068,46 @@ function keyOf(item){
   return item?.instanceId ? 'h:'+item.instanceId
     : item?.learnedDefinitionId ? 'l:'+item.learnedDefinitionId : null;
 }
+// Lab-only early feedback. The original client has not yet been observed
+// rejecting every mixed special-defense pair: this only prevents a combination
+// our verified subset cannot safely resolve. Do not present it as an original
+// input rule until official Training reproduces the interaction.
+function pendingAttackIsMiracle(state,catalog){
+ const pending=state.pending;
+ if(state.phase!=='defense'||pending?.type!=='attack')return false;
+ if(pending.attackContext)return pending.attackContext.attackKind==='miracle';
+ if(pending.attackLearnedDefinitionId!==undefined)return true;
+ const first=pending.attackSequence?.[0]?.instanceId??pending.attackInstanceIds?.[0];
+ const caster=state.players.find(p=>p.id===pending.originalAttackerId);
+ const instance=caster?.hand.find(c=>c.instanceId===first);
+ return catalog.get(instance?.definitionId)?.family==='miracle';
+}
+function isMiracleReaction(def){
+ return def?.effects.some(e=>e.when==='onDefense'&&(
+  (e.type==='stopAttack'&&e.params.scope==='miracle')||
+  (e.type==='redirectAttack'&&['miracle','any'].includes(e.params.scope))
+ ));
+}
+function isSpirit(def){
+ return def?.family==='item'&&def.effects.length===1&&
+  def.effects[0].when==='onCost'&&def.effects[0].type==='waivePreviousMp'&&
+  def.effects[0].params.target==='previousMiracle';
+}
+function validateLabMiracleReactionChoice(state,actor,selected,choice,catalog){
+ if(!pendingAttackIsMiracle(state,catalog))return;
+ const definitions=[...selected,choice].map(c=>{
+  const key=c.instanceId
+   ?actor.hand.find(x=>x.instanceId===c.instanceId)?.definitionId
+   :c.learnedDefinitionId;
+  return catalog.get(key);
+ });
+ if(!definitions.some(isMiracleReaction))return;
+ const first=definitions[0];
+ if(definitions.length===1&&isMiracleReaction(first))return;
+ if(definitions.length===2&&isMiracleReaction(first)&&first.family==='miracle'&&
+  isSpirit(definitions[1]))return;
+ throw new Error('この検証版では奇跡の「止める・弾く・はね返す」は単独で選択（防御奇跡→精霊のみ例外）');
+}
 function baseLabel(def){
   if(!def)return '未登録';
   const stat=def.stats;
@@ -2173,6 +2213,8 @@ function createV2LabController({
          selected.some(x=>x.learnedDefinitionId)))
         throw new Error('防御奇跡を1つだけ選択してください');
     }
+    if(state.phase==='defense')
+      validateLabMiracleReactionChoice(state,player,selected,selection,catalog);
     selected.push({...selection});
     return view();
   }
