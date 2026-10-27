@@ -323,12 +323,10 @@ test('Turbulence -> Spirit remains valid, later Sky replaces the whole sequence'
  assert.equal(lab.submit().ok,true);
  assert.equal(lab.view().actorId,'A');
 });
-test('Sky -> learned Turbulence -> Spirit replaces defense and waives MP',()=>{
+test('Spirit after an armor reaction is not promoted to a second defense method',()=>{
  const lab=createV2LabController({hands:{A:['m002'],B:['d024','i003']}});
  const a=lab.reveal();lab.toggle({instanceId:a.hand[0].instanceId});
  assert.equal(lab.submit().ok,true);
- // The learned list is an engine state; the fixture test sets it up through
- // a previous initial cast in separate tests. Here use the first-use version.
  const b=lab.reveal();
  lab.toggle({instanceId:b.hand[0].instanceId});
  lab.toggle({instanceId:b.hand[1].instanceId});
