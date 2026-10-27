@@ -5,10 +5,10 @@ import {VERIFIED_BASIC_CARDS} from '../src/verified-basic-cards.mjs';
 import {createInstance} from '../v2/foundation.mjs';
 
 const get=(id)=>VERIFIED_BASIC_CARDS.find(c=>c.id===id);
-test('entire current 68-card partial catalog migrates with exact 186-slot total and no duplicate IDs',()=>{
+test('entire current 69-card partial catalog migrates with exact 187-slot total and no duplicate IDs',()=>{
  const out=migrateLegacyCatalog();
- assert.equal(out.summary.unique,68);assert.equal(out.summary.slots,186);assert.equal(out.summary.complete,false);
- assert.equal(out.byId.size,68);assert.equal(out.definitions.length,68);
+ assert.equal(out.summary.unique,69);assert.equal(out.summary.slots,187);assert.equal(out.summary.complete,false);
+ assert.equal(out.byId.size,69);assert.equal(out.definitions.length,69);
 });
 test('base attack, guard, MP, price, element, weight are preserved for every card',()=>{
  const out=migrateLegacyCatalog();
@@ -45,6 +45,8 @@ test('reflect/deflect, strip, angel stop and wall effects are typed and sourced'
  assert.equal(convertLegacyCard(get('i001')).effects[0].type,'stripElement');
  assert.equal(convertLegacyCard(get('d018')).effects[0].params.scope,'miracle');
  assert.equal(convertLegacyCard(get('m001')).effects[0].params.scope,'neutralWeapon');
+ assert.deepEqual(convertLegacyCard(get('m007')).effects[0].params,{mode:'deflect',scope:'miracle'});
+ assert.deepEqual(convertLegacyCard(get('m007')).playModes,['defend']);
 });
 test('miracles can support double weapon, plus attack, casting, and spirit effects',()=>{
  const aura=convertLegacyCard(get('m004'));assert.equal(aura.stats.mpCost,6);
