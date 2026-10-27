@@ -273,12 +273,12 @@ const __v2_module_1 = (() => {
 const PARTIAL_CARD_SOURCE = 'piong-atwiki-and-macaron-2026-02-28';
 const main=(id,referenceName,attack,price,weight,{element='none',guard,reaction,reactionScope='neutral_weapon',stopScope}={})=>
   Object.freeze({id,referenceName,kind:'weapon',slot:'main',category:'weapon_single',element,attack,price,weight,...(guard===undefined?{}:{guard}),...(reaction===undefined?{}:{reaction,reactionScope}),...(stopScope===undefined?{}:{stopScope})});
-const add=(id,referenceName,attack,price,weight=1,{element='none',reaction,reactionScope,stopScope}={})=>
-  Object.freeze({id,referenceName,kind:'weapon',slot:'addon',category:'weapon_single',element,attack,price,weight,...(reaction===undefined?{}:{reaction,reactionScope}),...(stopScope===undefined?{}:{stopScope})});
+const add=(id,referenceName,attack,price,weight=1,{element='none',reaction,reactionScope,stopScope,attackElementOverride}={})=>
+  Object.freeze({id,referenceName,kind:'weapon',slot:'addon',category:'weapon_single',element,attack,price,weight,...(reaction===undefined?{}:{reaction,reactionScope}),...(stopScope===undefined?{}:{stopScope}),...(attackElementOverride===undefined?{}:{attackElementOverride})});
 const shield=(id,referenceName,guard,price,weight,{element='none',attackBonus,stopScope,reaction,reactionScope}={})=>
   Object.freeze({id,referenceName,kind:'armor',category:'armor_normal',element,guard,price,weight,...(attackBonus===undefined?{}:{attackBonus}),...(stopScope===undefined?{}:{stopScope}),...(reaction===undefined?{}:{reaction,reactionScope})});
 
-/** Read-only 83-card subset. Do not normalize and sample as the full deck. */
+/** Read-only 85-card subset. Do not normalize and sample as the full deck. */
 const VERIFIED_BASIC_CARDS = Object.freeze([
   main('w001','銅のこん棒',1,1,3),
   main('w002','銀のこん棒',1,10,1),
@@ -324,6 +324,8 @@ const VERIFIED_BASIC_CARDS = Object.freeze([
   add('a011','冥矢',5,15,1,{element:'dark'}),
   add('a012','スカイハープーン',9,5,1,{reaction:'deflect',reactionScope:'miracle'}),
   add('a013','エンゼルの弓',15,15,1,{stopScope:'miracle'}),
+  add('a014','魔水のワンド',5,15,1,{element:'water',attackElementOverride:'water'}),
+  add('a015','発火のワンド',2,15,1,{element:'fire',attackElementOverride:'fire'}),
   shield('d001','革の帽子',1,1,10),
   shield('d002','革の服',2,2,10),
   shield('d003','アイアンガントレット',3,3,8),
@@ -524,7 +526,7 @@ const {VERIFIED_BASIC_CARDS,PARTIAL_CARD_SOURCE} = __v2_module_1;
 const KNOWN_KEYS=new Set([
   'id','referenceName','kind','category','slot','element','attack','guard',
   'attackBonus','price','weight','reaction','reactionScope','stopScope',
-  'role','boost','plusAttack','mpCost','effect'
+  'role','boost','plusAttack','mpCost','effect','attackElementOverride'
 ]);
 const CATEGORY_BY_KIND=Object.freeze({weapon:'weapon_single',armor:'armor_normal',miracle:'miracle',defense_item:'item',support_item:'item'});
 const mk=(when,type,params={})=>({when,type,params});
@@ -567,6 +569,12 @@ function convertLegacyCard(card,{ruleset=PARTIAL_CARD_SOURCE}={}) {
       }));
     } else if(card.reactionScope!==undefined)
       throw new Error('Orphan weapon reaction scope');
+    if(card.attackElementOverride!==undefined){
+      if(card.slot!=='addon'||!['fire','water'].includes(card.attackElementOverride)||
+         card.element!==card.attackElementOverride)
+        throw new Error('Unverified attribute override definition');
+      effects.push(mk('onDeclare','setAttackElement',{element:card.attackElementOverride}));
+    }
   } else if(card.kind==='armor') {
     if(!truthyInt(card.guard))throw new Error('Malformed armor');
     guard=card.guard;modes.push('defend');
@@ -1133,6 +1141,8 @@ function compileOrderedWeaponAttack(state,catalog){
   let weaponAttack=0,attackElement='none',mainCount=0,weaponCount=0;
   let aura=null,plusCount=0,additive=0,lastWasMiracle=false,hasArmorBonus=false;
   let learnedDrawCount=0;
+  let forcedAttackElement=null;
+  const weaponElements=new Set();
   const casts=[],selectedKinds=[];
   const miracles=[];
   for(const {instance,def,fromLearned} of selected){
@@ -1147,9 +1157,18 @@ function compileOrderedWeaponAttack(state,catalog){
         if(def.playModes.includes('mainAttack'))mainCount++;
         if(mainCount>1)fail('Too many main weapons');
         attackElement=weaponCount===0?def.element:combineElements(attackElement,def.element);
+        if(def.element!=='none')weaponElements.add(def.element);
         weaponCount++;
       } else {hasArmorBonus=true;if(aura)fail('Aura with armor attack bonus unverified');}
       for(const eff of def.effects){
+        if(eff.type==='setAttackElement'&&eff.when==='onDeclare' && def.family==='weapon' &&
+           def.playModes.includes('addAttack') && ['fire','water'].includes(eff.params.element) &&
+           eff.params.element===def.element){
+          if(forcedAttackElement!==null)
+            fail('Multiple attack-element override wands unverified');
+          forcedAttackElement=eff.params.element;
+          continue;
+        }
         if(!['redirectAttack','stopAttack'].includes(eff.type)||eff.when!=='onDefense')
           fail('Unsupported weapon or armor effect');
       }
@@ -1199,13 +1218,18 @@ function compileOrderedWeaponAttack(state,catalog){
   if(miracles.length&&state.pending.targetId===caster.id)
     fail('Boosted self-target attack has not been verified');
   if(aura&&plusCount)fail('Aura plus additive miracle ordering unverified');
+  if(forcedAttackElement!==null){
+    if(plusCount)fail('Element-setting wand with plus miracle unverified');
+    if([...weaponElements].some(x=>x!==forcedAttackElement))
+      fail('Conflicting elemental weapons with override wand unverified');
+  }
   // Aura multiplies all weapon attack values, even addons chosen later.
   const attack=add(aura?add(weaponAttack,weaponAttack):weaponAttack,additive);
   const payableMP=miracles.reduce((n,m)=>add(n,m.discounted?0:m.mpCost),0);
   if(caster.mp<payableMP)fail('Not enough MP');
   const learnedMiracles=[...new Set(miracles.map(m=>m.id))];
   return Object.freeze({
-    attack,element:attackElement,attackKind:'weapon',
+    attack,element:forcedAttackElement??attackElement,attackKind:'weapon',
     instanceIds:Object.freeze(selected.filter(x=>x.instance).map(x=>x.instance.instanceId)),
     payableMP,learnedDrawCount,learnedMiracles:Object.freeze(learnedMiracles),
     hasModifiers:miracles.length>0,
