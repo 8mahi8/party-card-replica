@@ -130,3 +130,12 @@ GitHub Actionsでもpush/PR時にテストする設定です（実際のGitHub�
 - GitHub Actions Node.js：**301テスト合格・失敗0**。ただしiPad Safariの実際の描画/操作・Google Sites貼付けは未検証。
 - [V2試遊画面の説明](v2/demo/README.md) と [引き継ぎ・検証資料](docs/V2_G5_TOUCH_TRIAL_2026-10-27.md) を参照。
 - **固定テスト手札・固定補充の開発版。原作出現率やオンライン対戦が完成したわけではない。既存main/学校公開版は変更しない。**
+
+## V2 G5：実ブラウザのUI自動検証
+
+- [Chromium実操作テスト](tests/v2-browser-smoke.browser.mjs) と [CI](.github/workflows/v2-browser-smoke.yml) を追加。Nodeのモックではなく、実際のChromeでHTMLを開いてボタン座標からクリック。
+- iPad横向き相当の1024×768、スマホ幅390×844で、手札隠し、攻撃・防御の切替、カード選択、リセット、横方向はみ出しを確認。
+- **初回Chromeテスト13項目すべて成功**（run 40516126080）、同一コードの既存Nodeテスト301件も合格（run 40516126276）。
+- スクリーンショットを確認してCI環境の日本語フォント欠落を発見。テスト環境にNoto CJKを追加し、画面の表示をP1/P2へ、確定ボタンは画面下固定へ改善。
+- 追加のブラウザテスト、スクリーンショットの保存と再検証を開発用CIで継続。**Chrome検証はSafari・Google Sites埋め込み・2台オンライン対戦の動作保証ではない**。
+- [検証と画面レビューの記録](docs/V2_G5_BROWSER_SMOKE_2026-10-27.md)。
