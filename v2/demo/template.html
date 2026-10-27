@@ -55,7 +55,8 @@ h2 small{font-weight:400;color:#8fa7c7;margin-left:5px;font-size:12px}
 .primary{background:linear-gradient(100deg,#88e2e4,#9deac3);color:#062939;border:0;border-radius:14px;font-size:17px;font-weight:900;min-height:54px;padding:14px 20px}
 .primary:active{filter:brightness(.85)}
 .wide{display:block;width:100%;max-width:600px;margin:auto}
-.confirm{margin-top:16px}
+.confirm{position:fixed;bottom:max(12px,env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);z-index:20;width:min(calc(100% - 32px),600px);max-width:600px;margin:0;box-shadow:0 8px 28px #060e1cdd;border:2px solid #16394a}
+.stage{padding-bottom:105px}
 footer{margin-top:18px;display:flex;align-items:center;gap:12px;justify-content:space-between;flex-wrap:wrap;color:#89a0bc;font-size:11px}
 .quiet{border:1px solid #46566f;color:#b3cbe4;background:transparent;border-radius:10px;min-height:44px;padding:10px 14px}
 @media(max-width:640px){
