@@ -10,6 +10,8 @@ import {reflectTarget} from '../src/rules.mjs';
 import {createInstance, drawRandom32} from './foundation.mjs';
 import {compileBasicWeaponAttack,resolveBasicFixture} from './basic-resolution.mjs';
 import {isWallDefense,resolveWallFixture} from './wall-resolution.mjs';
+import {queuedAttackCosts} from './ordered-attack.mjs';
+import {runEffectQueueFixture} from './effect-runner.mjs';
 
 function bad(message){throw new Error(message);}
 function player(state,id){
@@ -17,18 +19,14 @@ function player(state,id){
  if(!found)bad('Unknown player');
  return found;
 }
-function copyState(state) {
- return {...state,players:state.players.map(p=>({...p,hand:p.hand.map(x=>({...x})),learned:[...p.learned]})),
-   processedCommands:[...state.processedCommands],
-   pending:{...state.pending,spentByPlayer:{...state.pending.spentByPlayer}}
- };
-}
 function locateDefense(state,catalog) {
  if(!state || state.schemaVersion!==2 || state.phase!=='resolving' || !state.pending)
    bad('No staged defense');
  const p=state.pending;
  if(!p.defense || p.defense.playerId!==p.targetId)
    bad('Defense response missing');
+ if(p.defense.learnedDefinitionId!==undefined)
+   bad('Redirect may not mix learned defensive miracles');
  const receiver=player(state,p.targetId);
  const indices=p.defense.instanceIds;
  if(!Array.isArray(indices) || new Set(indices).size!==indices.length)
@@ -75,7 +73,7 @@ export function resolveRedirectFixture(state,catalog,{
    bad('Unsupported redirect mode');
  const attackContext=p.attackContext??compileBasicWeaponAttack(state,catalog);
  if(attackContext.attackKind!=='weapon')bad('Only weapon attack redirect implemented');
- if(attackContext.hasModifiers)bad('Boosted weapon reactions require G3 redirect-cost support');
+ // Combined weapon attacks pay costs exactly once on the first redirect.
  if(effect.params.scope==='neutralWeapon' && attackContext.element!=='none')
    bad('Reaction cannot redirect this attack');
  if(!['any','neutralWeapon'].includes(effect.params.scope))
@@ -100,31 +98,24 @@ export function resolveRedirectFixture(state,catalog,{
    source:sourceId,target:p.targetId,actor:p.targetId,
    mode:effect.params.mode,living,rng
  });
- // We have fully validated the selection and RNG before mutating a copy.
- const result=copyState(state);
+ // Reuse the central queue for every cost, including learned spell draws.
+ // In the paused mode the runner retains the pending attack and its refill
+ // credits, without drawing any cards or advancing a turn.
+ const initialCosts=p.attackContext?[]:queuedAttackCosts(attackContext,p.originalAttackerId);
+ const paused=runEffectQueueFixture(state,catalog,[
+   ...initialCosts,
+   {type:'spend',playerId:p.targetId,instanceIds:[reaction.instance.instanceId]}
+ ],{labOnly:true,fixtureDrawDefinitionId,interruptionOnly:true});
+ const result=paused.state;
  result.rngSeed=nextSeed;
- const spent={...p.spentByPlayer};
- const events=[];
- if(!p.attackContext){
-   const ids=new Set(attackContext.instanceIds);
-   const actor=player(result,p.originalAttackerId);
-   const before=actor.hand.length;
-   actor.hand=actor.hand.filter(x=>!ids.has(x.instanceId));
-   if(before-actor.hand.length!==ids.size)bad('Missing original attack card');
-   spent[actor.id]=(spent[actor.id]??0)+ids.size;
-   events.push({type:'spend',playerId:actor.id,count:ids.size});
- }
- const defender=player(result,p.targetId);
- defender.hand=defender.hand.filter(x=>x.instanceId!==reaction.instance.instanceId);
- spent[defender.id]=(spent[defender.id]??0)+1;
- events.push({type:'spend',playerId:defender.id,count:1});
- events.push({type:'redirect',mode:effect.params.mode,
+ const events=[...paused.events,{
+   type:'redirect',mode:effect.params.mode,
    by:p.targetId,from:sourceId,to:route.target,
-   cardId:reaction.def.id});
- result.revision++;
+   cardId:reaction.def.id
+ }];
  result.pending={
-   ...p,sourceId:route.source,targetId:route.target,
-   attackContext,spentByPlayer:spent,defense:null
+   ...result.pending,sourceId:route.source,targetId:route.target,
+   attackContext,defense:null
  };
  if(route.target===p.targetId) {
    // Self-deflection is an immediate hit, not an extra defense opportunity.
