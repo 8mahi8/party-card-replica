@@ -57,19 +57,13 @@ function explainAttackEffects(def) {
   }
 }
 /**
- * Compile an already-staged order of card instances into a deterministic plan.
- * Compiling DOES NOT spend cards or roll RNG. Can be called to validate legal
- * actions after defending, before committing any state changes.
+ * Pure weapon attack compiler. Chained reflections preserve this calculated
+ * immutable payload rather than reselecting cards already consumed.
  */
-export function compileBasicResolution(state,catalog) {
-  if(!(catalog instanceof Map)||!catalog.size)fail('Missing catalog');
-  if(!state||state.schemaVersion!==2||state.phase!=='resolving'||!state.pending||
-     state.pending.type!=='attack')fail('Not a pending basic attack');
-  const p=state.pending;
-  const attacker=getPlayer(state,p.originalAttackerId),defender=getPlayer(state,p.targetId);
-  if(attacker.hp<=0||defender.hp<=0)fail('Actor or target is dead');
-  const attacking=locateHandCards(attacker,p.attackInstanceIds,catalog);
-  if(!attacking.length)fail('No weapon selected');
+export function compileBasicWeaponAttack(state,catalog) {
+  if(!state?.pending?.attackInstanceIds?.length)fail('No weapon selected');
+  const attacker=getPlayer(state,state.pending.originalAttackerId);
+  const attacking=locateHandCards(attacker,state.pending.attackInstanceIds,catalog);
   if(attacking[0].def.family!=='weapon')
     fail('Basic resolution requires weapon first');
   let attack=0,element='none',mainCount=0,weaponCount=0;
@@ -89,6 +83,26 @@ export function compileBasicResolution(state,catalog) {
     attack=safeAdd(attack,def.stats.attack);
   }
   if(!weaponCount)fail('No attacking weapon');
+  return Object.freeze({attack,element,attackKind:'weapon',
+    instanceIds:Object.freeze(attacking.map(x=>x.instance.instanceId))});
+}
+
+/**
+ * Compile an already-staged order of card instances into a deterministic plan.
+ * Compiling DOES NOT spend cards or roll RNG. Can be called to validate legal
+ * actions after defending, before committing any state changes.
+ */
+export function compileBasicResolution(state,catalog) {
+  if(!(catalog instanceof Map)||!catalog.size)fail('Missing catalog');
+  if(!state||state.schemaVersion!==2||state.phase!=='resolving'||!state.pending||
+     state.pending.type!=='attack')fail('Not a pending basic attack');
+  const p=state.pending;
+  const attacker=getPlayer(state,p.originalAttackerId),defender=getPlayer(state,p.targetId);
+  if(attacker.hp<=0||defender.hp<=0)fail('Actor or target is dead');
+  const attackContext=p.attackContext??compileBasicWeaponAttack(state,catalog);
+  const {attack,element}=attackContext;
+  if(attackContext.attackKind!=='weapon'||!Number.isSafeInteger(attack)||attack<0)
+    fail('Unsupported cached attack payload');
   const isSelf=attacker.id===defender.id;
   let defending=[];
   if(isSelf) {
@@ -118,7 +132,7 @@ export function compileBasicResolution(state,catalog) {
   }
   const hit=calculateHit({attack,element,armor,hp:defender.hp,rainbowCurtain:stripElement});
   const queue=Object.freeze([
-    Object.freeze({type:'spend',playerId:attacker.id,instanceIds:Object.freeze(attacking.map(x=>x.instance.instanceId))}),
+    ...(p.attackContext?[]:[Object.freeze({type:'spend',playerId:attacker.id,instanceIds:attackContext.instanceIds})]),
     ...(isSelf?[]:[Object.freeze({type:'spend',playerId:defender.id,instanceIds:Object.freeze(defending.map(x=>x.instance.instanceId))})]),
     Object.freeze({type:'hit',targetId:defender.id,damage:hit.damage,hpAfter:hit.hpAfter,instantDefeat:hit.instantDefeat}),
     Object.freeze({type:'refill',order:'seating',maxHand:MAX_HAND_SIZE}),
@@ -157,7 +171,7 @@ export function resolveBasicFixture(state,catalog,{
     pending:null,revision:state.revision+1
   };
   const events=[];
-  const spent=Object.create(null);
+  const spent=Object.assign(Object.create(null),state.pending.spentByPlayer??{});
   for(const effect of plan.queue) {
     if(effect.type==='spend') {
       const player=getPlayer(s,effect.playerId);
