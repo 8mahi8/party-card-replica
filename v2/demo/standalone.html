@@ -1668,7 +1668,8 @@ const __v2_module_11 = (() => {
 "use strict";
 const {applyStagingCommand} = __v2_module_4;
 const {resolveRedirectFixture} = __v2_module_9;
-const {resolveSoloMiracleFixture} = __v2_module_10;
+const {resolveSoloMiracleFixture,compileSoloMiracleResolution} = __v2_module_10;
+const {compileOrderedWeaponAttack} = __v2_module_6;
 
 /**
  * V2 G3 integration layer: ONE lab command entrypoint for staged attacks.
@@ -1681,6 +1682,7 @@ const {resolveSoloMiracleFixture} = __v2_module_10;
  * This module is LAB-ONLY. It uses an audited-incomplete fixture card draw
  * and must not be used for production card probability or online play.
  */
+
 
 
 
@@ -1756,6 +1758,23 @@ function submitAndResolveFixture(state,command,catalog,{
   if(stage.duplicate)
     return {state:stage.state,applied:false,duplicate:true,autoResolved:false,
       events:[],plan:null};
+  // Attack selection must be validated BEFORE asking another seat to defend.
+  // Otherwise a bad combo or MP deficit can strand both players in a
+  // pending-defense state with no way to correct the attack.
+  if(stage.state.phase==='defense' &&
+    ['playCards','playSequence','castLearned'].includes(command.type)) {
+    if(attackFamily(stage.state,catalog)==='weapon')
+      compileOrderedWeaponAttack(stage.state,catalog);
+    else {
+      // Preview the solo miracle against an empty defensive declaration.
+      // It validates opening card, learned status and MP without committing
+      // damage or consuming the defender's actual cards.
+      const p=stage.state.pending;
+      const preview={...stage.state,phase:'resolving',
+        pending:{...p,defense:{playerId:p.targetId,instanceIds:[]}}};
+      compileSoloMiracleResolution(preview,catalog);
+    }
+  }
   if(stage.state.phase!=='resolving')
     return {state:stage.state,applied:true,duplicate:false,autoResolved:false,
       events:[],plan:null};
@@ -2068,6 +2087,7 @@ function mountV2Lab(root,controller=createV2LabController()){
    if(!node||!root.contains(node))return;
    const action=node.getAttribute('data-action');
    const kind=node.getAttribute('data-card');
+   let localError=null;
    try{
      if(action==='reset'){
        if(!resetArmed)resetArmed=true;
@@ -2084,10 +2104,14 @@ function mountV2Lab(root,controller=createV2LabController()){
        resetArmed=false;controller.setTarget(decodeURIComponent(node.getAttribute('data-target')));
      }else return;
    }catch(error){
-     const feedback=root.querySelector?.('[role="status"]');
-     if(feedback)feedback.textContent=String(error?.message??'この操作はできません').slice(0,180);
+     localError=String(error?.message??'この操作はできません').slice(0,180);
    }
    render();
+   // An invalid tap must remain visible after the full screen rerenders.
+   if(localError){
+     const feedback=root.querySelector?.('[role="status"]');
+     if(feedback)feedback.textContent=localError;
+   }
  });
  render();
  return {render,controller};
