@@ -232,3 +232,26 @@ test('handoff scroll resets embedded frame but ordinary card taps do not',()=>{
  press({'data-action':'reset'});
  assert.deepEqual(positions,[[0,0],[0,0],[0,0]],'reset scrolls after confirmation');
 });
+
+// Four-or-more ordinary shield cards must remain usable after the G3
+// special-reaction parser was hardened. No original-rule three-card cap.
+test('four real controller shield taps protect against an ice miracle',()=>{
+ const lab=createV2LabController({hands:{
+   A:['m002'],B:['d014','d014','d014','d014']
+ }});
+ let hand=lab.reveal().hand;
+ lab.toggle({instanceId:hand[0].instanceId});
+ assert.equal(lab.submit().ok,true);
+ assert.equal(lab.view().phase,'defense');
+ hand=lab.reveal().hand;
+ for(const card of hand)lab.toggle({instanceId:card.instanceId});
+ assert.deepEqual(lab.view().selection.map(x=>x.instanceId),
+   hand.map(x=>x.instanceId));
+ const response=lab.submit();
+ assert.equal(response.ok,true,response.error);
+ assert.equal(response.view.phase,'turn');
+ assert.equal(response.view.revealed,false);
+ assert.equal(lab.labSnapshot().players[1].hp,40);
+ assert.equal(lab.labSnapshot().players[1].hand.length,4);
+ assert.equal(lab.labSnapshot().players[0].mp,8);
+});
