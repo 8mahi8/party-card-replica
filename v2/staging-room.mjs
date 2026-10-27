@@ -19,7 +19,8 @@ const ALLOWED_KEYS={
   playCards:new Set(['commandId','expectedRevision','actorId','type','targetId','orderedInstanceIds']),
   playSequence:new Set(['commandId','expectedRevision','actorId','type','targetId','orderedPlays']),
   castLearned:new Set(['commandId','expectedRevision','actorId','type','targetId','learnedDefinitionId']),
-  defend:new Set(['commandId','expectedRevision','actorId','type','orderedInstanceIds','learnedDefinitionId'])
+  defend:new Set(['commandId','expectedRevision','actorId','type','orderedInstanceIds','learnedDefinitionId']),
+  defendSequence:new Set(['commandId','expectedRevision','actorId','type','orderedPlays'])
 };
 
 function id(value,label) {
@@ -110,6 +111,42 @@ function takeOrderedPlays(actor,plays,catalog){
       return {learnedDefinitionId:defId};
     }
     throw new Error('Unknown sequence step source');
+  });
+}
+/** Preserve exact defensive order (including a learned miracle before a hand item). */
+function takeOrderedDefense(actor,plays,catalog){
+  if(!Array.isArray(plays)||!plays.length||plays.length>36)
+    throw new Error('Invalid ordered defense sequence');
+  const physical=new Set(),learnedSet=new Set();
+  return plays.map((step,index)=>{
+    if(!step||typeof step!=='object'||Array.isArray(step)||Object.keys(step).length!==1)
+      throw new Error('Malformed defense sequence step');
+    if(Object.hasOwn(step,'instanceId')){
+      const instanceId=id(step.instanceId,'instance ID');
+      if(physical.has(instanceId))throw new Error('Repeated defense card instance');
+      physical.add(instanceId);
+      const card=actor.hand.find(c=>c.instanceId===instanceId);
+      if(!card)throw new Error('Selected defense card not held');
+      const def=catalog.get(card.definitionId);
+      if(!def||( !def.playModes.includes('defend')&&!def.playModes.includes('support')))
+        throw new Error('Not a defensive card');
+      if(index===0&&!def.playModes.includes('defend'))
+        throw new Error('Defensive sequence must start with a defense');
+      if(def.effects.some(e=>e.type==='stripElement')&&index!==0)
+        throw new Error('Attribute remover must be first');
+      return {instanceId};
+    }
+    if(Object.hasOwn(step,'learnedDefinitionId')){
+      const definitionId=id(step.learnedDefinitionId,'learned definition ID');
+      if(learnedSet.has(definitionId))throw new Error('Repeated learned defensive miracle');
+      learnedSet.add(definitionId);
+      const def=catalog.get(definitionId);
+      if(!actor.learned.includes(definitionId)||def?.family!=='miracle'||
+        !def.playModes.includes('defend'))
+        throw new Error('Defensive miracle not learned');
+      return {learnedDefinitionId:definitionId};
+    }
+    throw new Error('Unknown defense sequence step source');
   });
 }
 /**
@@ -205,17 +242,23 @@ export function applyStagingCommand(state,command,catalog,{authorizedSeatId}={})
   } else {
     if(state.phase!=='defense'||!state.pending||
        state.pending.targetId!==actor.id)throw new Error('Not the defending seat');
-    const selected=takeLegalSelection(actor,command.orderedInstanceIds,catalog,'defense',{allowEmpty:true});
+    const sequence=command.type==='defendSequence'
+      ?takeOrderedDefense(actor,command.orderedPlays,catalog):null;
+    const selected=sequence?[]:takeLegalSelection(actor,command.orderedInstanceIds,catalog,'defense',{allowEmpty:true});
     let learned=null;
-    if(command.learnedDefinitionId!==undefined){
-      id(command.learnedDefinitionId,'learned definition ID');
-      learned=catalog.get(command.learnedDefinitionId);
-      if(!actor.learned.includes(command.learnedDefinitionId)||
+    const learnedId=sequence?.find(x=>x.learnedDefinitionId)?.learnedDefinitionId
+      ??command.learnedDefinitionId;
+    if(learnedId!==undefined){
+      id(learnedId,'learned definition ID');
+      learned=catalog.get(learnedId);
+      if(!actor.learned.includes(learnedId)||
         learned?.family!=='miracle'||!learned.playModes.includes('defend'))
         throw new Error('Defensive miracle not learned');
     }
     pending={...state.pending,defense:{playerId:actor.id,
-      instanceIds:selected.map(x=>x.instanceId),
+      instanceIds:sequence?sequence.filter(x=>x.instanceId).map(x=>x.instanceId)
+        :selected.map(x=>x.instanceId),
+      ...(sequence?{sequence}:{}),
       ...(learned?{learnedDefinitionId:learned.id}:{})}};
     phase='resolving';activePlayerId=null;
   }
