@@ -99,6 +99,8 @@ test('first hand miracle learns spell and can then cast without consuming it',()
  assert.equal(learnedView.learned[0].definitionId,'m002');
  ui.toggle(learned('m002'));
  assert.equal(ui.submit().ok,true);
+ assert.equal(ui.view().phase,'defense');
+ assert.equal(next(ui,[]).ok,true);
  state=ui.labSnapshot();
  assert.equal(state.players[0].mp,6);
  assert.equal(state.players[0].learned.length,1);
@@ -153,7 +155,7 @@ test('mounted UI delegates ordinary button presses without additional dependenci
    getAttribute:name=>attrs[name]??null,
    hasAttribute:name=>Object.hasOwn(attrs,name)
   };
-  listeners.click({target:fakeNode});
+  listeners.click({target:{closest:()=>fakeNode}});
  };
  press({'data-action':'reveal'});
  assert.match(root.innerHTML,/data-card="hand"/);
