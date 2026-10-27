@@ -699,14 +699,14 @@ function playStackedPlusMiracles(state,{
  * 調査用の参照名で、オリジナルUIの表示素材ではない。
  */
 const PARTIAL_CARD_SOURCE = 'piong-atwiki-and-macaron-2026-02-28';
-const main=(id,referenceName,attack,price,weight,{element='none',guard,reaction}={})=>
-  Object.freeze({id,referenceName,kind:'weapon',slot:'main',category:'weapon_single',element,attack,price,weight,...(guard===undefined?{}:{guard}),...(reaction===undefined?{}:{reaction,reactionScope:'neutral_weapon'})});
-const add=(id,referenceName,attack,price,weight=1,{element='none'}={})=>
-  Object.freeze({id,referenceName,kind:'weapon',slot:'addon',category:'weapon_single',element,attack,price,weight});
+const main=(id,referenceName,attack,price,weight,{element='none',guard,reaction,reactionScope='neutral_weapon',stopScope}={})=>
+  Object.freeze({id,referenceName,kind:'weapon',slot:'main',category:'weapon_single',element,attack,price,weight,...(guard===undefined?{}:{guard}),...(reaction===undefined?{}:{reaction,reactionScope}),...(stopScope===undefined?{}:{stopScope})});
+const add=(id,referenceName,attack,price,weight=1,{element='none',reaction,reactionScope,stopScope}={})=>
+  Object.freeze({id,referenceName,kind:'weapon',slot:'addon',category:'weapon_single',element,attack,price,weight,...(reaction===undefined?{}:{reaction,reactionScope}),...(stopScope===undefined?{}:{stopScope})});
 const shield=(id,referenceName,guard,price,weight,{element='none',attackBonus,stopScope,reaction,reactionScope}={})=>
   Object.freeze({id,referenceName,kind:'armor',category:'armor_normal',element,guard,price,weight,...(attackBonus===undefined?{}:{attackBonus}),...(stopScope===undefined?{}:{stopScope}),...(reaction===undefined?{}:{reaction,reactionScope})});
 
-/** Read-only 77-card subset. Do not normalize and sample as the full deck. */
+/** Read-only 83-card subset. Do not normalize and sample as the full deck. */
 const VERIFIED_BASIC_CARDS = Object.freeze([
   main('w001','銅のこん棒',1,1,3),
   main('w002','銀のこん棒',1,10,1),
@@ -735,6 +735,10 @@ const VERIFIED_BASIC_CARDS = Object.freeze([
   main('w025','ちくりんちょ',1,10,1,{element:'dark'}),
   main('w026','乱弾武剣',5,10,7,{reaction:'deflect'}),
   main('w027','反射剣',10,5,3,{reaction:'reflect'}),
+  main('w028','月光のオノ',10,10,1,{reaction:'reflect',reactionScope:'miracle'}),
+  main('w029','エンゼルナイフ',11,15,1,{stopScope:'miracle'}),
+  main('w030','エンゼルソード',13,15,1,{stopScope:'miracle'}),
+  main('w031','エンゼルアクス',15,15,1,{stopScope:'miracle'}),
   add('a001','吹き矢',1,1),
   add('a002','クロスボウ',2,2),
   add('a003','ブーメラン',3,3),
@@ -746,6 +750,8 @@ const VERIFIED_BASIC_CARDS = Object.freeze([
   add('a009','ファイヤークロスボウ',4,8,1,{element:'fire'}),
   add('a010','輝きのカケラ',1,10,1,{element:'light'}),
   add('a011','冥矢',5,15,1,{element:'dark'}),
+  add('a012','スカイハープーン',9,5,1,{reaction:'deflect',reactionScope:'miracle'}),
+  add('a013','エンゼルの弓',15,15,1,{stopScope:'miracle'}),
   shield('d001','革の帽子',1,1,10),
   shield('d002','革の服',2,2,10),
   shield('d003','アイアンガントレット',3,3,8),
