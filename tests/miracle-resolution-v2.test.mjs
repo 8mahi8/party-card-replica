@@ -131,10 +131,50 @@ test('unverified miracle plus weapon or two attack miracles is rejected',()=>{
  const b=stage(lab(hands),{attack:[0,2]});
  assert.throws(()=>resolve(b),/Only spirit directly after miracle/);
 });
-test('miracle with super mirror defense stays blocked until effect is researched',()=>{
- const hands={A:['m002'],B:['i002']};
- const s=stage(lab(hands),{defense:[0]});
- assert.throws(()=>resolve(s),/Unsupported miracle defense effect redirectAttack/);
+test('Super Mirror reflects a water miracle; original caster defends and pays only once',()=>{
+ const first=resolve(stage(lab({A:['m002','d014'],B:['i002']}),{defense:[0]}));
+ assert.equal(first.redirected,true);
+ assert.equal(first.state.phase,'defense');
+ assert.equal(first.state.activePlayerId,'A');
+ assert.equal(first.state.players[0].mp,8);
+ assert.deepEqual(first.state.players[0].learned,['m002']);
+ assert.equal(first.state.players[1].hand.length,0);
+ const a=first.state;
+ const response=applyStagingCommand(a,{
+   commandId:'miracle-reflected-defense',expectedRevision:a.revision,
+   type:'defend',actorId:'A',orderedInstanceIds:[a.players[0].hand[0].instanceId]
+ },catalog,{authorizedSeatId:'A'}).state;
+ const settled=resolve(response).state;
+ assert.equal(settled.players[0].hp,39);
+ assert.equal(settled.players[0].mp,8);
+ assert.deepEqual(settled.players[0].learned,['m002']);
+ assert.equal(settled.players[0].hand.length,2);
+ assert.equal(settled.players[1].hand.length,1);
+});
+test('two Super Mirrors bounce one miracle twice without double charging',()=>{
+ const first=resolve(stage(lab({A:['m003','i002'],B:['i002']}),{defense:[0]}));
+ let s=applyStagingCommand(first.state,{
+   commandId:'bounce1',expectedRevision:first.state.revision,
+   type:'defend',actorId:'A',
+   orderedInstanceIds:[first.state.players[0].hand[0].instanceId]
+ },catalog,{authorizedSeatId:'A'}).state;
+ const second=resolve(s);
+ assert.equal(second.state.activePlayerId,'B');
+ assert.equal(second.state.players[0].mp,5);
+ s=applyStagingCommand(second.state,{
+   commandId:'bounce2',expectedRevision:second.state.revision,
+   type:'defend',actorId:'B',orderedInstanceIds:[]
+ },catalog,{authorizedSeatId:'B'}).state;
+ const settled=resolve(s).state;
+ assert.equal(settled.phase,'finished');
+ assert.equal(settled.winnerId,'A');
+ assert.equal(settled.players[0].mp,5);
+});
+test('mirror plus armor is rejected atomically',()=>{
+ const s=stage(lab({A:['m002'],B:['i002','d014']}),{defense:[0,1]});
+ const before=JSON.stringify(s);
+ assert.throws(()=>resolve(s),/Super Mirror must be used alone/);
+ assert.equal(JSON.stringify(s),before);
 });
 test('self-cast dark miracle cannot be defended and awards victory to opponent',()=>{
  const hands={A:['m003'],B:['d001']};
