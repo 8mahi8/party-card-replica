@@ -303,6 +303,46 @@ async function testMiracleDefenseSwitchTouch(base){
  }
 }
 
+
+async function testAdditiveOnlyTouch(base){
+ const context=await browser.newContext({
+   viewport:{width:1024,height:768},screen:{width:1024,height:768},
+   deviceScaleFactor:2,isMobile:true,hasTouch:true,locale:'ja-JP'
+ });
+ try{
+   page=await context.newPage();
+   await page.goto(base+'/embed-harness.html',{waitUntil:'load'});
+   const frame=page.frameLocator('#game-embed');
+   await frame.locator('[data-action=reveal]').tap();
+   const addon=frame.locator('[data-card=hand]').filter({hasText:'ブーメラン'});
+   passed(await addon.count()===1,'Boomerang +ATK exists in the opening hand');
+   passed((await addon.textContent()).includes('+攻3'),'Extra weapon must show printed +ATK, not ordinary ATK');
+   passed((await frame.locator('.stage-heading').textContent()).includes('追加武器だけでも攻撃可'),
+     'Attack UI must tell players standalone +ATK attacks are allowed');
+   await addon.tap();
+   passed((await frame.locator('.picks').textContent()).includes('ブーメラン'),
+     'Additive-only selection is highlighted after one tap');
+   await screenshot('webkit-additive-only-selected');
+   await frame.locator('[data-action=submit]').tap();
+   await frame.locator('.compact-pass').waitFor();
+   passed((await frame.locator('.compact-pass h1').textContent()).includes('P2'),
+     'Additive-only attack must reach the defender');
+   await frame.locator('[data-action=reveal]').tap();
+   await frame.locator('[data-action=submit]').tap();
+   await frame.locator('.compact-pass').waitFor();
+   await frame.locator('[data-action=reveal]').tap();
+   const info=await frame.locator('.seat').allTextContents();
+   passed(info[1].includes('HP 37'),'Standalone +ATK3 deals three damage with no defense');
+   passed(info[0].includes('MP 10'),'Standalone +ATK must not charge miracle MP');
+   await screenshot('webkit-additive-only-complete');
+ }catch(error){
+   await screenshot('webkit-additive-only-failure');
+   throw error;
+ }finally{
+   page=null;await context.close();
+ }
+}
+
 try{
   if(!existsSync(path.join(ROOT,'v2/demo/standalone.html')))
     throw new Error('Missing checked-in standalone HTML');
@@ -313,6 +353,7 @@ try{
   await testTurbulenceTouch(base);
   await testSkyMoonTouch(base);
   await testMiracleDefenseSwitchTouch(base);
+  await testAdditiveOnlyTouch(base);
   console.log('WEBKIT_SMOKE_SUCCESS checks='+checks+' engine=Playwright WebKit'+
     ' fixed-height frames=1024x460,390x430');
 }catch(error){
