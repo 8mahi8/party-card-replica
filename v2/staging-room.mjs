@@ -175,7 +175,7 @@ export function viewStagingRoom(state,viewerId) {
       ...(q.id===p.id?{hand:q.hand.map(x=>({instanceId:x.instanceId,definitionId:x.definitionId})),learned:[...q.learned]}:{})
     })),
     pending:state.pending?{
-      type:state.pending.type,sourceId:state.pending.originalAttackerId,
+      type:state.pending.type,sourceId:state.pending.sourceId??state.pending.originalAttackerId,
       targetId:state.pending.targetId,
       stage:state.pending.defense?'awaitingResolution':'awaitingDefense'
     }:null
