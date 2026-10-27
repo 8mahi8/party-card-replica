@@ -11,6 +11,7 @@
  */
 import {canBlock, combineElements, calculateHit, MAX_HAND_SIZE} from '../src/rules.mjs';
 import {runEffectQueueFixture} from './effect-runner.mjs';
+import {compileOrderedWeaponAttack,queuedAttackCosts} from './ordered-attack.mjs';
 
 const MAX_ATTACK=Number.MAX_SAFE_INTEGER;
 function fail(message) { throw new Error(message); }
@@ -61,30 +62,7 @@ function explainAttackEffects(def) {
  * immutable payload rather than reselecting cards already consumed.
  */
 export function compileBasicWeaponAttack(state,catalog) {
-  if(!state?.pending?.attackInstanceIds?.length)fail('No weapon selected');
-  const attacker=getPlayer(state,state.pending.originalAttackerId);
-  const attacking=locateHandCards(attacker,state.pending.attackInstanceIds,catalog);
-  if(attacking[0].def.family!=='weapon')
-    fail('Basic resolution requires weapon first');
-  let attack=0,element='none',mainCount=0,weaponCount=0;
-  for(const {def} of attacking) {
-    const weapon=def.family==='weapon';
-    if(weapon) {
-      if(!def.playModes.some(m=>m==='mainAttack'||m==='addAttack'))
-        fail('Weapon cannot attack');
-      mainCount+=Number(def.playModes.includes('mainAttack'));
-      if(mainCount>1)fail('Too many main weapons');
-      element=weaponCount===0?def.element:combineElements(element,def.element);
-      weaponCount++;
-    } else if(!(def.family==='armor'&&def.playModes.includes('addAttack'))) {
-      fail('Unsupported attack combination; miracle and special combos belong to later G3');
-    }
-    explainAttackEffects(def);
-    attack=safeAdd(attack,def.stats.attack);
-  }
-  if(!weaponCount)fail('No attacking weapon');
-  return Object.freeze({attack,element,attackKind:'weapon',
-    instanceIds:Object.freeze(attacking.map(x=>x.instance.instanceId))});
+  return compileOrderedWeaponAttack(state,catalog);
 }
 
 /**
@@ -133,7 +111,7 @@ export function compileBasicResolution(state,catalog) {
   }
   const hit=calculateHit({attack,element,armor,hp:defender.hp,rainbowCurtain:stripElement});
   const queue=Object.freeze([
-    ...(p.attackContext?[]:[Object.freeze({type:'spend',playerId:attacker.id,instanceIds:attackContext.instanceIds})]),
+    ...(p.attackContext?[]:queuedAttackCosts(attackContext,attacker.id)),
     ...(isSelf?[]:[Object.freeze({type:'spend',playerId:defender.id,instanceIds:Object.freeze(defending.map(x=>x.instance.instanceId))})]),
     Object.freeze({type:'hit',targetId:defender.id,damage:hit.damage,hpAfter:hit.hpAfter,instantDefeat:hit.instantDefeat}),
     Object.freeze({type:'refill',order:'seating',maxHand:MAX_HAND_SIZE}),
