@@ -31,7 +31,7 @@ export function compileWallResolution(state,catalog) {
  if(!p.defense||p.defense.playerId!==p.targetId)bad('Wall defense response required');
  const caster=find(state,p.targetId),attacker=find(state,p.originalAttackerId);
  if(caster.hp<=0||attacker.hp<=0)bad('Dead wall participant');
- if(p.sourceId===p.targetId||p.originalAttackerId===p.targetId)
+ if((p.sourceId??p.originalAttackerId)===p.targetId)
    bad('Self directed attacks cannot be stopped');
  if(!Array.isArray(p.defense.instanceIds)||new Set(p.defense.instanceIds).size!==p.defense.instanceIds.length)
    bad('Invalid wall card selection');
