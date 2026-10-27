@@ -97,7 +97,9 @@ function takeOrderedPlays(actor,plays,catalog){
       const def=catalog.get(instance.definitionId);
       if(!def||!def.playModes.some(mode=>['mainAttack','addAttack','cast','support'].includes(mode)))
         throw new Error('Not a structural attack selection');
-      if(index===0 && def.family!=='weapon')throw new Error('Sequence must begin with weapon');
+      if(index===0 && def.family!=='weapon' &&
+         !(def.family==='miracle' && def.playModes.includes('cast') && def.stats.attack>0))
+        throw new Error('Sequence must begin with weapon or offensive miracle');
       return {instanceId};
     }
     if(keys[0]==='learnedDefinitionId'){
