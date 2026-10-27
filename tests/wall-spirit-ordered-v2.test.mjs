@@ -166,7 +166,9 @@ test('DefendSequence is idempotent, conflict-checks exact order and stays privat
  },catalog,{authorizedSeatId:'B'}),/Conflicting commandId/);
  const publicView=viewStagingRoom(first.state,'A');
  assert.equal(JSON.stringify(publicView).includes('defenseSequence'),false);
- assert.equal(JSON.stringify(publicView).includes('ci-'),false);
+ assert.equal(JSON.stringify(publicView).includes('orderedPlays'),false);
+ assert.equal(Object.hasOwn(publicView.players[1],'hand'),false);
+ assert.equal(Object.hasOwn(publicView.players[0],'hand'),true);
 });
 test('Wall-Spirit reacts safely after redirect to original attacker',()=>{
  const s=room({A:['w016','i003'],B:['w027']},{
