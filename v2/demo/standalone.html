@@ -65,6 +65,8 @@ h2 small{font-weight:400;color:#8fa7c7;margin-left:5px;font-size:12px}
 .confirm{position:fixed;bottom:max(12px,env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);z-index:20;width:min(calc(100% - 32px),600px);max-width:600px;margin:0;box-shadow:0 8px 28px #060e1cdd;border:2px solid #16394a}
 .stage{padding-bottom:105px}
 footer{margin-top:18px;display:flex;align-items:center;gap:12px;justify-content:space-between;flex-wrap:wrap;color:#89a0bc;font-size:11px}
+/* Reserve space beneath footer actions when the fixed confirm bar is shown. */
+.stage+footer{padding-bottom:96px}
 .quiet{border:1px solid #46566f;color:#b3cbe4;background:transparent;border-radius:10px;min-height:44px;padding:10px 14px}
 @media(max-width:640px){
 #v2-root{padding:12px 10px 28px}
