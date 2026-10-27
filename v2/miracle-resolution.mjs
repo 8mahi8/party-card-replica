@@ -50,8 +50,13 @@ export function compileSoloMiracleResolution(state,catalog) {
  }
  const miracle=learnedId!==null?catalog.get(learnedId):cards[0].def;
  if(!miracle)fail('Missing learned miracle definition');
+ // A +attack miracle selected FIRST is an offensive miracle, not a
+ // weapon modifier. Its onDeclare/addAttack tag is inert in this position.
+ const soloEffectsSupported=miracle.effects.length===0 ||
+   (miracle.effects.length===1&&miracle.effects[0].when==='onDeclare'&&
+    miracle.effects[0].type==='addAttack'&&miracle.effects[0].params.scope==='weapon');
  if(miracle.family!=='miracle'||!miracle.playModes.includes('cast')||miracle.stats.attack<=0||
-    miracle.effects.length)fail('Not a supported solo attack miracle');
+    !soloEffectsSupported)fail('Not a supported solo attack miracle');
  let spirit=false;
  if(cards.length===2){
    const support=cards[1].def;
