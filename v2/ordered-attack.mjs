@@ -48,20 +48,21 @@ export function compileOrderedWeaponAttack(state,catalog){
   if(selected[0].def.family!=='weapon')
     fail('Basic resolution requires weapon first');
   let weaponAttack=0,attackElement='none',mainCount=0,weaponCount=0;
-  let aura=null,plusCount=0,additive=0,lastWasMiracle=false;
+  let aura=null,plusCount=0,additive=0,lastWasMiracle=false,hasArmorBonus=false;
   const casts=[],selectedKinds=[];
   const miracles=[];
   for(const {instance,def} of selected){
     const mult=effectsOf(def,'multiplyAttack');
     const discount=effectsOf(def,'waivePreviousMp');
     if(def.family==='weapon'||(def.family==='armor'&&def.playModes.includes('addAttack'))){
+      if(plusCount)fail('Weapon or armor after plus miracle unverified');
       if(def.family==='weapon'){
         if(!def.playModes.some(mode=>mode==='mainAttack'||mode==='addAttack'))fail('Weapon is not attackable');
         if(def.playModes.includes('mainAttack'))mainCount++;
         if(mainCount>1)fail('Too many main weapons');
         attackElement=weaponCount===0?def.element:combineElements(attackElement,def.element);
         weaponCount++;
-      } else if(plusCount)fail('Attack bonus armor after plus miracle unverified');
+      } else {hasArmorBonus=true;if(aura)fail('Aura with armor attack bonus unverified');}
       for(const eff of def.effects){
         if(!['redirectAttack','stopAttack'].includes(eff.type)||eff.when!=='onDefense')
           fail('Unsupported weapon or armor effect');
@@ -74,7 +75,7 @@ export function compileOrderedWeaponAttack(state,catalog){
         fail('Invalid miracle MP');
       if(mult.length===1 && mult[0].when==='onDeclare' && mult[0].params.factor===2 &&
          mult[0].params.scope==='weapon' && def.playModes.includes('cast')){
-        if(aura||plusCount)fail('Aura stacked with other miracles unverified');
+        if(aura||plusCount||hasArmorBonus)fail('Aura stacked with other miracles or armor bonus unverified');
         if(def.effects.length!==1)fail('Unrecognized Aura effects');
         aura=def.id;
       } else if(def.effects.length===0 && def.playModes.includes('addAttack')&&def.stats.attack>0
