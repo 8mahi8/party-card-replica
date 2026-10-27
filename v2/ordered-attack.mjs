@@ -53,6 +53,7 @@ export function compileOrderedWeaponAttack(state,catalog){
   const miracles=[];
   for(const {instance,def} of selected){
     const mult=effectsOf(def,'multiplyAttack');
+    const plus=effectsOf(def,'addAttack');
     const discount=effectsOf(def,'waivePreviousMp');
     if(def.family==='weapon'||(def.family==='armor'&&def.playModes.includes('addAttack'))){
       if(plusCount)fail('Weapon or armor after plus miracle unverified');
@@ -78,13 +79,15 @@ export function compileOrderedWeaponAttack(state,catalog){
         if(aura||plusCount||hasArmorBonus)fail('Aura stacked with other miracles or armor bonus unverified');
         if(def.effects.length!==1)fail('Unrecognized Aura effects');
         aura=def.id;
-      } else if(def.effects.length===0 && def.playModes.includes('addAttack')&&def.stats.attack>0
-         && (def.id==='m005'||def.id==='m006')){
+      } else if(plus.length===1 && def.effects.length===1 &&
+         plus[0].when==='onDeclare' && plus[0].params.scope==='weapon' &&
+         def.playModes.includes('addAttack') && def.stats.attack>0){
         if(aura)fail('Aura stacked with other miracles unverified');
         plusCount++;
         if(plusCount>2)fail('More than two plus miracles not verified');
-        if(plusCount===2 && (def.id!=='m005'||miracles[0]?.id!=='m005'))
-          fail('Only two Fireballs verified');
+        if(plusCount===2 && (def.id!==miracles[0]?.id ||
+          plus[0].params.stacking!=='identicalPair'))
+          fail('Only identical verified plus pair may stack');
         additive=add(additive,def.stats.attack);
         attackElement=combineElements(attackElement,def.element);
       } else fail('Unsupported attack miracle effect');
