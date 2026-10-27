@@ -11,7 +11,7 @@
  */
 import {applyStagingCommand} from './staging-room.mjs';
 import {resolveRedirectFixture} from './redirect-resolution.mjs';
-import {resolveSoloMiracleFixture} from './miracle-resolution.mjs';
+import {resolveSoloMiracleFixture,compileSoloMiracleResolution} from './miracle-resolution.mjs';
 import {compileOrderedWeaponAttack} from './ordered-attack.mjs';
 
 function fail(message){throw new Error(message);}
@@ -87,12 +87,22 @@ export function submitAndResolveFixture(state,command,catalog,{
     return {state:stage.state,applied:false,duplicate:true,autoResolved:false,
       events:[],plan:null};
   // Attack selection must be validated BEFORE asking another seat to defend.
-  // Otherwise a bad weapon+miracle combination can strand both players in
-  // a pending-defense state with no way to correct the attacking selection.
+  // Otherwise a bad combo or MP deficit can strand both players in a
+  // pending-defense state with no way to correct the attack.
   if(stage.state.phase==='defense' &&
-    ['playCards','playSequence'].includes(command.type) &&
-    attackFamily(stage.state,catalog)==='weapon')
-    compileOrderedWeaponAttack(stage.state,catalog);
+    ['playCards','playSequence','castLearned'].includes(command.type)) {
+    if(attackFamily(stage.state,catalog)==='weapon')
+      compileOrderedWeaponAttack(stage.state,catalog);
+    else {
+      // Preview the solo miracle against an empty defensive declaration.
+      // It validates opening card, learned status and MP without committing
+      // damage or consuming the defender's actual cards.
+      const p=stage.state.pending;
+      const preview={...stage.state,phase:'resolving',
+        pending:{...p,defense:{playerId:p.targetId,instanceIds:[]}}};
+      compileSoloMiracleResolution(preview,catalog);
+    }
+  }
   if(stage.state.phase!=='resolving')
     return {state:stage.state,applied:true,duplicate:false,autoResolved:false,
       events:[],plan:null};
