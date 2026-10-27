@@ -68,9 +68,10 @@ export function compileOrderedWeaponAttack(state,catalog){
   let aura=null,plusCount=0,additive=0,lastWasMiracle=false,hasArmorBonus=false;
   let learnedDrawCount=0;
   let forcedAttackElement=null;
+  let wandPosition=-1,auraPosition=-1;
   const casts=[],selectedKinds=[];
   const miracles=[];
-  for(const {instance,def,fromLearned} of selected){
+  for(const [position,{instance,def,fromLearned}] of selected.entries()){
     const mult=effectsOf(def,'multiplyAttack');
     const plus=effectsOf(def,'addAttack');
     const discount=effectsOf(def,'waivePreviousMp');
@@ -91,6 +92,7 @@ export function compileOrderedWeaponAttack(state,catalog){
           if(forcedAttackElement!==null)
             fail('Multiple attack-element override wands unverified');
           forcedAttackElement=eff.params.element;
+          wandPosition=position;
           continue;
         }
         if(!['redirectAttack','stopAttack'].includes(eff.type)||eff.when!=='onDefense')
@@ -107,6 +109,7 @@ export function compileOrderedWeaponAttack(state,catalog){
         if(aura||plusCount||hasArmorBonus)fail('Aura stacked with other miracles or armor bonus unverified');
         if(def.effects.length!==1)fail('Unrecognized Aura effects');
         aura=def.id;
+        auraPosition=position;
       } else if(plus.length===1 && def.effects.length===1 &&
          plus[0].when==='onDeclare' && plus[0].params.scope==='weapon' &&
          def.playModes.includes('addAttack') && def.stats.attack>0){
@@ -144,6 +147,11 @@ export function compileOrderedWeaponAttack(state,catalog){
   if(aura&&plusCount)fail('Aura plus additive miracle ordering unverified');
   if(forcedAttackElement!==null){
     if(plusCount)fail('Element-setting wand with plus miracle unverified');
+    // The 2025 player guide reports that a dye wand must be selected
+    // after Aura. Exact older/other-client behavior is unresolved.
+    // Do not silently invent an elemental result for this ordering.
+    if(aura!==null&&wandPosition<auraPosition)
+      fail('Attribute wand before Aura: original dye priority unverified');
   }
   // Aura multiplies all weapon attack values, even addons chosen later.
   const attack=add(aura?add(weaponAttack,weaponAttack):weaponAttack,additive);
