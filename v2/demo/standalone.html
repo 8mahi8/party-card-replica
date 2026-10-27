@@ -275,10 +275,10 @@ const main=(id,referenceName,attack,price,weight,{element='none',guard,reaction}
   Object.freeze({id,referenceName,kind:'weapon',slot:'main',category:'weapon_single',element,attack,price,weight,...(guard===undefined?{}:{guard}),...(reaction===undefined?{}:{reaction,reactionScope:'neutral_weapon'})});
 const add=(id,referenceName,attack,price,weight=1,{element='none'}={})=>
   Object.freeze({id,referenceName,kind:'weapon',slot:'addon',category:'weapon_single',element,attack,price,weight});
-const shield=(id,referenceName,guard,price,weight,{element='none',attackBonus,stopScope}={})=>
-  Object.freeze({id,referenceName,kind:'armor',category:'armor_normal',element,guard,price,weight,...(attackBonus===undefined?{}:{attackBonus}),...(stopScope===undefined?{}:{stopScope})});
+const shield=(id,referenceName,guard,price,weight,{element='none',attackBonus,stopScope,reaction,reactionScope}={})=>
+  Object.freeze({id,referenceName,kind:'armor',category:'armor_normal',element,guard,price,weight,...(attackBonus===undefined?{}:{attackBonus}),...(stopScope===undefined?{}:{stopScope}),...(reaction===undefined?{}:{reaction,reactionScope})});
 
-/** Read-only 69-card subset. Do not normalize and sample as the full deck. */
+/** Read-only 77-card subset. Do not normalize and sample as the full deck. */
 const VERIFIED_BASIC_CARDS = Object.freeze([
   main('w001','銅のこん棒',1,1,3),
   main('w002','銀のこん棒',1,10,1),
@@ -339,6 +339,14 @@ const VERIFIED_BASIC_CARDS = Object.freeze([
   shield('d019','エンゼルの帽子',11,15,1,{stopScope:'miracle'}),
   shield('d020','エンゼルシールド',13,15,1,{stopScope:'miracle'}),
   shield('d021','エンゼルアーマー',15,15,1,{stopScope:'miracle'}),
+  shield('d022','スカイブーツ',1,5,1,{reaction:'deflect',reactionScope:'miracle'}),
+  shield('d023','スカイガントレット',3,5,1,{reaction:'deflect',reactionScope:'miracle'}),
+  shield('d024','スカイヘルム',5,5,1,{reaction:'deflect',reactionScope:'miracle'}),
+  shield('d025','スカイシールド',7,5,1,{reaction:'deflect',reactionScope:'miracle'}),
+  shield('d026','スカイアーマー',9,5,1,{reaction:'deflect',reactionScope:'miracle'}),
+  shield('d027','月光のかぶと',8,10,1,{reaction:'reflect',reactionScope:'miracle'}),
+  shield('d028','月光の盾',10,10,1,{reaction:'reflect',reactionScope:'miracle'}),
+  shield('d029','月光のよろい',12,10,1,{reaction:'reflect',reactionScope:'miracle'}),
   Object.freeze({id:'i001',referenceName:'虹のカーテン',kind:'defense_item',category:'item',element:'none',effect:'strip_element',price:15,weight:3}),
   Object.freeze({id:'i002',referenceName:'スーパーミラー',kind:'defense_item',category:'item',element:'none',effect:'reflect_any',price:10,weight:1}),
   Object.freeze({id:'m001',referenceName:'壁',kind:'miracle',role:'stop',stopScope:'neutral_weapon',category:'miracle',element:'none',mpCost:6,price:0,weight:1}),
@@ -549,6 +557,11 @@ function convertLegacyCard(card,{ruleset=PARTIAL_CARD_SOURCE}={}) {
       if(card.stopScope!=='miracle')throw new Error('Unmapped armor stop scope');
       effects.push(mk('onDefense','stopAttack',{scope:'miracle'}));
     }
+    if(card.reaction!==undefined){
+      if(!['reflect','deflect'].includes(card.reaction)||card.reactionScope!=='miracle')
+        throw new Error('Unmapped armor miracle reaction');
+      effects.push(mk('onDefense','redirectAttack',{mode:card.reaction,scope:'miracle'}));
+    } else if(card.reactionScope!==undefined)throw new Error('Orphan armor reaction scope');
   } else if(card.kind==='miracle') {
     if(!truthyInt(card.mpCost))throw new Error('Malformed miracle MP cost');
     mpCost=card.mpCost;
@@ -1252,6 +1265,7 @@ function getPlayer(state,id) {
 }
 function explainDefenseEffect(def) {
   for(const e of def.effects) {
+    if(e.type==='redirectAttack'&&e.params.scope==='miracle'&&def.family==='armor')continue; // miracle-only armor reaction is inert against a weapon
     if(e.type==='redirectAttack')fail('Redirect reactions require G3 reaction resolver');
     if(e.type==='stripElement')continue;
     if(e.type==='stopAttack'&&e.params.scope==='miracle')continue; // numeric guard against weapon
@@ -1555,7 +1569,8 @@ function resolveRedirectFixture(state,catalog,{
    return resolveBasicFixture(state,catalog,{labOnly:true,fixtureDrawDefinitionId});
  }
  const selected=locateDefense(state,catalog);
- const redirected=selected.filter(x=>x.def.effects.some(e=>e.type==='redirectAttack'&&e.when==='onDefense'));
+ const redirected=selected.filter(x=>x.def.effects.some(e=>e.type==='redirectAttack'&&e.when==='onDefense'&&
+   !(x.def.family==='armor'&&e.params.scope==='miracle')));
  if(!redirected.length) {
    if(isWallDefense(state,catalog))
      return resolveWallFixture(state,catalog,{labOnly:true,fixtureDrawDefinitionId});
