@@ -48,6 +48,11 @@ export function convertLegacyCard(card,{ruleset=PARTIAL_CARD_SOURCE}={}) {
       if(card.stopScope!=='miracle')throw new Error('Unmapped armor stop scope');
       effects.push(mk('onDefense','stopAttack',{scope:'miracle'}));
     }
+    if(card.reaction!==undefined){
+      if(!['reflect','deflect'].includes(card.reaction)||card.reactionScope!=='miracle')
+        throw new Error('Unmapped armor miracle reaction');
+      effects.push(mk('onDefense','redirectAttack',{mode:card.reaction,scope:'miracle'}));
+    } else if(card.reactionScope!==undefined)throw new Error('Orphan armor reaction scope');
   } else if(card.kind==='miracle') {
     if(!truthyInt(card.mpCost))throw new Error('Malformed miracle MP cost');
     mpCost=card.mpCost;
