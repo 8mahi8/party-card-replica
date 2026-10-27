@@ -81,7 +81,7 @@ function baseLabel(def){
   const stat=def.stats;
   return [
     names.get(def.id)??def.id,
-    stat.attack ? '攻'+stat.attack : '',
+    stat.attack ? (def.family==='weapon' && def.playModes.includes('addAttack') && !def.playModes.includes('mainAttack') ? '+攻' : '攻')+stat.attack : '',
     stat.guard ? '守'+stat.guard : '',
     stat.mpCost ? 'MP'+stat.mpCost : ''
   ].filter(Boolean).join(' · ');
