@@ -67,6 +67,8 @@ export function compileOrderedWeaponAttack(state,catalog){
   let weaponAttack=0,attackElement='none',mainCount=0,weaponCount=0;
   let aura=null,plusCount=0,additive=0,lastWasMiracle=false,hasArmorBonus=false;
   let learnedDrawCount=0;
+  let forcedAttackElement=null;
+  const weaponElements=new Set();
   const casts=[],selectedKinds=[];
   const miracles=[];
   for(const {instance,def,fromLearned} of selected){
@@ -81,9 +83,18 @@ export function compileOrderedWeaponAttack(state,catalog){
         if(def.playModes.includes('mainAttack'))mainCount++;
         if(mainCount>1)fail('Too many main weapons');
         attackElement=weaponCount===0?def.element:combineElements(attackElement,def.element);
+        if(def.element!=='none')weaponElements.add(def.element);
         weaponCount++;
       } else {hasArmorBonus=true;if(aura)fail('Aura with armor attack bonus unverified');}
       for(const eff of def.effects){
+        if(eff.type==='setAttackElement'&&eff.when==='onDeclare' && def.family==='weapon' &&
+           def.playModes.includes('addAttack') && ['fire','water'].includes(eff.params.element) &&
+           eff.params.element===def.element){
+          if(forcedAttackElement!==null)
+            fail('Multiple attack-element override wands unverified');
+          forcedAttackElement=eff.params.element;
+          continue;
+        }
         if(!['redirectAttack','stopAttack'].includes(eff.type)||eff.when!=='onDefense')
           fail('Unsupported weapon or armor effect');
       }
@@ -133,13 +144,18 @@ export function compileOrderedWeaponAttack(state,catalog){
   if(miracles.length&&state.pending.targetId===caster.id)
     fail('Boosted self-target attack has not been verified');
   if(aura&&plusCount)fail('Aura plus additive miracle ordering unverified');
+  if(forcedAttackElement!==null){
+    if(plusCount)fail('Element-setting wand with plus miracle unverified');
+    if([...weaponElements].some(x=>x!==forcedAttackElement))
+      fail('Conflicting elemental weapons with override wand unverified');
+  }
   // Aura multiplies all weapon attack values, even addons chosen later.
   const attack=add(aura?add(weaponAttack,weaponAttack):weaponAttack,additive);
   const payableMP=miracles.reduce((n,m)=>add(n,m.discounted?0:m.mpCost),0);
   if(caster.mp<payableMP)fail('Not enough MP');
   const learnedMiracles=[...new Set(miracles.map(m=>m.id))];
   return Object.freeze({
-    attack,element:attackElement,attackKind:'weapon',
+    attack,element:forcedAttackElement??attackElement,attackKind:'weapon',
     instanceIds:Object.freeze(selected.filter(x=>x.instance).map(x=>x.instance.instanceId)),
     payableMP,learnedDrawCount,learnedMiracles:Object.freeze(learnedMiracles),
     hasModifiers:miracles.length>0,
