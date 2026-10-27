@@ -4,6 +4,7 @@ import {migrateLegacyCatalog} from '../v2/legacy-adapter.mjs';
 import {createStagingRoom,applyStagingCommand,viewStagingRoom} from '../v2/staging-room.mjs';
 import {submitAndResolveFixture,resolveStagedFixture} from '../v2/room-transition.mjs';
 import {resolveSoloMiracleFixture} from '../v2/miracle-resolution.mjs';
+import {createV2LabController} from '../v2/lab-controller.mjs';
 
 const {byId:catalog}=migrateLegacyCatalog();
 const fixture={labOnly:true,fixtureDrawDefinitionId:'d001'};
@@ -184,4 +185,27 @@ test('shared submit path performs immediate self-deflection and closes match',()
  }),catalog,{...fixture,authorizedSeatId:'B',deflectRng:()=>.99});
  assert.equal(b.state.phase,'finished');
  assert.equal(b.state.winnerId,'A');
+});
+
+test('UI controller can tap Turbulence then Spirit and complete redirected defense',()=>{
+ const lab=createV2LabController({hands:{A:['m002'],B:['m007','i003']}});
+ const a=lab.reveal();
+ lab.toggle({instanceId:a.hand[0].instanceId});
+ assert.equal(lab.submit().ok,true);
+ const b=lab.reveal();
+ assert.equal(b.hand.some(x=>x.definitionId==='m007'),true);
+ lab.toggle({instanceId:b.hand[0].instanceId});
+ lab.toggle({instanceId:b.hand[1].instanceId});
+ const first=lab.submit();
+ assert.equal(first.ok,true,first.error);
+ assert.equal(first.view.phase,'defense');
+ assert.equal(first.view.actorId,'A');
+ assert.equal(lab.labSnapshot().players[1].mp,10);
+ assert.deepEqual(lab.labSnapshot().players[1].learned,['m007']);
+ lab.reveal();
+ const result=lab.submit();
+ assert.equal(result.ok,true,result.error);
+ assert.equal(result.view.phase,'turn');
+ assert.equal(lab.labSnapshot().players[0].hp,36);
+ assert.equal(lab.labSnapshot().players[1].hand.length,2);
 });
