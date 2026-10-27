@@ -2068,10 +2068,11 @@ function keyOf(item){
   return item?.instanceId ? 'h:'+item.instanceId
     : item?.learnedDefinitionId ? 'l:'+item.learnedDefinitionId : null;
 }
-// Lab-only early feedback. The original client has not yet been observed
-// rejecting every mixed special-defense pair: this only prevents a combination
-// our verified subset cannot safely resolve. Do not present it as an original
-// input rule until official Training reproduces the interaction.
+// For a miracle attack, different defensive METHODS are exclusive in the
+// source game UI: tapping another method replaces the previous selection.
+// Keep this hotseat behavior separate from command/resolution validation.
+// Original-client observation comes from the player; exact edge cases for
+// support items still require original Training confirmation.
 function pendingAttackIsMiracle(state,catalog){
  const pending=state.pending;
  if(state.phase!=='defense'||pending?.type!=='attack')return false;
@@ -2093,20 +2094,27 @@ function isSpirit(def){
   def.effects[0].when==='onCost'&&def.effects[0].type==='waivePreviousMp'&&
   def.effects[0].params.target==='previousMiracle';
 }
-function validateLabMiracleReactionChoice(state,actor,selected,choice,catalog){
- if(!pendingAttackIsMiracle(state,catalog))return;
- const definitions=[...selected,choice].map(c=>{
-  const key=c.instanceId
-   ?actor.hand.find(x=>x.instanceId===c.instanceId)?.definitionId
-   :c.learnedDefinitionId;
-  return catalog.get(key);
- });
- if(!definitions.some(isMiracleReaction))return;
- const first=definitions[0];
- if(definitions.length===1&&isMiracleReaction(first))return;
- if(definitions.length===2&&isMiracleReaction(first)&&first.family==='miracle'&&
-  isSpirit(definitions[1]))return;
- throw new Error('この検証版では奇跡の「止める・弾く・はね返す」は単独で選択（防御奇跡→精霊のみ例外）');
+function defenseDefinition(actor,step,catalog){
+ const id=step.instanceId
+   ?actor.hand.find(x=>x.instanceId===step.instanceId)?.definitionId
+   :step.learnedDefinitionId;
+ return catalog.get(id);
+}
+function nextMiracleDefenseSelection(actor,previous,choice,catalog){
+ const chosen=defenseDefinition(actor,choice,catalog);
+ const active=previous.map(step=>defenseDefinition(actor,step,catalog));
+ if(isMiracleReaction(chosen))return [choice];
+ const oldReaction=active.some(isMiracleReaction);
+ if(!oldReaction)return [...previous,choice];
+ const first=active[0];
+ // A defensive miracle followed DIRECTLY by Spirit remains a single method
+ // with a cost waiver, rather than an independent defense choice.
+ if(isSpirit(chosen)&&previous.length===1&&isMiracleReaction(first)&&
+   first.family==='miracle')return [...previous,choice];
+ // A support item is not a defense method on its own. It cannot replace an
+ // armor reaction; avoid silently creating an invalid Spirit-only selection.
+ if(isSpirit(chosen))return previous;
+ return [choice];
 }
 function baseLabel(def){
   if(!def)return '未登録';
@@ -2196,26 +2204,35 @@ function createV2LabController({
     if(!key)throw new Error('Invalid selection');
     const idx=selected.findIndex(x=>keyOf(x)===key);
     if(idx>=0){selected.splice(idx,1);return view();}
-    if(selected.length>=18)throw new Error('一度に選択できるカード数を超えました');
     if(selection.instanceId){
       const held=player.hand.find(card=>card.instanceId===selection.instanceId);
       if(!held)throw new Error('そのカードは現在の手札にありません');
-      if(state.phase==='defense' && selected.some(x=>x.learnedDefinitionId)){
-        const def=catalog.get(held.definitionId);
-        if(!def?.playModes.includes('support'))
-          throw new Error('習得済み防御奇跡の後には補助雑貨のみ選べます');
-      }
     } else {
       if(!player.learned.includes(selection.learnedDefinitionId))
         throw new Error('その奇跡は習得していません');
       if(state.phase==='defense' &&
-        (!catalog.get(selection.learnedDefinitionId)?.playModes.includes('defend')||
-         selected.some(x=>x.learnedDefinitionId)))
+        !catalog.get(selection.learnedDefinitionId)?.playModes.includes('defend'))
+        throw new Error('防御奇跡を選択してください');
+    }
+    const choice={...selection};
+    if(pendingAttackIsMiracle(state,catalog)){
+      const next=nextMiracleDefenseSelection(player,selected,choice,catalog);
+      if(next.length>18)throw new Error('一度に選択できるカード数を超えました');
+      selected=next;
+      notice='カードを順番にタップして選択';
+      return view();
+    }
+    if(selected.length>=18)throw new Error('一度に選択できるカード数を超えました');
+    if(state.phase==='defense'){
+      if(selection.instanceId && selected.some(x=>x.learnedDefinitionId)){
+        const def=defenseDefinition(player,choice,catalog);
+        if(!def?.playModes.includes('support'))
+          throw new Error('習得済み防御奇跡の後には補助雑貨のみ選べます');
+      }
+      if(selection.learnedDefinitionId && selected.some(x=>x.learnedDefinitionId))
         throw new Error('防御奇跡を1つだけ選択してください');
     }
-    if(state.phase==='defense')
-      validateLabMiracleReactionChoice(state,player,selected,selection,catalog);
-    selected.push({...selection});
+    selected.push(choice);
     return view();
   }
   function setTarget(id){
