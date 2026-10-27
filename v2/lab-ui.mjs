@@ -51,7 +51,7 @@ export function renderV2LabMarkup(data,{resetArmed=false}={}){
      '</section>'+footer;
  }
  const title=data.phase==='turn'?'攻撃するカードを順番に選択':'防御カードを順番に選択';
- const caption=data.phase==='turn'?'最初は武器か攻撃奇跡。選んだ順に処理':'何も選ばず確定すれば無防御';
+ const caption=data.phase==='turn'?'＋攻の追加武器だけでも攻撃可。選んだ順に処理':'何も選ばず確定すれば無防御';
  const targets=data.phase==='turn'?
     '<section class="targets"><h2>攻撃先</h2><div class="choice-row">'+
     data.targets.map(id=>'<button type="button" class="'+(id===data.targetId?'chosen':'')+
