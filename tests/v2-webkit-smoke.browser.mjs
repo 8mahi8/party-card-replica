@@ -105,6 +105,13 @@ async function testScenario(base,{
     });
     passed(amount>40,'frame did not scroll: '+amount);
     await controlInFrame(frame,'.confirm','fixed confirm '+width);
+    const actions=await frameRef.evaluate(()=>{
+      const reset=document.querySelector('footer [data-action=reset]').getBoundingClientRect();
+      const confirm=document.querySelector('.confirm').getBoundingClientRect();
+      return {resetTop:reset.top,resetBottom:reset.bottom,confirmTop:confirm.top};
+    });
+    passed(actions.resetTop>=0&&actions.resetBottom<=actions.confirmTop-4,
+      'footer reset overlaps sticky confirm in WebKit: '+JSON.stringify(actions));
     await screenshot(shotPrefix+'-scrolled');
     await frame.locator('[data-action=submit]').tap();
     await frame.locator('.compact-pass').waitFor();
