@@ -169,12 +169,12 @@ test('counterfeit caller seat and stale revision are not accepted',()=>{
    ...options,authorizedSeatId:'A'
  }),/Stale room revision/);
 });
-test('unknown or impossible combination never silently becomes a normal hit',()=>{
+test('unsupported attack combination rejected BEFORE opponent is asked to defend',()=>{
  const s=room({A:['w016','m004','m005'],B:['d001']});
- const staged=step(s,'A','playCards',{indices:[0,1,2],targetId:'B'});
- const snapshot=JSON.stringify(staged.state);
- assert.throws(()=>step(staged.state,'B','defend'),/Aura stacked/);
- assert.equal(JSON.stringify(staged.state),snapshot);
+ const snapshot=JSON.stringify(s);
+ assert.throws(()=>step(s,'A','playCards',{indices:[0,1,2],targetId:'B'}),/Aura stacked/);
+ assert.equal(JSON.stringify(s),snapshot);
+ assert.equal(s.phase,'turn');
 });
 test('secret opponent cards and pending ordered sequence stay private',()=>{
  const s=room({A:['w016'],B:['i002']},{learned:{A:['m004']}});
