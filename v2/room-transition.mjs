@@ -62,7 +62,7 @@ export function resolveStagedFixture(state,catalog,{
     fail('No attack waiting for resolution');
   const family=attackFamily(state,catalog);
   if(family==='miracle')
-    return resolveSoloMiracleFixture(state,catalog,{labOnly:true,fixtureDrawDefinitionId});
+    return resolveSoloMiracleFixture(state,catalog,{labOnly:true,fixtureDrawDefinitionId,deflectRng});
   return resolveRedirectFixture(state,catalog,{
     labOnly:true,fixtureDrawDefinitionId,deflectRng
   });
