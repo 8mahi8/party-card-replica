@@ -8,7 +8,7 @@ const FAMILIES = new Set(['weapon','armor','miracle','item','trade']);
 const ELEMENTS = new Set(['none','fire','water','wood','earth','light','dark']);
 const MODES = new Set(['mainAttack','addAttack','defend','cast','support','trade']);
 const EFFECT_TRIGGERS = new Set(['onDeclare','onCost','beforeHit','onDefense','afterHit','onTurnEnd']);
-const EFFECT_TYPES = new Set(['redirectAttack','stripElement','multiplyAttack','addAttack','stopAttack','waivePreviousMp']);
+const EFFECT_TYPES = new Set(['redirectAttack','stripElement','multiplyAttack','addAttack','stopAttack','waivePreviousMp','setAttackElement']);
 
 function plainObject(v) { return v !== null && typeof v === 'object' && !Array.isArray(v); }
 function nonnegative(n) { return Number.isSafeInteger(n) && n >= 0; }
@@ -28,6 +28,10 @@ function freezeEffect(effect) {
     throw new TypeError('Invalid effect params');
   // Plain JSON effect parameters. Reject executable values in data.
   const params = effect.params ?? {};
+  if(effect.type==='setAttackElement' &&
+     (effect.when!=='onDeclare'||Object.keys(params).length!==1||
+      !['fire','water'].includes(params.element)))
+    throw new Error('Invalid setAttackElement data');
   const json = JSON.stringify(params);
   if(json===undefined || json.length>4000)throw new Error('Effect parameters not serializable');
   const copy = JSON.parse(json);
