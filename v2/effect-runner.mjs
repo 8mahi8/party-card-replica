@@ -65,6 +65,12 @@ export function runEffectQueueFixture(state,catalog,queue,{
      if(before-p.hand.length!==ids.size)fail('Card disappeared during resolution');
      spent[p.id]=(spent[p.id]??0)+ids.size;
      events.push({type:'spend',playerId:p.id,count:ids.size});
+   } else if(effect.type==='grantDraw'){
+     const p=who(s,effect.playerId);
+     if(!positiveCount(effect.count)||effect.count<1||effect.count>18)
+       fail('Invalid grantDraw count');
+     spent[p.id]=(spent[p.id]??0)+effect.count;
+     events.push({type:'grantDraw',playerId:p.id,count:effect.count});
    } else if(effect.type==='mp'){
      const p=who(s,effect.playerId);
      if(!positiveCount(effect.cost)||p.mp<effect.cost)fail('Invalid MP payment');
