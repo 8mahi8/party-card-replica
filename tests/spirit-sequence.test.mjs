@@ -15,8 +15,8 @@ function match(a,b) {
 test('68th card is spirit doll with 0.4% appearance and price 5; partial deck stays blocked',()=>{
   assert.equal(card('i003').referenceName,'精霊のぬいぐるみ');
   assert.equal(card('i003').price,5);assert.equal(card('i003').weight,2);
-  assert.equal(VERIFIED_BASIC_CARDS.length,69);
-  assert.equal(auditCatalog(VERIFIED_BASIC_CARDS).slots,187);
+  assert.equal(VERIFIED_BASIC_CARDS.length,77);
+  assert.equal(auditCatalog(VERIFIED_BASIC_CARDS).slots,195);
   assert.throws(()=>createAuditedDraw(VERIFIED_BASIC_CARDS),/incomplete/);
 });
 test('single miracle followed immediately by spirit is free',()=>{
