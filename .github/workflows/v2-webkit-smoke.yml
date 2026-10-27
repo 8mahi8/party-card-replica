@@ -1,0 +1,41 @@
+name: V2 WebKit touch smoke (development only)
+
+on:
+  pull_request:
+    paths:
+      - 'v2/**'
+      - 'src/**'
+      - 'tests/v2-webkit-smoke.browser.mjs'
+      - '.github/workflows/v2-webkit-smoke.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  webkit-touch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    container:
+      image: mcr.microsoft.com/playwright:v1.62.0-noble
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check standalone bundle is current
+        run: node v2/demo/build.mjs --check
+      - name: Install Playwright test-only package (not shipped with game)
+        run: npm install --no-save --no-package-lock --ignore-scripts playwright@1.62.0
+      - name: Verify the installed browser
+        run: node -e "import('playwright').then(({webkit})=>console.log(webkit.executablePath()))"
+      - name: WebKit touch and fixed-iframe smoke
+        run: node tests/v2-webkit-smoke.browser.mjs
+      - name: Upload WebKit screenshots
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v2-webkit-touch-evidence
+          path: v2/demo/webkit-evidence/
+          retention-days: 5
+          if-no-files-found: warn
