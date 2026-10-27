@@ -25,13 +25,13 @@ function nextAlive(players,afterId){
  }
  return null;
 }
-function cloneRoom(state){
+function cloneRoom(state,{interruptionOnly=false}={}){
  return {
    ...state,
    revision:state.revision+1,
    players:state.players.map(p=>({...p,
      hand:p.hand.map(c=>({...c})),learned:[...p.learned]})),
-   pending:null,
+   pending:interruptionOnly?{...state.pending,spentByPlayer:{...state.pending.spentByPlayer}}:null,
    processedCommands:[...state.processedCommands]
  };
 }
@@ -42,7 +42,7 @@ function cloneRoom(state){
  * External synchronization still needs an authoritative transaction/CAS.
  */
 export function runEffectQueueFixture(state,catalog,queue,{
- labOnly=false,fixtureDrawDefinitionId
+ labOnly=false,fixtureDrawDefinitionId,interruptionOnly=false
 }={}){
  if(labOnly!==true)fail('Only available in lab fixture mode');
  if(!(catalog instanceof Map)||!catalog.has(fixtureDrawDefinitionId))
@@ -51,7 +51,9 @@ export function runEffectQueueFixture(state,catalog,queue,{
     !Array.isArray(state.players)||!Array.isArray(state.processedCommands))
    fail('Invalid state for effect queue');
  if(!Array.isArray(queue)||!queue.length)fail('Empty compiled effect queue');
- const s=cloneRoom(state);
+ if(interruptionOnly&&queue.some(e=>!['spend','grantDraw','mp','learn'].includes(e?.type)))
+   fail('Resolution commands are not permitted while staging');
+ const s=cloneRoom(state,{interruptionOnly});
  const spent=Object.assign(Object.create(null),state.pending.spentByPlayer??{});
  const events=[];
  for(const effect of queue){
@@ -119,5 +121,6 @@ export function runEffectQueueFixture(state,catalog,queue,{
      }
    } else fail('Unknown queued effect: '+String(effect.type));
  }
+ if(interruptionOnly)s.pending.spentByPlayer={...spent};
  return {state:s,events};
 }
