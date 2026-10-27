@@ -43,6 +43,7 @@ test('reveal, ordered selection and attack->defense->turn transition work',()=>{
  assert.equal(sent.view.phase,'defense');
  assert.equal(sent.view.actorId,'B');
  assert.equal(sent.view.revealed,false);
+ assert.match(sent.view.notice,/防御するプレイヤーに端末を渡して/);
  assert.equal(sent.view.hand.length,0);
  const defense=next(ui,[]);
  assert.equal(defense.ok,true);
