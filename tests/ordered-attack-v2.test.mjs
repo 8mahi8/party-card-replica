@@ -147,7 +147,7 @@ test('unknown combo of Aura plus Fireball and multiple Auras fails closed',()=>{
 });
 test('two mixed plus miracles are rejected until their combination is verified',()=>{
  const s=stage(create({A:['w016','m005','m006'],B:['d001']}),{attack:[0,1,2]});
- assert.throws(()=>plan(s),/Only two Fireballs verified/);
+ assert.throws(()=>plan(s),/Only identical verified plus pair/);
 });
 test('weapon after additive miracle is rejected pending gameplay evidence',()=>{
  const s=stage(create({A:['w016','m005','a003'],B:['d001']}),{attack:[0,1,2]});
