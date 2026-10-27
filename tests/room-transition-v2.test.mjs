@@ -195,3 +195,19 @@ test('single transition cannot run without explicit fixture-only gate',()=>{
  }),/lab fixture mode/);
  assert.throws(()=>resolveStagedFixture(s,catalog,options),/No attack waiting/);
 });
+
+test('MP-insufficient miracle is refused before the defender receives a turn',()=>{
+ const s=room({A:['m003'],B:['d001']});
+ s.players[0].mp=4;
+ const original=JSON.stringify(s);
+ assert.throws(()=>step(s,'A','playCards',{indices:[0],targetId:'B'}),/Not enough MP/);
+ assert.equal(JSON.stringify(s),original);
+});
+test('MP-insufficient learned miracle is refused before the defender receives a turn',()=>{
+ const s=room({A:['d001'],B:['d001']},{learned:{A:['m003']},mp:{A:4}});
+ const original=JSON.stringify(s);
+ assert.throws(()=>step(s,'A','castLearned',{
+   targetId:'B',learnedDefinitionId:'m003'
+ }),/Not enough MP/);
+ assert.equal(JSON.stringify(s),original);
+});
