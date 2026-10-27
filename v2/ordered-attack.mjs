@@ -109,6 +109,8 @@ export function compileOrderedWeaponAttack(state,catalog){
     }
   }
   if(!weaponCount)fail('Attack requires a weapon');
+  if(miracles.length&&state.pending.targetId===caster.id)
+    fail('Boosted self-target attack has not been verified');
   if(aura&&plusCount)fail('Aura plus additive miracle ordering unverified');
   // Aura multiplies all weapon attack values, even addons chosen later.
   const attack=add(aura?add(weaponAttack,weaponAttack):weaponAttack,additive);
