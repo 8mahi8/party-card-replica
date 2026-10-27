@@ -176,7 +176,7 @@ export function createV2LabController({
       visible=false;
       targetId=state.phase==='turn'?otherSeat(state,state.activePlayerId):null;
       notice=state.phase==='finished'?'検証試合が終了しました':
-        result.state.phase==='defense'?'相手の防御を待っています':
+        result.state.phase==='defense'?'防御するプレイヤーに端末を渡してください':
           '手番が進みました。次のプレイヤーに渡してください';
       return {ok:true,view:view(),events:result.events.map(x=>({type:x.type})),
         changedRevision:state.revision};
