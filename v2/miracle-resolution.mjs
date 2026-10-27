@@ -45,6 +45,18 @@ export function compileSoloMiracleResolution(state,catalog) {
  const caster=person(state,p.originalAttackerId),target=person(state,p.targetId);
  if(caster.hp<=0||target.hp<=0)fail('Caster or target is dead');
  const learnedId=cached?null:(p.attackLearnedDefinitionId??null);
+ // Ordered plays can interleave learned and hand cards, but a miracle
+ // opening is SOLO (plus at most one immediate physical Spirit).
+ // Do not silently drop learned steps from attackSequence while resolving
+ // only attackInstanceIds.
+ if(!cached && p.attackSequence!==undefined){
+   if(!Array.isArray(p.attackSequence) ||
+      p.attackSequence.some(step=>!step||typeof step.instanceId!=='string'||
+        Object.keys(step).length!==1) ||
+      JSON.stringify(p.attackSequence.map(step=>step.instanceId))!==
+        JSON.stringify(p.attackInstanceIds))
+     fail('Miracle opening cannot mix learned or extra attack steps');
+ }
  const cards=cached?[]:selected(caster,p.attackInstanceIds,catalog);
  if(!cached){
    if(learnedId!==null) {
