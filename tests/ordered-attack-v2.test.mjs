@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {migrateLegacyCatalog} from '../v2/legacy-adapter.mjs';
+import {defineCard} from '../v2/foundation.mjs';
 import {createStagingRoom,applyStagingCommand} from '../v2/staging-room.mjs';
 import {compileBasicWeaponAttack,resolveBasicFixture} from '../v2/basic-resolution.mjs';
 import {compileOrderedWeaponAttack} from '../v2/ordered-attack.mjs';
@@ -187,4 +188,44 @@ test('selected hand instance IDs are all consumed, replaced and unique',()=>{
  assert.equal(oldIds.some(x=>result.players[0].hand.some(y=>y.instanceId===x)),false);
  const instances=result.players.flatMap(p=>p.hand.map(x=>x.instanceId));
  assert.equal(instances.length,new Set(instances).size);
+});
+
+test('unverified self-target boosted weapon does not silently resolve',()=>{
+ const h={A:['w016','m005'],B:['d001']};
+ const s=stage(create(h),{attack:[0,1],target:'A'});
+ const previous=JSON.stringify(s);
+ assert.throws(()=>settle(s),/Boosted self-target attack has not been verified/);
+ assert.equal(JSON.stringify(s),previous);
+});
+test('brand-new test-only additive miracle works purely from effect tags',()=>{
+ const fake=defineCard({
+  id:'test.miracle.plus3',family:'miracle',element:'wood',
+  stats:{attack:3,mpCost:2,guard:0,price:0},drawWeight:1,
+  playModes:['cast','addAttack'],
+  effects:[{when:'onDeclare',type:'addAttack',params:{scope:'weapon',stacking:'single'}}],
+  source:{ruleset:'isolated-test-fixture',confidence:'test'}
+ });
+ const isolatedCatalog=new Map(catalog);
+ isolatedCatalog.set(fake.id,fake);
+ const initial=createStagingRoom({seats:[
+  {id:'A',handDefinitionIds:['w016',fake.id]},
+  {id:'B',handDefinitionIds:['d001']}
+ ],firstSeatId:'A'},isolatedCatalog);
+ const attacked=applyStagingCommand(initial,{
+  commandId:'tag1',actorId:'A',type:'playCards',targetId:'B',expectedRevision:0,
+  orderedInstanceIds:initial.players[0].hand.map(x=>x.instanceId)
+ },isolatedCatalog,{authorizedSeatId:'A'}).state;
+ const staged=applyStagingCommand(attacked,{
+  commandId:'tag2',actorId:'B',type:'defend',expectedRevision:1,
+  orderedInstanceIds:[]
+ },isolatedCatalog,{authorizedSeatId:'B'}).state;
+ const compile=compileOrderedWeaponAttack(staged,isolatedCatalog);
+ assert.equal(compile.attack,13);
+ assert.equal(compile.payableMP,2);
+ const result=resolveBasicFixture(staged,isolatedCatalog,{
+  labOnly:true,fixtureDrawDefinitionId:'d001'
+ }).state;
+ assert.equal(result.players[1].hp,27);
+ assert.equal(result.players[0].mp,8);
+ assert.deepEqual(result.players[0].learned,[fake.id]);
 });
