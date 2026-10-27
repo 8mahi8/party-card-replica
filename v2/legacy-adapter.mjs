@@ -14,6 +14,9 @@ const KNOWN_KEYS=new Set([
 const CATEGORY_BY_KIND=Object.freeze({weapon:'weapon_single',armor:'armor_normal',miracle:'miracle',defense_item:'item',support_item:'item'});
 const mk=(when,type,params={})=>({when,type,params});
 const truthyInt=x=>Number.isSafeInteger(x)&&x>=0;
+// Documented 2025 server-selection example: weapon + Fireball + Fireball.
+// This is research metadata, not card-name branching in the battle engine.
+const VERIFIED_IDENTICAL_PLUS_PAIRS=new Set(['m005']);
 
 export function convertLegacyCard(card,{ruleset=PARTIAL_CARD_SOURCE}={}) {
   if(!card||typeof card!=='object'||Array.isArray(card))throw new TypeError('Invalid legacy card');
@@ -51,8 +54,13 @@ export function convertLegacyCard(card,{ruleset=PARTIAL_CARD_SOURCE}={}) {
     if(card.role==='attack') {
       if(!truthyInt(card.attack))throw new Error('Malformed miracle attack');
       attack=card.attack;modes.push('cast');
-      if(card.plusAttack===true)modes.push('addAttack');
-      else if(card.plusAttack!==undefined)throw new Error('Unknown plus-attack flag');
+      if(card.plusAttack===true){
+        modes.push('addAttack');
+        effects.push(mk('onDeclare','addAttack',{
+          scope:'weapon',
+          stacking:VERIFIED_IDENTICAL_PLUS_PAIRS.has(card.id)?'identicalPair':'single'
+        }));
+      } else if(card.plusAttack!==undefined)throw new Error('Unknown plus-attack flag');
     } else if(card.role==='stop') {
       if(card.stopScope!=='neutral_weapon')throw new Error('Unmapped miracle stop scope');
       modes.push('defend');effects.push(mk('onDefense','stopAttack',{scope:'neutralWeapon'}));
