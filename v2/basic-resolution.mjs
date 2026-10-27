@@ -103,7 +103,7 @@ export function compileBasicResolution(state,catalog) {
   const {attack,element}=attackContext;
   if(attackContext.attackKind!=='weapon'||!Number.isSafeInteger(attack)||attack<0)
     fail('Unsupported cached attack payload');
-  const isSelf=attacker.id===defender.id;
+  const isSelf=(p.sourceId??p.originalAttackerId)===defender.id;
   let defending=[];
   if(isSelf) {
     if(p.defense!==null)fail('Self-target cannot defend');
