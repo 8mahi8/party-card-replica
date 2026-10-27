@@ -56,7 +56,8 @@ export function resolveRedirectFixture(state,catalog,{
    return resolveBasicFixture(state,catalog,{labOnly:true,fixtureDrawDefinitionId});
  }
  const selected=locateDefense(state,catalog);
- const redirected=selected.filter(x=>x.def.effects.some(e=>e.type==='redirectAttack'&&e.when==='onDefense'));
+ const redirected=selected.filter(x=>x.def.effects.some(e=>e.type==='redirectAttack'&&e.when==='onDefense'&&
+   !(x.def.family==='armor'&&e.params.scope==='miracle')));
  if(!redirected.length) {
    if(isWallDefense(state,catalog))
      return resolveWallFixture(state,catalog,{labOnly:true,fixtureDrawDefinitionId});
