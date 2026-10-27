@@ -259,7 +259,7 @@ async function testSkyMoonTouch(base){
  }
 }
 
-async function testUnverifiedMiracleMixTouch(base){
+async function testMiracleDefenseSwitchTouch(base){
  const context=await browser.newContext({
    viewport:{width:1024,height:768},screen:{width:1024,height:768},
    deviceScaleFactor:2,isMobile:true,hasTouch:true,locale:'ja-JP'
@@ -277,29 +277,31 @@ async function testUnverifiedMiracleMixTouch(base){
    const moon=frame.locator('[data-card=hand]').filter({hasText:'月光のよろい'});
    await sky.tap();
    await moon.tap();
-   passed((await frame.locator('.picks').textContent()).includes('スカイヘルム'),
-     'Sky remains selected after unverified simultaneous Moonlight tap');
-   passed(!(await frame.locator('.picks').textContent()).includes('月光のよろい'),
-     'Unverified combination is not added to selected cards');
-   passed((await frame.locator('[role=status]').textContent()).includes('この検証版では'),
-     'Warning must identify this as a lab-only restriction');
-   await screenshot('webkit-unverified-mixed-defense-warning');
+   passed(!(await frame.locator('.picks').textContent()).includes('スカイヘルム'),
+     'Sky is automatically deselected when Moonlight is tapped');
+   passed((await frame.locator('.picks').textContent()).includes('月光のよろい'),
+     'Moonlight replaces Sky in one tap');
+   passed(!(await frame.locator('[role=status]').textContent()).includes('この検証版では'),
+     'No unsupported-combination warning for switching defense methods');
+   await screenshot('webkit-miracle-defense-switch-to-moonlight');
    await sky.tap();
+   passed((await frame.locator('.picks').textContent()).includes('スカイヘルム')&&
+     !(await frame.locator('.picks').textContent()).includes('月光のよろい'),
+     'Switching back to Sky is a single tap');
    await moon.tap();
    passed((await frame.locator('.picks').textContent()).includes('月光のよろい'),
-     'Player can switch to single Moonlight without resetting');
+     'Switching Moonlight again does not require manual deselection');
    await frame.locator('[data-action=submit]').tap();
    await frame.locator('.compact-pass').waitFor();
    passed((await frame.locator('.compact-pass h1').textContent()).includes('P1'),
-     'Single Moonlight reflector still redirects the miracle');
+     'Latest selected Moonlight correctly redirects the miracle');
  }catch(error){
-   await screenshot('webkit-unverified-mixed-defense-failure');
+   await screenshot('webkit-miracle-defense-switch-failure');
    throw error;
  }finally{
    page=null;await context.close();
  }
 }
-
 
 try{
   if(!existsSync(path.join(ROOT,'v2/demo/standalone.html')))
@@ -310,7 +312,7 @@ try{
   await testScenario(base,{width:390,height:844,embedHeight:430,shotPrefix:'webkit-narrow'});
   await testTurbulenceTouch(base);
   await testSkyMoonTouch(base);
-  await testUnverifiedMiracleMixTouch(base);
+  await testMiracleDefenseSwitchTouch(base);
   console.log('WEBKIT_SMOKE_SUCCESS checks='+checks+' engine=Playwright WebKit'+
     ' fixed-height frames=1024x460,390x430');
 }catch(error){
