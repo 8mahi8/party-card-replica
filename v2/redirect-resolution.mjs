@@ -75,6 +75,7 @@ export function resolveRedirectFixture(state,catalog,{
    bad('Unsupported redirect mode');
  const attackContext=p.attackContext??compileBasicWeaponAttack(state,catalog);
  if(attackContext.attackKind!=='weapon')bad('Only weapon attack redirect implemented');
+ if(attackContext.hasModifiers)bad('Boosted weapon reactions require G3 redirect-cost support');
  if(effect.params.scope==='neutralWeapon' && attackContext.element!=='none')
    bad('Reaction cannot redirect this attack');
  if(!['any','neutralWeapon'].includes(effect.params.scope))
