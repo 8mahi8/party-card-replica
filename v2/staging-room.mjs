@@ -138,7 +138,7 @@ function takeOrderedDefense(actor,plays,catalog){
     }
     if(Object.hasOwn(step,'learnedDefinitionId')){
       const definitionId=id(step.learnedDefinitionId,'learned definition ID');
-      if(learnedSet.has(definitionId))throw new Error('Repeated learned defensive miracle');
+      if(learnedSet.size)throw new Error('Only one learned defensive miracle per sequence');
       learnedSet.add(definitionId);
       const def=catalog.get(definitionId);
       if(!actor.learned.includes(definitionId)||def?.family!=='miracle'||
