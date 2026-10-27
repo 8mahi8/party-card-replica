@@ -10,7 +10,7 @@
  * statuses, currencies, wider attack, and any unreviewed effect combos.
  */
 import {canBlock, combineElements, calculateHit, MAX_HAND_SIZE} from '../src/rules.mjs';
-import {createInstance} from './foundation.mjs';
+import {runEffectQueueFixture} from './effect-runner.mjs';
 
 const MAX_ATTACK=Number.MAX_SAFE_INTEGER;
 function fail(message) { throw new Error(message); }
@@ -144,73 +144,14 @@ export function compileBasicResolution(state,catalog) {
     hit,queue
   });
 }
-function nextAlive(players,afterId) {
-  const from=players.findIndex(p=>p.id===afterId);
-  if(from<0)fail('Unknown original attacker');
-  for(let i=1;i<=players.length;i++) {
-    const p=players[(from+i)%players.length];
-    if(p.hp>0)return p.id;
-  }
-  return null;
-}
 /**
- * Applies the plan with a FIXED known card ID drawn for each refill, exclusively
- * for G3 parity tests. A real room requires an audited, versioned deck and an
- * authoritative RNG implementation instead of fixtureDrawDefinitionId.
+ * Resolve the already validated basic plan through the same effect runner
+ * used by miracle casts. Draws remain fixed only in explicit test mode.
  */
-export function resolveBasicFixture(state,catalog,{
-  labOnly=false,fixtureDrawDefinitionId
-}={}) {
-  if(labOnly!==true)fail('Only available in lab fixture mode');
-  if(!catalog.has(fixtureDrawDefinitionId))fail('Unknown fixture draw card');
+export function resolveBasicFixture(state,catalog,options={}) {
+  if(options.labOnly!==true)fail('Only available in lab fixture mode');
+  if(!catalog.has(options.fixtureDrawDefinitionId))fail('Unknown fixture draw card');
   const plan=compileBasicResolution(state,catalog);
-  const s={
-    ...state,
-    players:state.players.map(p=>({...p,hand:p.hand.map(x=>({...x})),learned:[...p.learned]})),
-    processedCommands:[...state.processedCommands],
-    pending:null,revision:state.revision+1
-  };
-  const events=[];
-  const spent=Object.assign(Object.create(null),state.pending.spentByPlayer??{});
-  for(const effect of plan.queue) {
-    if(effect.type==='spend') {
-      const player=getPlayer(s,effect.playerId);
-      const ids=new Set(effect.instanceIds);
-      if(ids.size!==effect.instanceIds.length)fail('Repeated instance during resolution');
-      const before=player.hand.length;
-      player.hand=player.hand.filter(x=>!ids.has(x.instanceId));
-      if(before-player.hand.length!==ids.size)fail('Card disappeared during resolution');
-      spent[player.id]=(spent[player.id]??0)+ids.size;
-      events.push({type:'spend',playerId:player.id,count:ids.size});
-    } else if(effect.type==='hit') {
-      const target=getPlayer(s,effect.targetId);
-      target.hp=effect.hpAfter;
-      events.push({type:'damage',targetId:target.id,damage:effect.damage,
-        instantDefeat:effect.instantDefeat,hpAfter:effect.hpAfter});
-    } else if(effect.type==='refill') {
-      for(const player of s.players) {
-        const count=spent[player.id]??0;
-        let added=0;
-        if(player.hp>0) {
-          while(added<count && player.hand.length<MAX_HAND_SIZE) {
-            player.hand.push(createInstance(fixtureDrawDefinitionId,s.nextInstanceSerial++,catalog));
-            added++;
-          }
-        }
-        if(count)events.push({type:'refill',playerId:player.id,added});
-      }
-    } else if(effect.type==='advance') {
-      const living=s.players.filter(p=>p.hp>0);
-      if(living.length<=1) {
-        s.phase='finished';s.activePlayerId=null;
-        s.winnerId=living.length===1?living[0].id:null;
-        events.push({type:'matchEnd',winnerId:s.winnerId});
-      } else {
-        s.phase='turn';s.activePlayerId=nextAlive(s.players,effect.afterId);
-        s.turnCount=(s.turnCount??0)+1;
-        events.push({type:'turnAdvance',activePlayerId:s.activePlayerId});
-      }
-    } else fail('Unknown queued effect');
-  }
-  return {state:s,plan,events};
+  const result=runEffectQueueFixture(state,catalog,plan.queue,options);
+  return {...result,plan};
 }
