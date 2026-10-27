@@ -79,11 +79,13 @@ function nextMiracleDefenseSelection(actor,previous,choice,catalog){
 function baseLabel(def){
   if(!def)return '未登録';
   const stat=def.stats;
+  const override=def.effects.find(e=>e.when==='onDeclare'&&e.type==='setAttackElement');
   return [
     names.get(def.id)??def.id,
     stat.attack ? (def.family==='weapon' && def.playModes.includes('addAttack') && !def.playModes.includes('mainAttack') ? '+攻' : '攻')+stat.attack : '',
     stat.guard ? '守'+stat.guard : '',
-    stat.mpCost ? 'MP'+stat.mpCost : ''
+    stat.mpCost ? 'MP'+stat.mpCost : '',
+    override ? '攻撃属性→'+({fire:'火',water:'水'}[override.params.element]??'?') : ''
   ].filter(Boolean).join(' · ');
 }
 export function createV2LabController({
