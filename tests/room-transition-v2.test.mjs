@@ -58,7 +58,7 @@ test('three complete rounds across three participants preserve seating turn orde
    assert.equal(s.activePlayerId,attacker);
    s=step(s,attacker,'playCards',{targetId:target,indices:[0]}).state;
    assert.equal(s.phase,'defense');
-   s=step(s,target,'defend',{indices:[1]}).state;
+   s=step(s,target,'defend',{indices:[target==='A'?0:1]}).state;
    assert.equal(s.phase,'turn');
    assert.equal(s.turnCount,[['A','B'],['B','C'],['C','A']].findIndex(x=>x[0]===attacker)+1);
  }
@@ -123,7 +123,7 @@ test('reflected weapon results in a new defense prompt, then completes on origin
  assert.equal(reflected.state.phase,'defense');
  assert.equal(reflected.state.activePlayerId,'A');
  assert.equal(reflected.state.pending.sourceId,'B');
- const completed=step(reflected.state,'A','defend',{indices:[1]});
+ const completed=step(reflected.state,'A','defend',{indices:[0]});
  assert.equal(completed.state.phase,'turn');
  assert.equal(completed.state.activePlayerId,'B');
  assert.equal(completed.state.players[0].hp,35);
@@ -144,7 +144,7 @@ test('mixed learned spell + weapon can reflect twice with one MP payment',()=>{
  const second=step(first.state,'B','defend',{indices:[0]});
  assert.equal(second.state.players[0].mp,4);
  assert.equal(second.state.phase,'defense');
- const third=step(second.state,'A','defend',{indices:[1]});
+ const third=step(second.state,'A','defend',{indices:[0]});
  assert.equal(third.state.players[0].mp,4);
  const last=step(third.state,'B','defend');
  assert.equal(last.state.players[1].hp,20);
