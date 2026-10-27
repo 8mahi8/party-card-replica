@@ -64,6 +64,8 @@ export function convertLegacyCard(card,{ruleset=PARTIAL_CARD_SOURCE}={}) {
     } else if(card.role==='stop') {
       if(card.stopScope!=='neutral_weapon')throw new Error('Unmapped miracle stop scope');
       modes.push('defend');effects.push(mk('onDefense','stopAttack',{scope:'neutralWeapon'}));
+    } else if(card.role==='deflect_miracle') {
+      modes.push('defend');effects.push(mk('onDefense','redirectAttack',{mode:'deflect',scope:'miracle'}));
     } else if(card.role==='boost_weapon') {
       if(card.boost!=='double_weapon')throw new Error('Unmapped miracle boost');
       modes.push('cast');effects.push(mk('onDeclare','multiplyAttack',{factor:2,scope:'weapon'}));
