@@ -9,6 +9,7 @@
 import {reflectTarget} from '../src/rules.mjs';
 import {createInstance, drawRandom32} from './foundation.mjs';
 import {compileBasicWeaponAttack,resolveBasicFixture} from './basic-resolution.mjs';
+import {isWallDefense,resolveWallFixture} from './wall-resolution.mjs';
 
 function bad(message){throw new Error(message);}
 function player(state,id){
@@ -61,6 +62,10 @@ export function resolveRedirectFixture(state,catalog,{
  const selected=locateDefense(state,catalog);
  const redirected=selected.filter(x=>x.def.effects.some(e=>e.type==='redirectAttack'&&e.when==='onDefense'));
  if(!redirected.length) {
+   if(isWallDefense(state,catalog))
+     return resolveWallFixture(state,catalog,{labOnly:true,fixtureDrawDefinitionId});
+   if(p.defense.learnedDefinitionId!==undefined)
+     bad('Unknown learned defensive miracle');
    return resolveBasicFixture(state,catalog,{labOnly:true,fixtureDrawDefinitionId});
  }
  if(selected.length!==1)bad('A redirect card must be selected alone');
