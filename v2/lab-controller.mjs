@@ -118,16 +118,21 @@ export function createV2LabController({
     if(idx>=0){selected.splice(idx,1);return view();}
     if(selected.length>=18)throw new Error('一度に選択できるカード数を超えました');
     if(selection.instanceId){
-      if(!player.hand.some(card=>card.instanceId===selection.instanceId))
-        throw new Error('そのカードは現在の手札にありません');
+      const held=player.hand.find(card=>card.instanceId===selection.instanceId);
+      if(!held)throw new Error('そのカードは現在の手札にありません');
+      if(state.phase==='defense' && selected.some(x=>x.learnedDefinitionId)){
+        const def=catalog.get(held.definitionId);
+        if(!def?.playModes.includes('support'))
+          throw new Error('習得済み防御奇跡の後には補助雑貨のみ選べます');
+      }
     } else {
       if(!player.learned.includes(selection.learnedDefinitionId))
         throw new Error('その奇跡は習得していません');
-      if(state.phase==='defense' && selected.some(x=>x.learnedDefinitionId))
-        throw new Error('防御に複数の習得済み奇跡を使う操作は未対応');
+      if(state.phase==='defense' &&
+        (!catalog.get(selection.learnedDefinitionId)?.playModes.includes('defend')||
+         selected.some(x=>x.learnedDefinitionId)))
+        throw new Error('防御奇跡を1つだけ選択してください');
     }
-    if(state.phase==='defense' && selected.some(x=>x.learnedDefinitionId))
-      throw new Error('習得済み防御奇跡の後にはカードを追加できません');
     selected.push({...selection});
     return view();
   }
@@ -146,11 +151,11 @@ export function createV2LabController({
     if(state.phase==='defense'){
       const learned=selected.filter(x=>x.learnedDefinitionId);
       if(learned.length>1)throw new Error('習得済み防御奇跡は1つまで');
-      command={
-        commandId:n,expectedRevision:state.revision,actorId:actor.id,type:'defend',
-        orderedInstanceIds:selected.filter(x=>x.instanceId).map(x=>x.instanceId),
-        ...(learned.length?{learnedDefinitionId:learned[0].learnedDefinitionId}:{})
-      };
+      command=learned.length
+        ?{commandId:n,expectedRevision:state.revision,actorId:actor.id,
+          type:'defendSequence',orderedPlays:[...selected]}
+        :{commandId:n,expectedRevision:state.revision,actorId:actor.id,type:'defend',
+          orderedInstanceIds:selected.filter(x=>x.instanceId).map(x=>x.instanceId)};
     } else if(state.phase==='turn'){
       if(!selected.length)throw new Error('使用するカードを選んでください');
       if(selected.length===1&&selected[0].learnedDefinitionId){
