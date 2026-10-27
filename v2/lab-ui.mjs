@@ -83,6 +83,7 @@ export function mountV2Lab(root,controller=createV2LabController()){
    if(!node||!root.contains(node))return;
    const action=node.getAttribute('data-action');
    const kind=node.getAttribute('data-card');
+   let localError=null;
    try{
      if(action==='reset'){
        if(!resetArmed)resetArmed=true;
@@ -99,10 +100,14 @@ export function mountV2Lab(root,controller=createV2LabController()){
        resetArmed=false;controller.setTarget(decodeURIComponent(node.getAttribute('data-target')));
      }else return;
    }catch(error){
-     const feedback=root.querySelector?.('[role="status"]');
-     if(feedback)feedback.textContent=String(error?.message??'この操作はできません').slice(0,180);
+     localError=String(error?.message??'この操作はできません').slice(0,180);
    }
    render();
+   // An invalid tap must remain visible after the full screen rerenders.
+   if(localError){
+     const feedback=root.querySelector?.('[role="status"]');
+     if(feedback)feedback.textContent=localError;
+   }
  });
  render();
  return {render,controller};
