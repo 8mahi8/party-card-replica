@@ -1652,10 +1652,10 @@ const {drawRandom32} = __v2_module_2;
 const {runEffectQueueFixture} = __v2_module_5;
 
 /**
- * V2 G3 Part 3: intentionally narrow, reference-backed first-use solo miracles.
- * Card source: the existing 68-card verified research subset.
- * Does NOT handle re-casting from learned list, multiple miracles, Aura,
- * wall or reflection; these require additional command/interrupt contracts.
+ * V2 G3: narrow solo attack miracles with ordered defensive reactions.
+ * Includes initial/learned casts, reflection, deflection and plain armor
+ * stacking. This is still a 77-card PARTIAL test catalog, not full rules.
+ * Unsupported mixed special effects are rejected, never guessed.
  */
 
 
@@ -1790,8 +1790,22 @@ function resolveSoloMiracleFixture(state,catalog,options={}) {
      ...(p.defense.learnedDefinitionId===undefined?[]
        :[{learnedDefinitionId:p.defense.learnedDefinitionId}])
    ];
-   if(!Array.isArray(sequence)||sequence.length>3)
+   // Ordinary armor stacking is unlimited by the game rule (subject to
+   // the staged command's 36-step ceiling). Only special redirects are
+   // constrained to solo / immediately-following-Spirit combinations.
+   if(!Array.isArray(sequence)||sequence.length>36)
      fail('Invalid miracle defensive selection');
+   const handSteps=sequence.filter(step=>step?.instanceId).map(step=>step.instanceId);
+   const learnedSteps=sequence.filter(step=>step?.learnedDefinitionId)
+     .map(step=>step.learnedDefinitionId);
+   // Never interpret a forged/reordered sequence differently from the actual
+   // command payload's selected hand cards and optional learned miracle.
+   if(JSON.stringify(handSteps)!==JSON.stringify(p.defense.instanceIds)||
+      learnedSteps.length>(p.defense.learnedDefinitionId===undefined?0:1)||
+      (p.defense.learnedDefinitionId===undefined
+        ?learnedSteps.length!==0
+        :learnedSteps[0]!==p.defense.learnedDefinitionId))
+     fail('Defensive selection sequence mismatch');
    const entries=sequence.map(step=>{
      if(step.instanceId){
        const found=selected(defender,[step.instanceId],catalog)[0];
