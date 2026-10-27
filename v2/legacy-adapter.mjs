@@ -35,11 +35,23 @@ export function convertLegacyCard(card,{ruleset=PARTIAL_CARD_SOURCE}={}) {
     attack=card.attack;
     modes.push(card.slot==='main'?'mainAttack':'addAttack');
     if(card.guard!==undefined){if(!truthyInt(card.guard))throw new Error('Malformed weapon guard');guard=card.guard; modes.push('defend');}
-    if(card.reaction!==undefined){
-      if(!['reflect','deflect'].includes(card.reaction)||card.reactionScope!=='neutral_weapon')throw new Error('Unmapped reaction');
+    if(card.stopScope!==undefined){
+      if(card.stopScope!=='miracle')throw new Error('Unmapped weapon stop scope');
       if(!modes.includes('defend'))modes.push('defend');
-      effects.push(mk('onDefense','redirectAttack',{mode:card.reaction,scope:'neutralWeapon'}));
+      effects.push(mk('onDefense','stopAttack',{scope:'miracle'}));
     }
+    if(card.reaction!==undefined){
+      if(!['reflect','deflect'].includes(card.reaction)||
+        !['neutral_weapon','miracle'].includes(card.reactionScope))
+        throw new Error('Unmapped weapon reaction');
+      if(card.stopScope!==undefined)throw new Error('Multiple weapon defense effects not verified');
+      if(!modes.includes('defend'))modes.push('defend');
+      effects.push(mk('onDefense','redirectAttack',{
+        mode:card.reaction,
+        scope:card.reactionScope==='miracle'?'miracle':'neutralWeapon'
+      }));
+    } else if(card.reactionScope!==undefined)
+      throw new Error('Orphan weapon reaction scope');
   } else if(card.kind==='armor') {
     if(!truthyInt(card.guard))throw new Error('Malformed armor');
     guard=card.guard;modes.push('defend');
