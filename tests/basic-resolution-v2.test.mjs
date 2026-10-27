@@ -161,11 +161,11 @@ test('offensive miracle is staged but not silently treated as a weapon',()=>{
  assert.throws(()=>resolve(s),/Basic resolution requires weapon first/);
  assert.equal(s.players[0].mp,10);
 });
-test('unsupported attack combo and defense selection fail atomically',()=>{
- const hands={A:['w016','m005'],B:['d001']};
- const s=stage(lab(hands),{attack:[0,1],defense:[0]});
+test('still-unverified Aura + Fireball is rejected without mutating state',()=>{
+ const hands={A:['w016','m004','m005'],B:['d001']};
+ const s=stage(lab(hands),{attack:[0,1,2],defense:[0]});
  const before=JSON.stringify(s);
- assert.throws(()=>resolve(s),/Unsupported attack combination/);
+ assert.throws(()=>resolve(s),/Aura stacked with other miracles/);
  assert.equal(JSON.stringify(s),before);
 });
 test('fixture-only guard prevents exposing fake full-card draw probabilities',()=>{
