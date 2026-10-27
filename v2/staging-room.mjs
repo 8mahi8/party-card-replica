@@ -17,7 +17,8 @@ const MAX_PLAYERS=9;
 const MAX_HAND=18;
 const ALLOWED_KEYS={
   playCards:new Set(['commandId','expectedRevision','actorId','type','targetId','orderedInstanceIds']),
-  defend:new Set(['commandId','expectedRevision','actorId','type','orderedInstanceIds'])
+  castLearned:new Set(['commandId','expectedRevision','actorId','type','targetId','learnedDefinitionId']),
+  defend:new Set(['commandId','expectedRevision','actorId','type','orderedInstanceIds','learnedDefinitionId'])
 };
 
 function id(value,label) {
@@ -41,8 +42,9 @@ function fingerprint(command) {
     actorId:command.actorId,
     type:command.type,
     expectedRevision:command.expectedRevision,
-    targetId:command.type==='playCards'?command.targetId:null,
-    orderedInstanceIds:command.orderedInstanceIds
+    targetId:['playCards','castLearned'].includes(command.type)?command.targetId:null,
+    orderedInstanceIds:command.orderedInstanceIds??null,
+    learnedDefinitionId:command.learnedDefinitionId??null
   });
 }
 function takeLegalSelection(player,instanceIds,catalog,mode,{allowEmpty=false}={}) {
@@ -133,16 +135,27 @@ export function applyStagingCommand(state,command,catalog,{authorizedSeatId}={})
   let pending;
   let phase;
   let activePlayerId;
-  if(command.type==='playCards') {
+  if(command.type==='playCards'||command.type==='castLearned') {
     if(state.phase!=='turn')throw new Error('Not an attacking turn');
     id(command.targetId,'target ID');
     const target=seat(state,command.targetId);
     if(target.hp<=0)throw new Error('Invalid G2 target');
     if(actor.hp<=0)throw new Error('Dead actor');
-    const selected=takeLegalSelection(actor,command.orderedInstanceIds,catalog,'attack');
+    let selected=[],learned=null;
+    if(command.type==='castLearned'){
+      id(command.learnedDefinitionId,'learned definition ID');
+      learned=catalog.get(command.learnedDefinitionId);
+      if(!actor.learned.includes(command.learnedDefinitionId)||
+        learned?.family!=='miracle'||!learned.playModes.includes('cast')||
+        learned.stats.attack<=0)
+        throw new Error('Offensive miracle not learned');
+    } else {
+      selected=takeLegalSelection(actor,command.orderedInstanceIds,catalog,'attack');
+    }
     pending={
       type:'attack',originalAttackerId:actor.id,targetId:target.id,
-      attackInstanceIds:selected.map(x=>x.instanceId),defense:null
+      attackInstanceIds:selected.map(x=>x.instanceId),
+      ...(learned?{attackLearnedDefinitionId:learned.id}:{}),defense:null
     };
     // A self-targeting attack skips defense, as in the old rules engine.
     // G3 will decide damage and possible self-defeat.
@@ -152,7 +165,17 @@ export function applyStagingCommand(state,command,catalog,{authorizedSeatId}={})
     if(state.phase!=='defense'||!state.pending||
        state.pending.targetId!==actor.id)throw new Error('Not the defending seat');
     const selected=takeLegalSelection(actor,command.orderedInstanceIds,catalog,'defense',{allowEmpty:true});
-    pending={...state.pending,defense:{playerId:actor.id,instanceIds:selected.map(x=>x.instanceId)}};
+    let learned=null;
+    if(command.learnedDefinitionId!==undefined){
+      id(command.learnedDefinitionId,'learned definition ID');
+      learned=catalog.get(command.learnedDefinitionId);
+      if(!actor.learned.includes(command.learnedDefinitionId)||
+        learned?.family!=='miracle'||!learned.playModes.includes('defend'))
+        throw new Error('Defensive miracle not learned');
+    }
+    pending={...state.pending,defense:{playerId:actor.id,
+      instanceIds:selected.map(x=>x.instanceId),
+      ...(learned?{learnedDefinitionId:learned.id}:{})}};
     phase='resolving';activePlayerId=null;
   }
   const next={
