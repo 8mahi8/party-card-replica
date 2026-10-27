@@ -12,7 +12,7 @@ import {VERIFIED_BASIC_CARDS} from '../src/verified-basic-cards.mjs';
 
 const DEFAULT_HANDS=Object.freeze({
   A:['w016','a003','m004','m005','d005','m002','i003','w027','d001'],
-  B:['w027','d005','m001','i001','d018','m007','w016','i002','i003']
+  B:['w027','d024','m001','i001','d029','m007','w016','i002','i003']
 });
 const names=new Map(VERIFIED_BASIC_CARDS.map(x=>[x.id,x.referenceName]));
 const FALLBACK_DRAW='d001';
