@@ -173,7 +173,7 @@ test('two Super Mirrors bounce one miracle twice without double charging',()=>{
 test('mirror plus armor is rejected atomically',()=>{
  const s=stage(lab({A:['m002'],B:['i002','d014']}),{defense:[0,1]});
  const before=JSON.stringify(s);
- assert.throws(()=>resolve(s),/Super Mirror must be used alone/);
+ assert.throws(()=>resolve(s),/Redirect must be used alone/);
  assert.equal(JSON.stringify(s),before);
 });
 test('self-cast dark miracle cannot be defended and awards victory to opponent',()=>{
