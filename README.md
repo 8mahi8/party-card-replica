@@ -148,3 +148,11 @@ GitHub Actionsでもpush/PR時にテストする設定です（実際のGitHub�
 - **Chrome実操作28/28項目成功、Node.js 302/302テスト成功**（固定高さ枠のスクリーンショットを含む）。
 - [埋め込み枠の検証記録と未対応範囲](docs/V2_G5_EMBED_LAB_2026-10-27.md)。
 - **学校Safari実機／Google Sitesへの実際の貼り付けはまだ未確認。main／学校公開版は変更なし。**
+
+## WebKit（Safari系エンジン）の実ブラウザ試験（2026-10-27）
+
+- [WebKit実タップ試験](tests/v2-webkit-smoke.browser.mjs) と [開発専用CI](.github/workflows/v2-webkit-smoke.yml) を追加。製品HTMLにPlaywrightを組み込んでいない。
+- [ローカルの高さ固定iframe](v2/demo/embed-harness.html)でWebKit 1024×460／390×430のタップ・スクロール・手札隠し・カード選択・エラー復帰を検査。
+- **WebKit 46/46項目合格**（run 40524914323）、**Chrome 28/28項目合格**（run 40524914605）、**Node.js 302/302件合格**（run 40524914485）。
+- 画面画像を点検し、固定の「攻撃を確定」とフッターの「最初からやり直す」が重ならないよう余白を修正。日本語もWebKit画像上では読める状態。
+- [実施内容・残作業](docs/V2_G5_WEBKIT_TOUCH_2026-10-27.md)。**WebKitのLinux実行はiOS Safari実機でも本物のGoogle Sitesでもない。学校公開版とmainには触れていない。**
