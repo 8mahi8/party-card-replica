@@ -25,9 +25,10 @@ function cardButton(c,type){
 }
 export function renderV2LabMarkup(data,{resetArmed=false}={}){
  const text=data.phase==='turn'?'攻撃':data.phase==='defense'?'防御':'終了';
- const header='<div class="topline"><div><strong class="brand">CARD LAB <em>V2</em></strong>'+
+ const topLine='<div class="topline"><div><strong class="brand">CARD LAB <em>V2</em></strong>'+
  '<div class="sub">学校iPad用・ルール検証だけの試遊版</div></div>'+
- '<span class="phase">'+text+'</span></div>'+
+ '<span class="phase">'+text+'</span></div>';
+ const header=topLine+
  '<div class="disclaimer">⚠ <strong>オフライン1台交代制</strong>・固定カード補充によるテスト。'+
  'オンライン対戦・原作の出現率・全カード再現ではありません。</div>'+
  '<section class="score" aria-label="プレイヤーの状態">'+data.publicPlayers.map(portrait).join('')+'</section>';
@@ -40,7 +41,9 @@ export function renderV2LabMarkup(data,{resetArmed=false}={}){
      esc(data.notice)+'</p></section>'+footer;
  }
  if(!data.revealed){
-   return header+'<section class="pass-screen" aria-live="polite">'+
+   // Hide the large stats/disclaimer block during private handoff so the
+   // reveal button remains visible in a short Google Sites-style iframe.
+   return topLine+'<section class="pass-screen compact-pass" aria-live="polite">'+
      '<div class="seal" aria-hidden="true">◈</div><h1>'+esc(seatLabel(data.actorId))+' の番</h1>'+
      '<p>'+esc(data.notice)+'</p><p class="hint">端末を'+esc(seatLabel(data.actorId))+
      'へ渡してから手札を表示してください</p>'+
