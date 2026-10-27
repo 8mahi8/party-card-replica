@@ -192,3 +192,13 @@ test('old attacker may defend a reflection with learned Wall without breaking re
  outcome(orig,next);
  assert.equal(next.players[0].mp,4);
 });
+
+test('learned Wall is never silently ignored by the solo miracle resolver',()=>{
+ const input={A:['m002'],B:['d001']};
+ const opts={learned:{B:['m001']}};
+ const staged=attackAndDefend(room(input,opts),{wallLearned:'m001'});
+ const before=JSON.stringify(staged);
+ assert.throws(()=>cast(staged),/Learned defensive miracle is unsupported/);
+ assert.throws(()=>stop(staged),/Basic resolution requires weapon first/);
+ assert.equal(JSON.stringify(staged),before);
+});
