@@ -9,9 +9,9 @@ const match=(a,b)=>{
   const s=createMatch({playerIds:['A','B'],firstPlayerId:'A',rng:()=>0,draw});
   s.players[0].hand=a;s.players[1].hand=b;return s;
 };
-test('source-backed basic subset increases from 35 to 77, never full 353',()=>{
-  assert.equal(VERIFIED_BASIC_CARDS.length,77);
-  assert.equal(new Set(VERIFIED_BASIC_CARDS.map(c=>c.id)).size,77);
+test('source-backed basic subset grows to 83, never full 353',()=>{
+  assert.equal(VERIFIED_BASIC_CARDS.length,83);
+  assert.equal(new Set(VERIFIED_BASIC_CARDS.map(c=>c.id)).size,83);
   assert.equal(auditCatalog(VERIFIED_BASIC_CARDS).complete,false);
 });
 test('four demon armors are categorized armor but contribute attack bonus',()=>{
