@@ -259,6 +259,48 @@ async function testSkyMoonTouch(base){
  }
 }
 
+async function testUnverifiedMiracleMixTouch(base){
+ const context=await browser.newContext({
+   viewport:{width:1024,height:768},screen:{width:1024,height:768},
+   deviceScaleFactor:2,isMobile:true,hasTouch:true,locale:'ja-JP'
+ });
+ try{
+   page=await context.newPage();
+   await page.goto(base+'/embed-harness.html',{waitUntil:'load'});
+   const frame=page.frameLocator('#game-embed');
+   await frame.locator('[data-action=reveal]').tap();
+   await frame.locator('[data-card=hand]').filter({hasText:'氷'}).tap();
+   await frame.locator('[data-action=submit]').tap();
+   await frame.locator('.compact-pass').waitFor();
+   await frame.locator('[data-action=reveal]').tap();
+   const sky=frame.locator('[data-card=hand]').filter({hasText:'スカイヘルム'});
+   const moon=frame.locator('[data-card=hand]').filter({hasText:'月光のよろい'});
+   await sky.tap();
+   await moon.tap();
+   passed((await frame.locator('.picks').textContent()).includes('スカイヘルム'),
+     'Sky remains selected after unverified simultaneous Moonlight tap');
+   passed(!(await frame.locator('.picks').textContent()).includes('月光のよろい'),
+     'Unverified combination is not added to selected cards');
+   passed((await frame.locator('[role=status]').textContent()).includes('この検証版では'),
+     'Warning must identify this as a lab-only restriction');
+   await screenshot('webkit-unverified-mixed-defense-warning');
+   await sky.tap();
+   await moon.tap();
+   passed((await frame.locator('.picks').textContent()).includes('月光のよろい'),
+     'Player can switch to single Moonlight without resetting');
+   await frame.locator('[data-action=submit]').tap();
+   await frame.locator('.compact-pass').waitFor();
+   passed((await frame.locator('.compact-pass h1').textContent()).includes('P1'),
+     'Single Moonlight reflector still redirects the miracle');
+ }catch(error){
+   await screenshot('webkit-unverified-mixed-defense-failure');
+   throw error;
+ }finally{
+   page=null;await context.close();
+ }
+}
+
+
 try{
   if(!existsSync(path.join(ROOT,'v2/demo/standalone.html')))
     throw new Error('Missing checked-in standalone HTML');
@@ -268,6 +310,7 @@ try{
   await testScenario(base,{width:390,height:844,embedHeight:430,shotPrefix:'webkit-narrow'});
   await testTurbulenceTouch(base);
   await testSkyMoonTouch(base);
+  await testUnverifiedMiracleMixTouch(base);
   console.log('WEBKIT_SMOKE_SUCCESS checks='+checks+' engine=Playwright WebKit'+
     ' fixed-height frames=1024x460,390x430');
 }catch(error){
