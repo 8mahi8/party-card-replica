@@ -1,0 +1,2102 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<title>CARD LAB V2｜試験用ホットシート</title>
+<style>
+:root{font-family:-apple-system,BlinkMacSystemFont,"Hiragino Kaku Gothic ProN","Yu Gothic",sans-serif;color:#eef7ff;background:#080e1d;font-size:15px}
+*{box-sizing:border-box}
+body{margin:0;background:radial-gradient(ellipse 80% 50% at 50% -8%,#21365e 0%,#0b1427 70%,#080e1d 100%);min-height:100vh}
+button{font:inherit;touch-action:manipulation;cursor:pointer}
+button:focus-visible{outline:3px solid #ffd981;outline-offset:3px}
+button:disabled{opacity:.45;cursor:not-allowed}
+#v2-root{max-width:1060px;margin:0 auto;padding:18px 18px 42px}
+.topline{display:flex;justify-content:space-between;align-items:center;gap:16px;margin-bottom:12px}
+.brand{font-size:clamp(22px,3vw,33px);letter-spacing:.07em;font-weight:900}
+.brand em{font-style:normal;color:#82ddf9}
+.sub{color:#a7bdd5;font-size:12px;margin-top:3px}
+.phase{display:block;flex:0 0 auto;padding:8px 17px;color:#0a2431;border-radius:999px;background:#81dbeb;font-weight:800;font-size:13px}
+.disclaimer{background:#251d2b;border:1px solid #6b526a;color:#ffdecb;padding:12px 15px;line-height:1.6;border-radius:13px;font-size:12px;margin-bottom:14px}
+.score{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.seat{background:#14243b;border:1px solid #344c6e;border-radius:17px;padding:16px}
+.seat strong{font-size:19px}
+.seat small{color:#a7bbd7;margin-left:7px}
+.values{display:flex;gap:clamp(8px,2vw,24px);flex-wrap:wrap;margin-top:10px;font-size:13px;color:#c2d8ef}
+.values b{font-size:20px;color:#fff}
+.stage{border-radius:19px;margin-top:15px;background:#132137;border:1px solid #304766;padding:20px}
+.stage-heading h1,.pass-screen h1{font-size:clamp(18px,3vw,23px);margin:0 0 5px}
+.stage-heading p{color:#a7bfdc;font-size:13px;margin:0 0 14px}
+.pass-screen{text-align:center;margin-top:15px;padding:clamp(35px,8vw,80px) 20px;background:#14233b;border:1px solid #3d5f87;border-radius:20px;min-height:330px}
+.pass-screen p{max-width:560px;margin:12px auto;color:#c6dff1;line-height:1.65}
+.seal{margin:auto auto 14px;background:#233b63;border-radius:50%;display:grid;place-items:center;width:68px;height:68px;font-size:42px;color:#9ee8ec}
+.pass-screen .hint{font-size:13px;color:#9ebad6;margin-bottom:26px}
+h2{font-size:15px;margin:0 0 11px;color:#d4eaff}
+h2 small{font-weight:400;color:#8fa7c7;margin-left:5px;font-size:12px}
+.targets{margin-bottom:18px}
+.choice-row{display:flex;gap:10px;flex-wrap:wrap}
+.choice-row button{padding:11px 20px;border-radius:12px;background:#233554;border:1px solid #405d84;color:#e2eefd;min-width:100px;min-height:46px}
+.choice-row button.chosen{background:#0f4660;border-color:#67d4ef;box-shadow:inset 0 0 0 1px #67d4ef}
+.cards-panel{margin-top:18px}
+.hand-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(152px,1fr));gap:10px}
+.battle-card{background:linear-gradient(155deg,#294362,#1a2d46);border:2px solid #44618a;border-radius:13px;text-align:left;color:#f5f9ff;min-height:96px;padding:12px;display:flex;flex-direction:column;position:relative;gap:4px;transition:background .12s ease}
+.battle-card.picked{background:linear-gradient(155deg,#285763,#153d51);border-color:#79e8cf;box-shadow:0 0 0 1px #79e8cf}
+.battle-card:active{transform:scale(.985)}
+.battle-card .rank{align-self:flex-end;color:#9ccada;font-size:14px;line-height:16px;font-weight:900;min-height:17px}
+.battle-card.picked .rank{color:#89efb7}
+.card-label{font-size:13px;line-height:1.4;font-weight:800;word-break:break-word}
+.battle-card small{font-size:11px;color:#acc4df;margin-top:auto}
+.empty,.muted{color:#809bb8;font-size:13px}
+.selection{margin:18px 0;padding:14px;border-radius:13px;background:#0b192c;border:1px solid #29486a}
+.picks{display:flex;gap:8px;flex-wrap:wrap;min-height:26px}
+.pick-index{padding:6px 8px;font-size:12px;background:#1c3852;border-radius:9px;color:#d6f6f9}
+.status{color:#e8d6a3;font-size:12px;line-height:1.55;min-height:18px}
+.primary{background:linear-gradient(100deg,#88e2e4,#9deac3);color:#062939;border:0;border-radius:14px;font-size:17px;font-weight:900;min-height:54px;padding:14px 20px}
+.primary:active{filter:brightness(.85)}
+.wide{display:block;width:100%;max-width:600px;margin:auto}
+.confirm{margin-top:16px}
+footer{margin-top:18px;display:flex;align-items:center;gap:12px;justify-content:space-between;flex-wrap:wrap;color:#89a0bc;font-size:11px}
+.quiet{border:1px solid #46566f;color:#b3cbe4;background:transparent;border-radius:10px;min-height:44px;padding:10px 14px}
+@media(max-width:640px){
+#v2-root{padding:12px 10px 28px}
+.disclaimer{font-size:11px}
+.score{gap:7px}
+.seat{padding:11px}
+.values{gap:8px}
+.values b{font-size:16px}
+.stage{padding:14px 11px}
+.hand-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
+.battle-card{min-height:92px;padding:9px}
+.card-label{font-size:12px}
+}
+@media(prefers-reduced-motion:reduce){.battle-card{transition:none}}
+</style>
+</head>
+<body>
+<div id="v2-root">V2エンジンを読み込み中…</div>
+<script>
+const __v2_module_0 = (() => {
+"use strict";
+
+/**
+ * 原作参照型カード対戦のルール検証モジュール。未実装の効果は推測で補わない。
+ * データ来源: docs/SOURCE_LEDGER.md。ゲーム完成版ではありません。
+ *
+ * Cards are data objects. This module deliberately uses generic card IDs and
+ * test-only fixtures; no third-party art/assets/text are bundled.
+ */
+const STARTING_STATS = Object.freeze({hp: 40, mp: 10, money: 20});
+const INITIAL_HAND_SIZE = 9;
+const MAX_HAND_SIZE = 18;
+const MAX_RESOURCE_VALUE = 99;
+const MAX_LEARNED_MIRACLES = 6;
+
+const ELEMENTS = Object.freeze([
+  'none', 'fire', 'water', 'wood', 'earth', 'light', 'dark'
+]);
+
+/** Wiki (2025-09-19) table. A defense's matching property is independent
+ *  of its guard strength. Light attacks bypass all normal attribute shields.
+ */
+const ALLOWED_SHIELD_ELEMENTS = Object.freeze({
+  none: Object.freeze([...ELEMENTS]),
+  fire: Object.freeze(['water', 'light']),
+  water: Object.freeze(['fire', 'light']),
+  wood: Object.freeze(['earth', 'light']),
+  earth: Object.freeze(['wood', 'light']),
+  light: Object.freeze([]),
+  dark: Object.freeze([...ELEMENTS])
+});
+
+/** 500-slot 7-element/category distribution; not a complete 353-card catalog. */
+const CATEGORY_DISTRIBUTION = Object.freeze({
+  trade: Object.freeze([60,0,0,0,0,0,0]),
+  weapon_single: Object.freeze([110,9,7,7,5,7,7]),
+  weapon_area: Object.freeze([0,4,4,3,3,3,1]),
+  armor_normal: Object.freeze([101,10,8,8,7,2,0]),
+  armor_ring: Object.freeze([2,1,1,1,1,1,1]),
+  armor_other: Object.freeze([4,0,0,0,0,0,0]),
+  miracle: Object.freeze([11,4,5,2,2,4,2]),
+  item: Object.freeze([92,0,0,0,0,0,0])
+});
+
+const ELEMENTAL_FOUR = new Set(['fire','water','wood','earth']);
+function assertElement(e) {
+  if (!ELEMENTS.includes(e)) throw new TypeError(`Unknown element: ${e}`);
+}
+function nonnegativeInt(v, label) {
+  if (!Number.isInteger(v) || v < 0) throw new RangeError(`${label} must be a nonnegative integer`);
+}
+function canBlock(attackElement, shieldElement, {rainbowCurtain=false}={}) {
+  assertElement(attackElement);
+  assertElement(shieldElement);
+  if (rainbowCurtain && attackElement !== 'none') attackElement='none';
+  return ALLOWED_SHIELD_ELEMENTS[attackElement].includes(shieldElement);
+}
+/** Mixing attack elements. 'Dye' overrides if supplied; other extra-card
+ * effect order is not inferred here. */
+function combineElements(a, b, {dye=null}={}) {
+  assertElement(a); assertElement(b);
+  if (dye !== null) { assertElement(dye); return dye; }
+  if (a === b) return a;
+  if (a === 'light' && ELEMENTAL_FOUR.has(b)) return b;
+  if (b === 'light' && ELEMENTAL_FOUR.has(a)) return a;
+  return 'none';
+}
+/** Calculate damage. Include armor as a sum of valid shields only.
+ * No silent capping at HP or addition of unverified extra effects.
+ */
+function calculateHit({attack, element='none', armor=0, hp=STARTING_STATS.hp, rainbowCurtain=false}) {
+  nonnegativeInt(attack, 'attack'); nonnegativeInt(armor,'armor');
+  nonnegativeInt(hp,'hp'); assertElement(element);
+  const effectiveElement = rainbowCurtain ? 'none' : element;
+  const damage = Math.max(0, attack - armor);
+  // Dark-element damage of at least 1 causes instant defeat.
+  const instantDefeat = effectiveElement === 'dark' && damage > 0;
+  const hpAfter = instantDefeat ? 0 : Math.max(0, hp - damage);
+  return Object.freeze({damage, instantDefeat, hpAfter, effectiveElement});
+}
+/** Validate and sum the selected shields; attacks made on oneself cannot be defended. */
+function sumLegalArmor(attackElement, shields, {selfTarget=false,rainbowCurtain=false}={}) {
+  assertElement(attackElement);
+  if (!Array.isArray(shields)) throw new TypeError('shields must be array');
+  if (selfTarget && shields.length) throw new Error('Self-target attacks cannot be defended');
+  return shields.reduce((total, shield) => {
+    if (!shield || typeof shield !== 'object') throw new TypeError('shield must be object');
+    nonnegativeInt(shield.guard,'shield.guard');
+    if (!canBlock(attackElement,shield.element,{rainbowCurtain})) {
+      throw new Error(`incompatible shield: ${shield.element} against ${attackElement}`);
+    }
+    return total + shield.guard;
+  }, 0);
+}
+/** Random draws are WITH replacement. All probabilities are integer slots, not a shrinking pile.
+ * Requires fully audited card catalog to model original actual odds.
+ */
+function drawWeighted(catalog, rng=Math.random) {
+  if (!Array.isArray(catalog) || !catalog.length) throw new Error('catalog is empty');
+  let total=0;
+  for (const card of catalog) {
+    if (!Number.isInteger(card.weight) || card.weight <= 0) throw new RangeError('invalid weight');
+    total += card.weight;
+  }
+  const n = rng();
+  if (!Number.isFinite(n) || n < 0 || n >= 1) throw new RangeError('rng must return [0,1)');
+  let cursor=n*total;
+  for (const card of catalog) {
+    cursor -= card.weight;
+    if (cursor < 0) return card;
+  }
+  throw new Error('unreachable draw');
+}
+function totalSlots(distribution=CATEGORY_DISTRIBUTION) {
+  return Object.values(distribution).flat().reduce((s,n)=>s+n,0);
+}
+function refillHand(hand, count, draw) {
+  if (!Array.isArray(hand) || typeof draw !== 'function') throw new TypeError('invalid refill arguments');
+  nonnegativeInt(count,'count');
+  if (hand.length > MAX_HAND_SIZE) throw new RangeError('hand exceeds cap');
+  const next=[...hand];
+  for (let i=0; i<count && next.length<MAX_HAND_SIZE; i++) next.push(draw());
+  return next;
+}
+function initialHand(draw) { return refillHand([], INITIAL_HAND_SIZE, draw); }
+/** A newly used miracle becomes learned and may be recast with sufficient MP;
+ * on the seventh learned miracle the earliest is forgotten.
+ */
+function learnMiracle(learned, miracleId) {
+  if (!Array.isArray(learned) || !miracleId) throw new TypeError('invalid miracle');
+  if (learned.includes(miracleId)) return [...learned];
+  const next=[...learned, miracleId];
+  return next.slice(-MAX_LEARNED_MIRACLES);
+}
+function payMiracle(mp, cost) {
+  nonnegativeInt(mp,'mp'); nonnegativeInt(cost,'cost');
+  if (mp < cost) throw new Error('Not enough MP');
+  return mp-cost;
+}
+/** Paid price is taken in money -> MP -> HP order. Remaining shortfall after
+ * hitting 0 HP is not represented as a negative resource. No seller rewards
+ * are calculated here (max-resource and transfer corner cases unverified). */
+function payForcedSale({hp,mp,money}, price) {
+  nonnegativeInt(price,'price');
+  [hp,mp,money].forEach((v)=>nonnegativeInt(v,'resource'));
+  let due=price;
+  let paidMoney=Math.min(money,due);money-=paidMoney;due-=paidMoney;
+  let paidMp=Math.min(mp,due);mp-=paidMp;due-=paidMp;
+  let paidHp=Math.min(hp,due);hp-=paidHp;due-=paidHp;
+  return {buyer:{hp,mp,money},paid:{hp:paidHp,mp:paidMp,money:paidMoney},unpaid:due};
+}
+/** Return only new attack source/target; multi-reflection engine TBD. */
+function reflectTarget({source,target,actor,mode,living,rng=Math.random}) {
+  if (!Array.isArray(living) || !living.includes(actor)) throw new Error('actor must be alive');
+  if (source===target && actor===target) throw new Error('self-hit cannot react');
+  if (actor!==target) throw new Error('only attack target may react');
+  if (mode==='reflect') return {source:actor,target:source};
+  if (mode==='deflect') {
+    const n=rng(); if(n<0||n>=1||!Number.isFinite(n)) throw new RangeError('bad rng');
+    return {source:actor,target:living[Math.floor(n*living.length)]};
+  }
+  throw new Error('invalid reaction mode');
+}
+
+return {STARTING_STATS,INITIAL_HAND_SIZE,MAX_HAND_SIZE,MAX_RESOURCE_VALUE,MAX_LEARNED_MIRACLES,ELEMENTS,ALLOWED_SHIELD_ELEMENTS,CATEGORY_DISTRIBUTION,canBlock,combineElements,calculateHit,sumLegalArmor,drawWeighted,totalSlots,refillHand,initialHand,learnMiracle,payMiracle,payForcedSale,reflectTarget};
+})();
+
+const __v2_module_1 = (() => {
+"use strict";
+
+/**
+ * 資料照合したカードの一部を登録した原作照合サンプル。
+ * この資料上の対象版の353種類を網羅したカードプールではない。これで対戦用山札を作ると
+ * 確率が原作からズレるため、公開版の抽選には絶対に使わないこと。
+ *
+ * 出典:
+ * https://w.atwiki.jp/piong/pages/15.html
+ * https://w.atwiki.jp/piong/pages/17.html
+ * https://macarongamemo.com/entry/godfield-artifact (2026-02-28)
+ *
+ * weight は「500分母あたりの枠数」(0.2%=1)。カード名は
+ * 調査用の参照名で、オリジナルUIの表示素材ではない。
+ */
+const PARTIAL_CARD_SOURCE = 'piong-atwiki-and-macaron-2026-02-28';
+const main=(id,referenceName,attack,price,weight,{element='none',guard,reaction}={})=>
+  Object.freeze({id,referenceName,kind:'weapon',slot:'main',category:'weapon_single',element,attack,price,weight,...(guard===undefined?{}:{guard}),...(reaction===undefined?{}:{reaction,reactionScope:'neutral_weapon'})});
+const add=(id,referenceName,attack,price,weight=1,{element='none'}={})=>
+  Object.freeze({id,referenceName,kind:'weapon',slot:'addon',category:'weapon_single',element,attack,price,weight});
+const shield=(id,referenceName,guard,price,weight,{element='none',attackBonus,stopScope}={})=>
+  Object.freeze({id,referenceName,kind:'armor',category:'armor_normal',element,guard,price,weight,...(attackBonus===undefined?{}:{attackBonus}),...(stopScope===undefined?{}:{stopScope})});
+
+/** Read-only 68-card subset. Do not normalize and sample as the full deck. */
+const VERIFIED_BASIC_CARDS = Object.freeze([
+  main('w001','銅のこん棒',1,1,3),
+  main('w002','銀のこん棒',1,10,1),
+  main('w003','金のこん棒',1,25,1),
+  main('w004','ムチ',2,1,4),
+  main('w005','セイバーロッド',2,10,1,{guard:6}),
+  main('w006','パンチ',3,1,5),
+  main('w007','ハチェット',4,2,6),
+  main('w008','とげベルト',4,3,1,{guard:2}),
+  main('w009','鎖ガマ',5,2,7),
+  main('w010','打撃の鉄板',5,3,1,{guard:7}),
+  main('w011','硬いつち',6,2,8),
+  main('w012','エルボーサック',6,3,1,{guard:3}),
+  main('w013','なぎなたクラシック',7,3,8),
+  main('w014','ファイナル牙',8,3,8),
+  main('w015','パワーハルベルト',9,3,7),
+  main('w016','ワンダーソード',10,4,7),
+  main('w017','神の剣',30,30,1),
+  main('w018','たいまつ',1,1,1,{element:'fire'}),
+  main('w019','ソードシールド',10,15,1,{guard:10}),
+  main('w020','ほむら巻き',4,8,1,{element:'fire',guard:4}),
+  main('w021','つらら',1,1,1,{element:'water'}),
+  main('w022','木刀',1,1,1,{element:'wood'}),
+  main('w023','つるぎ焼き',2,2,1,{element:'earth'}),
+  main('w024','スタースタッフ',3,3,1,{element:'light'}),
+  main('w025','ちくりんちょ',1,10,1,{element:'dark'}),
+  main('w026','乱弾武剣',5,10,7,{reaction:'deflect'}),
+  main('w027','反射剣',10,5,3,{reaction:'reflect'}),
+  add('a001','吹き矢',1,1),
+  add('a002','クロスボウ',2,2),
+  add('a003','ブーメラン',3,3),
+  add('a004','バトルボール',4,4),
+  add('a005','戦士の弓',5,5),
+  add('a006','ジェットヨーヨー',6,6),
+  add('a007','未知の羽根',7,7),
+  add('a008','サイキックカード',8,8),
+  add('a009','ファイヤークロスボウ',4,8,1,{element:'fire'}),
+  add('a010','輝きのカケラ',1,10,1,{element:'light'}),
+  add('a011','冥矢',5,15,1,{element:'dark'}),
+  shield('d001','革の帽子',1,1,10),
+  shield('d002','革の服',2,2,10),
+  shield('d003','アイアンガントレット',3,3,8),
+  shield('d004','アイアンシールド',4,4,8),
+  shield('d005','アイアンアーマー',5,5,8),
+  shield('d006','はがねの小手',6,6,6),
+  shield('d007','はがねのかぶと',7,7,6),
+  shield('d008','はがねの盾',8,8,6),
+  shield('d009','神の盾',30,30,1),
+  shield('d010','鬼のくつ',3,10,1,{attackBonus:5}),
+  shield('d011','鬼の小手',5,15,1,{attackBonus:10}),
+  shield('d012','鬼のかぶと',7,15,1,{attackBonus:10}),
+  shield('d013','鬼のよろい',9,20,1,{attackBonus:15}),
+  shield('d014','フレイムブーツ',3,6,1,{element:'fire'}),
+  shield('d015','アイスブーツ',3,6,1,{element:'water'}),
+  shield('d016','森の盾',6,10,1,{element:'wood'}),
+  shield('d017','石版',1,2,1,{element:'earth'}),
+  shield('d018','エンゼルの小手',9,15,1,{stopScope:'miracle'}),
+  shield('d019','エンゼルの帽子',11,15,1,{stopScope:'miracle'}),
+  shield('d020','エンゼルシールド',13,15,1,{stopScope:'miracle'}),
+  shield('d021','エンゼルアーマー',15,15,1,{stopScope:'miracle'}),
+  Object.freeze({id:'i001',referenceName:'虹のカーテン',kind:'defense_item',category:'item',element:'none',effect:'strip_element',price:15,weight:3}),
+  Object.freeze({id:'i002',referenceName:'スーパーミラー',kind:'defense_item',category:'item',element:'none',effect:'reflect_any',price:10,weight:1}),
+  Object.freeze({id:'m001',referenceName:'壁',kind:'miracle',role:'stop',stopScope:'neutral_weapon',category:'miracle',element:'none',mpCost:6,price:0,weight:1}),
+  Object.freeze({id:'m002',referenceName:'氷',kind:'miracle',role:'attack',category:'miracle',element:'water',attack:4,mpCost:2,price:0,weight:1}),
+  Object.freeze({id:'m003',referenceName:'闇',kind:'miracle',role:'attack',category:'miracle',element:'dark',attack:5,mpCost:5,price:0,weight:1}),
+  Object.freeze({id:'m004',referenceName:'オーラ',kind:'miracle',role:'boost_weapon',boost:'double_weapon',category:'miracle',element:'none',mpCost:6,price:0,weight:1}),
+  Object.freeze({id:'m005',referenceName:'火の玉',kind:'miracle',role:'attack',plusAttack:true,category:'miracle',element:'fire',attack:2,mpCost:2,price:0,weight:1}),
+  Object.freeze({id:'m006',referenceName:'流星',kind:'miracle',role:'attack',plusAttack:true,category:'miracle',element:'light',attack:10,mpCost:7,price:0,weight:1}),
+  Object.freeze({id:'i003',referenceName:'精霊のぬいぐるみ',kind:'support_item',category:'item',element:'none',effect:'free_previous_miracle',price:5,weight:2}),
+]);
+
+function findVerifiedBasicCard(id) {
+  return VERIFIED_BASIC_CARDS.find(c=>c.id===id) ?? null;
+}
+
+return {PARTIAL_CARD_SOURCE,VERIFIED_BASIC_CARDS,findVerifiedBasicCard};
+})();
+
+const __v2_module_2 = (() => {
+"use strict";
+
+/**
+ * V2 ISOLATED SPIKE — no replacement for the production rules engine.
+ * Strict card definitions, distinct physical card instances, ordered input,
+ * privacy-projected views, revision checks and deterministic RNG.
+ * Actual effect resolution and network authentication are NOT implemented.
+ */
+const FAMILIES = new Set(['weapon','armor','miracle','item','trade']);
+const ELEMENTS = new Set(['none','fire','water','wood','earth','light','dark']);
+const MODES = new Set(['mainAttack','addAttack','defend','cast','support','trade']);
+const EFFECT_TRIGGERS = new Set(['onDeclare','onCost','beforeHit','onDefense','afterHit','onTurnEnd']);
+const EFFECT_TYPES = new Set(['redirectAttack','stripElement','multiplyAttack','addAttack','stopAttack','waivePreviousMp']);
+
+function plainObject(v) { return v !== null && typeof v === 'object' && !Array.isArray(v); }
+function nonnegative(n) { return Number.isSafeInteger(n) && n >= 0; }
+function requiredId(id,label='id') {
+  if(typeof id !== 'string' || !/^[a-zA-Z0-9._:-]{1,80}$/.test(id))
+    throw new TypeError('Invalid '+label);
+  return id;
+}
+function assertAllowed(value,set,label) {
+  if(!set.has(value)) throw new Error('Unknown '+label+': '+String(value));
+}
+function freezeEffect(effect) {
+  if(!plainObject(effect)) throw new TypeError('Invalid effect');
+  assertAllowed(effect.when,EFFECT_TRIGGERS,'effect timing');
+  assertAllowed(effect.type,EFFECT_TYPES,'effect type');
+  if(effect.params!==undefined && !plainObject(effect.params))
+    throw new TypeError('Invalid effect params');
+  // Plain JSON effect parameters. Reject executable values in data.
+  const params = effect.params ?? {};
+  const json = JSON.stringify(params);
+  if(json===undefined || json.length>4000)throw new Error('Effect parameters not serializable');
+  const copy = JSON.parse(json);
+  if(Object.keys(copy).some(k=>k==='__proto__'||k==='constructor'))
+    throw new Error('Unsafe effect params');
+  return Object.freeze({when:effect.when,type:effect.type,params:Object.freeze(copy)});
+}
+/** Normalize and freeze a card definition. Catalog entries are never physical hand cards. */
+function defineCard(spec) {
+  if(!plainObject(spec)) throw new TypeError('Card must be object');
+  const id=requiredId(spec.id,'definition ID');
+  assertAllowed(spec.family,FAMILIES,'card family');
+  assertAllowed(spec.element,ELEMENTS,'element');
+  if(!Number.isSafeInteger(spec.drawWeight) || spec.drawWeight<1)throw new Error('Invalid draw weight');
+  if(!Array.isArray(spec.playModes) || spec.playModes.length===0 ||
+     new Set(spec.playModes).size!==spec.playModes.length ||
+     spec.playModes.some(mode=>!MODES.has(mode)))throw new Error('Invalid play modes');
+  if(!plainObject(spec.stats))throw new TypeError('Missing stats');
+  const stats={};
+  for(const field of ['attack','guard','mpCost','price']) {
+    const value=spec.stats[field] ?? 0;
+    if(!nonnegative(value))throw new Error('Invalid stat '+field);
+    stats[field]=value;
+  }
+  if(!plainObject(spec.source)||!spec.source.ruleset || !spec.source.confidence)
+    throw new Error('Versioned evidence required');
+  const effects=(spec.effects??[]);
+  if(!Array.isArray(effects))throw new TypeError('Effects must be array');
+  const normalized={
+    id, family:spec.family, element:spec.element, drawWeight:spec.drawWeight,
+    stats:Object.freeze(stats), playModes:Object.freeze([...spec.playModes]),
+    effects:Object.freeze(effects.map(freezeEffect)),
+    source:Object.freeze({ruleset:String(spec.source.ruleset),confidence:String(spec.source.confidence)})
+  };
+  return Object.freeze(normalized);
+}
+function buildCatalog(cards) {
+  if(!Array.isArray(cards))throw new TypeError('Card list required');
+  const map=new Map();
+  for(const input of cards) {
+    const def=defineCard(input);
+    if(map.has(def.id))throw new Error('Duplicate definition ID '+def.id);
+    map.set(def.id,def);
+  }
+  return map;
+}
+function createInstance(definitionId,serial,catalog) {
+  requiredId(definitionId,'definition ID');
+  if(!Number.isSafeInteger(serial)||serial<1)throw new Error('Invalid instance serial');
+  if(!catalog.has(definitionId))throw new Error('Unknown card definition');
+  return Object.freeze({instanceId:'ci-'+serial,definitionId});
+}
+/** Card order is an explicit gameplay input. Indexes are never accepted. */
+function selectInstances(hand,orderedIds) {
+  if(!Array.isArray(hand) || !Array.isArray(orderedIds)||!orderedIds.length)
+    throw new Error('Missing hand selection');
+  if(new Set(orderedIds).size!==orderedIds.length)throw new Error('Repeated card instance');
+  return orderedIds.map(id=>{
+    requiredId(id,'instance ID');
+    const hit=hand.find(x=>x.instanceId===id);
+    if(!hit)throw new Error('Selected card not held');
+    return hit;
+  });
+}
+/** Strip other players' hands AND internal draw state from the payload. */
+function projectPlayerView(state,viewerId) {
+  if(!plainObject(state)||!Array.isArray(state.players))throw new TypeError('Invalid state');
+  if(!state.players.some(p=>p.id===viewerId))throw new Error('Unknown viewer');
+  return {
+    revision:state.revision,phase:state.phase,activePlayerId:state.activePlayerId,
+    players:state.players.map(p=>{
+      const publicStats={id:p.id,hp:p.hp,mp:p.mp,money:p.money,handCount:p.hand.length};
+      return p.id===viewerId
+        ? {...publicStats,hand:p.hand.map(c=>({instanceId:c.instanceId,definitionId:c.definitionId}))}
+        : publicStats;
+    })
+  };
+}
+/** Transport will authenticate the caller and deduplicate command IDs later. */
+function validateCommandEnvelope(state,command) {
+  if(!plainObject(command))throw new TypeError('Invalid command');
+  requiredId(command.commandId,'command ID');
+  requiredId(command.actorId,'actor ID');
+  if(!Number.isSafeInteger(command.expectedRevision) || command.expectedRevision!==state.revision)
+    throw new Error('Stale room revision');
+  if(!state.players.some(p=>p.id===command.actorId))
+    throw new Error('Unknown actor');
+  if(command.type!=='playCards')throw new Error('Unsupported command');
+  const actor=state.players.find(p=>p.id===command.actorId);
+  selectInstances(actor.hand,command.orderedInstanceIds);
+  return true;
+}
+/** Pure PRNG sample with state that can be serialized (NOT secret/secure RNG). */
+function drawRandom32(seed) {
+  if(!Number.isSafeInteger(seed)||seed<=0||seed>0xffffffff)throw new Error('Invalid RNG seed');
+  let x=seed>>>0;
+  x^=(x<<13); x^=(x>>>17); x^=(x<<5);
+  x>>>=0;
+  return Object.freeze({nextSeed:x || 1,value:x/0x100000000});
+}
+
+return {defineCard,buildCatalog,createInstance,selectInstances,projectPlayerView,validateCommandEnvelope,drawRandom32};
+})();
+
+const __v2_module_3 = (() => {
+"use strict";
+const {defineCard,buildCatalog} = __v2_module_2;
+const {VERIFIED_BASIC_CARDS,PARTIAL_CARD_SOURCE} = __v2_module_1;
+
+/**
+ * V2 G1: migrate the existing PARTIAL research catalog into strict definitions.
+ * This module translates DECLARED card characteristics, it does not execute
+ * them. Never promote an unverified value to an official probability.
+ */
+
+
+const KNOWN_KEYS=new Set([
+  'id','referenceName','kind','category','slot','element','attack','guard',
+  'attackBonus','price','weight','reaction','reactionScope','stopScope',
+  'role','boost','plusAttack','mpCost','effect'
+]);
+const CATEGORY_BY_KIND=Object.freeze({weapon:'weapon_single',armor:'armor_normal',miracle:'miracle',defense_item:'item',support_item:'item'});
+const mk=(when,type,params={})=>({when,type,params});
+const truthyInt=x=>Number.isSafeInteger(x)&&x>=0;
+// Documented 2025 server-selection example: weapon + Fireball + Fireball.
+// This is research metadata, not card-name branching in the battle engine.
+const VERIFIED_IDENTICAL_PLUS_PAIRS=new Set(['m005']);
+
+function convertLegacyCard(card,{ruleset=PARTIAL_CARD_SOURCE}={}) {
+  if(!card||typeof card!=='object'||Array.isArray(card))throw new TypeError('Invalid legacy card');
+  const unknown=Object.keys(card).filter(k=>!KNOWN_KEYS.has(k));
+  if(unknown.length)throw new Error('Unmapped legacy fields: '+unknown.join(','));
+  const family=card.kind==='defense_item'||card.kind==='support_item'?'item':card.kind;
+  if(!CATEGORY_BY_KIND[card.kind]||card.category!==CATEGORY_BY_KIND[card.kind])
+    throw new Error('Unsupported category or card kind: '+card.id);
+  if(!truthyInt(card.price)||!truthyInt(card.weight)||card.weight===0)
+    throw new Error('Invalid legacy price/weight');
+  const effects=[];
+  const modes=[];
+  let attack=0,guard=0,mpCost=0;
+  if(card.kind==='weapon') {
+    if(!truthyInt(card.attack)||!['main','addon'].includes(card.slot))throw new Error('Malformed weapon');
+    attack=card.attack;
+    modes.push(card.slot==='main'?'mainAttack':'addAttack');
+    if(card.guard!==undefined){if(!truthyInt(card.guard))throw new Error('Malformed weapon guard');guard=card.guard; modes.push('defend');}
+    if(card.reaction!==undefined){
+      if(!['reflect','deflect'].includes(card.reaction)||card.reactionScope!=='neutral_weapon')throw new Error('Unmapped reaction');
+      if(!modes.includes('defend'))modes.push('defend');
+      effects.push(mk('onDefense','redirectAttack',{mode:card.reaction,scope:'neutralWeapon'}));
+    }
+  } else if(card.kind==='armor') {
+    if(!truthyInt(card.guard))throw new Error('Malformed armor');
+    guard=card.guard;modes.push('defend');
+    if(card.attackBonus!==undefined){if(!truthyInt(card.attackBonus))throw new Error('Malformed attack bonus');attack=card.attackBonus;modes.push('addAttack');}
+    if(card.stopScope!==undefined){
+      if(card.stopScope!=='miracle')throw new Error('Unmapped armor stop scope');
+      effects.push(mk('onDefense','stopAttack',{scope:'miracle'}));
+    }
+  } else if(card.kind==='miracle') {
+    if(!truthyInt(card.mpCost))throw new Error('Malformed miracle MP cost');
+    mpCost=card.mpCost;
+    if(card.role==='attack') {
+      if(!truthyInt(card.attack))throw new Error('Malformed miracle attack');
+      attack=card.attack;modes.push('cast');
+      if(card.plusAttack===true){
+        modes.push('addAttack');
+        effects.push(mk('onDeclare','addAttack',{
+          scope:'weapon',
+          stacking:VERIFIED_IDENTICAL_PLUS_PAIRS.has(card.id)?'identicalPair':'single'
+        }));
+      } else if(card.plusAttack!==undefined)throw new Error('Unknown plus-attack flag');
+    } else if(card.role==='stop') {
+      if(card.stopScope!=='neutral_weapon')throw new Error('Unmapped miracle stop scope');
+      modes.push('defend');effects.push(mk('onDefense','stopAttack',{scope:'neutralWeapon'}));
+    } else if(card.role==='boost_weapon') {
+      if(card.boost!=='double_weapon')throw new Error('Unmapped miracle boost');
+      modes.push('cast');effects.push(mk('onDeclare','multiplyAttack',{factor:2,scope:'weapon'}));
+    } else throw new Error('Unmapped miracle role');
+  } else if(card.kind==='defense_item') {
+    modes.push('defend');
+    if(card.effect==='strip_element')effects.push(mk('onDefense','stripElement'));
+    else if(card.effect==='reflect_any')effects.push(mk('onDefense','redirectAttack',{mode:'reflect',scope:'any'}));
+    else throw new Error('Unmapped defense item effect');
+  } else if(card.kind==='support_item') {
+    modes.push('support');
+    if(card.effect==='free_previous_miracle')effects.push(mk('onCost','waivePreviousMp',{target:'previousMiracle'}));
+    else throw new Error('Unmapped support item effect');
+  }
+  return defineCard({
+    id:card.id,family,element:card.element,drawWeight:card.weight,
+    stats:{attack,guard,mpCost,price:card.price},playModes:modes,effects,
+    source:{ruleset,confidence:'secondary'}
+  });
+}
+
+function migrateLegacyCatalog(cards=VERIFIED_BASIC_CARDS) {
+  if(!Array.isArray(cards)||cards.length===0)throw new TypeError('No legacy cards supplied');
+  const definitions=Object.freeze(cards.map(card=>convertLegacyCard(card)));
+  const byId=buildCatalog(definitions);
+  const totalSlots=definitions.reduce((sum,card)=>sum+card.drawWeight,0);
+  return Object.freeze({definitions,byId,summary:Object.freeze({unique:byId.size,slots:totalSlots,complete:false,source:PARTIAL_CARD_SOURCE})});
+}
+
+return {convertLegacyCard,migrateLegacyCatalog};
+})();
+
+const __v2_module_4 = (() => {
+"use strict";
+const {createInstance, selectInstances} = __v2_module_2;
+
+/**
+ * V2 G2: authoritatively *stage* a combat interaction.
+ *
+ * Rules in this module are only structural: a card instance belongs to the
+ * sender, selections have preserved order, the proper seat acts in each phase,
+ * and room commands are applied at most once. There is intentionally NO
+ * damage, MP consumption, card removal, draw, or rule-dependent resolution.
+ * G3 will compile and resolve pending intents.
+ *
+ * Only a trusted transport should supply the authorizedSeatId context. A
+ * client-controlled actorId alone never authenticates a sender.
+ */
+
+const ID=/^[a-zA-Z0-9._:-]{1,80}$/;
+const MAX_PLAYERS=9;
+const MAX_HAND=18;
+const ALLOWED_KEYS={
+  playCards:new Set(['commandId','expectedRevision','actorId','type','targetId','orderedInstanceIds']),
+  playSequence:new Set(['commandId','expectedRevision','actorId','type','targetId','orderedPlays']),
+  castLearned:new Set(['commandId','expectedRevision','actorId','type','targetId','learnedDefinitionId']),
+  defend:new Set(['commandId','expectedRevision','actorId','type','orderedInstanceIds','learnedDefinitionId'])
+};
+
+function id(value,label) {
+  if(typeof value!=='string'||!ID.test(value))throw new Error('Invalid '+label);
+  return value;
+}
+function finiteInt(value,label,min=0) {
+  if(!Number.isSafeInteger(value)||value<min)throw new Error('Invalid '+label);
+  return value;
+}
+function catalogReady(catalog) {
+  if(!(catalog instanceof Map)||catalog.size===0)throw new Error('Card catalog Map required');
+}
+function seat(state,seatId) {
+  const p=state.players.find(x=>x.id===seatId);
+  if(!p)throw new Error('Unknown seat');
+  return p;
+}
+function fingerprint(command) {
+  return JSON.stringify({
+    actorId:command.actorId,
+    type:command.type,
+    expectedRevision:command.expectedRevision,
+    targetId:['playCards','playSequence','castLearned'].includes(command.type)?command.targetId:null,
+    orderedPlays:command.orderedPlays??null,
+    orderedInstanceIds:command.orderedInstanceIds??null,
+    learnedDefinitionId:command.learnedDefinitionId??null
+  });
+}
+function takeLegalSelection(player,instanceIds,catalog,mode,{allowEmpty=false}={}) {
+  if(!Array.isArray(instanceIds)||(!allowEmpty&&!instanceIds.length)||
+     instanceIds.some(x=>typeof x!=='string'||!ID.test(x))) throw new Error('Invalid ordered card selection');
+  const selected=instanceIds.length?selectInstances(player.hand,instanceIds):[];
+  const defs=selected.map(c=>{
+    const def=catalog.get(c.definitionId);
+    if(!def)throw new Error('Missing card definition');
+    return def;
+  });
+  if(mode==='attack') {
+    const mainCount=defs.filter(c=>c.playModes.includes('mainAttack')).length;
+    if(mainCount>1 || !defs.every(c=>c.playModes.some(m=>['mainAttack','addAttack','cast','support'].includes(m))))
+      throw new Error('Not a structural attack selection');
+    const first=defs[0];
+    if(first.family!=='weapon' &&
+       !(first.family==='miracle' && first.playModes.includes('cast') && first.stats.attack>0))
+      throw new Error('Attack must start with a weapon or offensive miracle');
+    // Exact later combination legality is compiled in G3, not guessed here.
+  } else if(mode==='defense') {
+    if(!defs.every(c=>c.playModes.includes('defend')||c.playModes.includes('support')) ||
+       (defs.length>0 && !defs[0].playModes.includes('defend')))
+      throw new Error('Not a defensive card');
+    const rainbowIndex=defs.findIndex(c=>c.effects.some(e=>e.type==='stripElement'));
+    if(rainbowIndex>0)throw new Error('Attribute remover must be first');
+    // Exact defense combinations, MP costs, reflection and stop priority: G3.
+  }
+  return selected;
+}
+/** Strictly preserve the sender's interleaved hand/learned order. */
+function takeOrderedPlays(actor,plays,catalog){
+  if(!Array.isArray(plays)||plays.length===0||plays.length>36)
+    throw new Error('Invalid ordered play sequence');
+  const handIds=new Set(),learnedIds=new Set();
+  return plays.map((step,index)=>{
+    if(!step||typeof step!=='object'||Array.isArray(step))
+      throw new Error('Malformed sequence step');
+    const keys=Object.keys(step);
+    if(keys.length!==1)throw new Error('Sequence step must name one source');
+    if(keys[0]==='instanceId'){
+      const instanceId=id(step.instanceId,'instance ID');
+      if(handIds.has(instanceId))throw new Error('Repeated card instance');
+      handIds.add(instanceId);
+      const instance=actor.hand.find(c=>c.instanceId===instanceId);
+      if(!instance)throw new Error('Selected card not held');
+      const def=catalog.get(instance.definitionId);
+      if(!def||!def.playModes.some(mode=>['mainAttack','addAttack','cast','support'].includes(mode)))
+        throw new Error('Not a structural attack selection');
+      if(index===0 && def.family!=='weapon')throw new Error('Sequence must begin with weapon');
+      return {instanceId};
+    }
+    if(keys[0]==='learnedDefinitionId'){
+      const defId=id(step.learnedDefinitionId,'learned definition ID');
+      if(learnedIds.has(defId))throw new Error('Repeated learned miracle in one sequence not verified');
+      learnedIds.add(defId);
+      const def=catalog.get(defId);
+      if(!actor.learned.includes(defId)||def?.family!=='miracle'||!def.playModes.includes('cast'))
+        throw new Error('Selected miracle not learned');
+      if(index===0)throw new Error('Sequence must begin with weapon');
+      return {learnedDefinitionId:defId};
+    }
+    throw new Error('Unknown sequence step source');
+  });
+}
+/**
+ * Seed known opening hands (in tests or local lab only). A live game must use
+ * the audited deck + authoritative draw, not these caller-specified hands.
+ */
+function createStagingRoom({seats,firstSeatId,rulesetId='lab-v2',rngSeed=1},catalog) {
+  catalogReady(catalog);
+  if(!Array.isArray(seats)||seats.length<2||seats.length>MAX_PLAYERS)
+    throw new Error('Need 2-9 seats');
+  const ids=seats.map(p=>id(p.id,'seat ID'));
+  if(new Set(ids).size!==ids.length)throw new Error('Duplicate seat ID');
+  if(!ids.includes(firstSeatId))throw new Error('Invalid first seat');
+  id(rulesetId,'ruleset ID');
+  finiteInt(rngSeed,'rng seed',1);
+  if(rngSeed>0xffffffff)throw new Error('Invalid rng seed');
+  let serial=1;
+  const players=seats.map(p=>{
+    if(!Array.isArray(p.handDefinitionIds)||p.handDefinitionIds.length>MAX_HAND)
+      throw new Error('Invalid starting hand');
+    const hand=p.handDefinitionIds.map(definitionId=>createInstance(definitionId,serial++,catalog));
+    return {id:p.id,hp:40,mp:10,money:20,hand,learned:[]};
+  });
+  return {
+    schemaVersion:2,rulesetId,revision:0,phase:'turn',
+    activePlayerId:firstSeatId,players,nextInstanceSerial:serial,
+    rngSeed,pending:null,processedCommands:[],turnCount:0,winnerId:null
+  };
+}
+/**
+ * A same-ID retry with precisely the same payload is an idempotent no-op.
+ * A conflicting retry is rejected. All processed IDs persist until this
+ * room is destroyed, avoiding stale retries becoming fresh actions.
+ */
+function applyStagingCommand(state,command,catalog,{authorizedSeatId}={}) {
+  catalogReady(catalog);
+  if(!state || state.schemaVersion!==2 || !Array.isArray(state.players))
+    throw new Error('Invalid V2 room state');
+  if(!command || typeof command!=='object' || Array.isArray(command))
+    throw new Error('Invalid command');
+  if(!ALLOWED_KEYS[command.type])throw new Error('Unsupported G2 command');
+  const allowed=ALLOWED_KEYS[command.type];
+  if(Object.keys(command).some(k=>!allowed.has(k)))throw new Error('Unexpected command property');
+  id(command.commandId,'command ID');
+  id(command.actorId,'actor ID');
+  if(typeof authorizedSeatId!=='string'||authorizedSeatId!==command.actorId)
+    throw new Error('Sender seat is not authenticated');
+  const actor=seat(state,command.actorId);
+  if(!Array.isArray(state.processedCommands))throw new Error('Invalid command ledger');
+  const match=state.processedCommands.find(x=>x.commandId===command.commandId);
+  const signature=fingerprint(command);
+  if(match) {
+    if(match.signature!==signature)throw new Error('Conflicting commandId reuse');
+    return {state,applied:false,duplicate:true};
+  }
+  finiteInt(command.expectedRevision,'expected revision');
+  if(command.expectedRevision!==state.revision)throw new Error('Stale room revision');
+  if(state.phase==='resolving')throw new Error('Awaiting G3 effect resolution');
+  if(state.activePlayerId!==actor.id)throw new Error('Not the active seat');
+  let pending;
+  let phase;
+  let activePlayerId;
+  if(['playCards','playSequence','castLearned'].includes(command.type)) {
+    if(state.phase!=='turn')throw new Error('Not an attacking turn');
+    id(command.targetId,'target ID');
+    const target=seat(state,command.targetId);
+    if(target.hp<=0)throw new Error('Invalid G2 target');
+    if(actor.hp<=0)throw new Error('Dead actor');
+    let selected=[],learned=null;
+    if(command.type==='castLearned'){
+      id(command.learnedDefinitionId,'learned definition ID');
+      learned=catalog.get(command.learnedDefinitionId);
+      if(!actor.learned.includes(command.learnedDefinitionId)||
+        learned?.family!=='miracle'||!learned.playModes.includes('cast')||
+        learned.stats.attack<=0)
+        throw new Error('Offensive miracle not learned');
+    } else if(command.type==='playCards'){
+      selected=takeLegalSelection(actor,command.orderedInstanceIds,catalog,'attack');
+    }
+    const sequence=command.type==='playSequence'
+      ?takeOrderedPlays(actor,command.orderedPlays,catalog):null;
+    pending={
+      type:'attack',originalAttackerId:actor.id,targetId:target.id,
+      attackInstanceIds:sequence?sequence.filter(x=>x.instanceId).map(x=>x.instanceId)
+        :selected.map(x=>x.instanceId),
+      ...(sequence?{attackSequence:sequence}:{}),
+      ...(learned?{attackLearnedDefinitionId:learned.id}:{}),defense:null
+    };
+    // A self-targeting attack skips defense, as in the old rules engine.
+    // G3 will decide damage and possible self-defeat.
+    phase=target.id===actor.id?'resolving':'defense';
+    activePlayerId=target.id===actor.id?null:target.id;
+  } else {
+    if(state.phase!=='defense'||!state.pending||
+       state.pending.targetId!==actor.id)throw new Error('Not the defending seat');
+    const selected=takeLegalSelection(actor,command.orderedInstanceIds,catalog,'defense',{allowEmpty:true});
+    let learned=null;
+    if(command.learnedDefinitionId!==undefined){
+      id(command.learnedDefinitionId,'learned definition ID');
+      learned=catalog.get(command.learnedDefinitionId);
+      if(!actor.learned.includes(command.learnedDefinitionId)||
+        learned?.family!=='miracle'||!learned.playModes.includes('defend'))
+        throw new Error('Defensive miracle not learned');
+    }
+    pending={...state.pending,defense:{playerId:actor.id,
+      instanceIds:selected.map(x=>x.instanceId),
+      ...(learned?{learnedDefinitionId:learned.id}:{})}};
+    phase='resolving';activePlayerId=null;
+  }
+  const next={
+    ...state,revision:state.revision+1,phase,activePlayerId,pending,
+    processedCommands:[...state.processedCommands,{commandId:command.commandId,signature}]
+  };
+  return {state:next,applied:true,duplicate:false};
+}
+/**
+ * Only a trustworthy server/host may call this for the authenticated seat.
+ * Never transmit internal state or processed command payloads to opponents.
+ */
+function viewStagingRoom(state,viewerId) {
+  const p=seat(state,viewerId);
+  return {
+    schemaVersion:2,rulesetId:state.rulesetId,revision:state.revision,
+    phase:state.phase,activePlayerId:state.activePlayerId,
+    players:state.players.map(q=>({
+      id:q.id,hp:q.hp,mp:q.mp,money:q.money,handCount:q.hand.length,
+      ...(q.id===p.id?{hand:q.hand.map(x=>({instanceId:x.instanceId,definitionId:x.definitionId})),learned:[...q.learned]}:{})
+    })),
+    pending:state.pending?{
+      type:state.pending.type,sourceId:state.pending.sourceId??state.pending.originalAttackerId,
+      targetId:state.pending.targetId,
+      stage:state.pending.defense?'awaitingResolution':'awaitingDefense'
+    }:null
+  };
+}
+
+return {createStagingRoom,applyStagingCommand,viewStagingRoom};
+})();
+
+const __v2_module_5 = (() => {
+"use strict";
+const {createInstance} = __v2_module_2;
+const {MAX_HAND_SIZE,MAX_LEARNED_MIRACLES} = __v2_module_0;
+
+/**
+ * Common, deterministic, JSON-only effect queue interpreter for the G3 lab.
+ *
+ * The plans are compiled by rules-specific modules. This module is the only
+ * place allowed to mutate a NEW cloned room for shared spend/mp/learn/hit/
+ * refill/advance effects. Never substitute a partial reference-deck draw for
+ * real weighted draws in production.
+ */
+
+
+function fail(message){throw new Error(message);}
+function who(state,id){
+ const p=state.players.find(x=>x.id===id);
+ if(!p)fail('Unknown player');
+ return p;
+}
+function positiveCount(n){return Number.isSafeInteger(n)&&n>=0;}
+function nextAlive(players,afterId){
+ const from=players.findIndex(p=>p.id===afterId);
+ if(from<0)fail('Unknown original turn owner');
+ for(let offset=1;offset<=players.length;offset++){
+   const p=players[(from+offset)%players.length];
+   if(p.hp>0)return p.id;
+ }
+ return null;
+}
+function cloneRoom(state,{interruptionOnly=false}={}){
+ return {
+   ...state,
+   revision:state.revision+1,
+   players:state.players.map(p=>({...p,
+     hand:p.hand.map(c=>({...c})),learned:[...p.learned]})),
+   pending:interruptionOnly?{...state.pending,spentByPlayer:{...state.pending.spentByPlayer}}:null,
+   processedCommands:[...state.processedCommands]
+ };
+}
+/**
+ * Interpret a compiled queue atomically as an API: if any instruction fails,
+ * the original input state remains untouched, and nothing is committed.
+ *
+ * External synchronization still needs an authoritative transaction/CAS.
+ */
+function runEffectQueueFixture(state,catalog,queue,{
+ labOnly=false,fixtureDrawDefinitionId,interruptionOnly=false
+}={}){
+ if(labOnly!==true)fail('Only available in lab fixture mode');
+ if(!(catalog instanceof Map)||!catalog.has(fixtureDrawDefinitionId))
+   fail('Unknown fixture draw card');
+ if(!state||state.schemaVersion!==2||state.phase!=='resolving'||!state.pending||
+    !Array.isArray(state.players)||!Array.isArray(state.processedCommands))
+   fail('Invalid state for effect queue');
+ if(!Array.isArray(queue)||!queue.length)fail('Empty compiled effect queue');
+ if(interruptionOnly&&queue.some(e=>!['spend','grantDraw','mp','learn'].includes(e?.type)))
+   fail('Resolution commands are not permitted while staging');
+ const s=cloneRoom(state,{interruptionOnly});
+ const spent=Object.assign(Object.create(null),state.pending.spentByPlayer??{});
+ const events=[];
+ for(const effect of queue){
+   if(!effect||typeof effect!=='object')fail('Malformed queued effect');
+   if(effect.type==='spend'){
+     if(!Array.isArray(effect.instanceIds))fail('Invalid spend IDs');
+     const ids=new Set(effect.instanceIds),p=who(s,effect.playerId);
+     if(ids.size!==effect.instanceIds.length)fail('Repeated card in spend instruction');
+     const before=p.hand.length;
+     p.hand=p.hand.filter(x=>!ids.has(x.instanceId));
+     if(before-p.hand.length!==ids.size)fail('Card disappeared during resolution');
+     spent[p.id]=(spent[p.id]??0)+ids.size;
+     events.push({type:'spend',playerId:p.id,count:ids.size});
+   } else if(effect.type==='grantDraw'){
+     const p=who(s,effect.playerId);
+     if(!positiveCount(effect.count)||effect.count<1||effect.count>18)
+       fail('Invalid grantDraw count');
+     spent[p.id]=(spent[p.id]??0)+effect.count;
+     events.push({type:'grantDraw',playerId:p.id,count:effect.count});
+   } else if(effect.type==='mp'){
+     const p=who(s,effect.playerId);
+     if(!positiveCount(effect.cost)||p.mp<effect.cost)fail('Invalid MP payment');
+     p.mp-=effect.cost;
+     events.push({type:'payMp',playerId:p.id,cost:effect.cost});
+   } else if(effect.type==='learn'){
+     const p=who(s,effect.playerId);
+     const id=effect.definitionId;
+     if(!catalog.has(id)||catalog.get(id).family!=='miracle')
+       fail('Only known miracles may be learned');
+     if(!p.learned.includes(id))
+       p.learned=[...p.learned,id].slice(-MAX_LEARNED_MIRACLES);
+     events.push({type:'learn',playerId:p.id,definitionId:id});
+   } else if(effect.type==='hit'){
+     const p=who(s,effect.targetId);
+     if(!positiveCount(effect.damage)||!positiveCount(effect.hpAfter)||
+        effect.hpAfter>p.hp||typeof effect.instantDefeat!=='boolean')
+       fail('Malformed hit effect');
+     p.hp=effect.hpAfter;
+     events.push({type:'damage',targetId:p.id,damage:effect.damage,
+       instantDefeat:effect.instantDefeat,hpAfter:effect.hpAfter,
+       ...(effect.stopped===undefined?{}:{stopped:effect.stopped})});
+   } else if(effect.type==='refill'){
+     for(const p of s.players){
+       const amount=spent[p.id]??0;
+       if(!positiveCount(amount))fail('Invalid spent count');
+       let added=0;
+       if(p.hp>0){
+         while(added<amount&&p.hand.length<MAX_HAND_SIZE){
+           p.hand.push(createInstance(fixtureDrawDefinitionId,s.nextInstanceSerial++,catalog));
+           added++;
+         }
+       }
+       if(amount)events.push({type:'refill',playerId:p.id,added});
+     }
+   } else if(effect.type==='advance'){
+     const living=s.players.filter(p=>p.hp>0);
+     if(living.length<=1){
+       s.phase='finished';s.activePlayerId=null;
+       s.winnerId=living.length===1?living[0].id:null;
+       events.push({type:'matchEnd',winnerId:s.winnerId});
+     } else {
+       s.phase='turn';s.activePlayerId=nextAlive(s.players,effect.afterId);
+       s.turnCount++;
+       events.push({type:'turnAdvance',activePlayerId:s.activePlayerId});
+     }
+   } else fail('Unknown queued effect: '+String(effect.type));
+ }
+ if(interruptionOnly)s.pending.spentByPlayer={...spent};
+ return {state:s,events};
+}
+
+return {runEffectQueueFixture};
+})();
+
+const __v2_module_6 = (() => {
+"use strict";
+const {combineElements} = __v2_module_0;
+
+/**
+ * V2 G3: compile ordered weapon + typed additive / multiplier miracle effects.
+ *
+ * Research-limited cases:
+ * - Weapon(s) with one Aura, including addons chosen AFTER Aura
+ * - Weapon(s) with one Fireball/Meteor
+ * - Weapon(s) with two Fireballs, as documented in Bot selection research
+ * - One spirit doll IMMEDIATELY after the miracle it discounts
+ *
+ * Aura+additive miracle, recasts from learned list mixed with weapons, and
+ * other stacked miracles require more research and are rejected.
+ *
+ * This module only compiles; execution of pay/learn/spend/refill belongs to
+ * effect-runner.mjs.
+ */
+
+function fail(message){throw new Error(message);}
+function add(a,b) {
+  if(!Number.isSafeInteger(a)||!Number.isSafeInteger(b)||a<0||b<0||a>Number.MAX_SAFE_INTEGER-b)
+    fail('Attack or MP overflow');
+  return a+b;
+}
+function effectsOf(def,type){
+  return def.effects.filter(x=>x.type===type);
+}
+function getSelected(state,catalog){
+  const p=state?.pending;
+  const player=state?.players?.find(x=>x.id===p?.originalAttackerId);
+  const steps=p?.attackSequence??p?.attackInstanceIds?.map(instanceId=>({instanceId}));
+  if(!player||!Array.isArray(steps)||steps.length===0)
+    fail('No weapon selected');
+  const seenPhysical=new Set(),seenLearned=new Set();
+  const selected=steps.map(step=>{
+    if(step?.instanceId && Object.keys(step).length===1){
+      const id=step.instanceId;
+      if(seenPhysical.has(id))fail('Repeated selected attack instance');
+      seenPhysical.add(id);
+      const instance=player.hand.find(c=>c.instanceId===id);
+      if(!instance)fail('Selected attack instance not held');
+      const def=catalog.get(instance.definitionId);
+      if(!def)fail('Unknown attack card');
+      return {instance,def,fromLearned:false};
+    }
+    if(step?.learnedDefinitionId && Object.keys(step).length===1){
+      const id=step.learnedDefinitionId;
+      if(seenLearned.has(id))fail('Repeated learned miracle in one sequence not verified');
+      seenLearned.add(id);
+      const def=catalog.get(id);
+      if(!player.learned.includes(id)||def?.family!=='miracle'||!def.playModes.includes('cast'))
+        fail('Selected miracle not learned');
+      return {instance:null,def,fromLearned:true};
+    }
+    fail('Malformed attack sequence step');
+  });
+  // The legacy field must match the hand-origin selections if both are present.
+  if(p.attackSequence && JSON.stringify(selected.filter(x=>x.instance).map(x=>x.instance.instanceId))
+      !==JSON.stringify(p.attackInstanceIds))
+    fail('Sequence and selected card instances do not match');
+  return {caster:player,selected};
+}
+function compileOrderedWeaponAttack(state,catalog){
+  if(!(catalog instanceof Map)||!catalog.size)fail('Card catalog required');
+  const {caster,selected}=getSelected(state,catalog);
+  if(selected[0].def.family!=='weapon')
+    fail('Basic resolution requires weapon first');
+  let weaponAttack=0,attackElement='none',mainCount=0,weaponCount=0;
+  let aura=null,plusCount=0,additive=0,lastWasMiracle=false,hasArmorBonus=false;
+  let learnedDrawCount=0;
+  const casts=[],selectedKinds=[];
+  const miracles=[];
+  for(const {instance,def,fromLearned} of selected){
+    const mult=effectsOf(def,'multiplyAttack');
+    const plus=effectsOf(def,'addAttack');
+    const discount=effectsOf(def,'waivePreviousMp');
+    if(def.family==='weapon'||(def.family==='armor'&&def.playModes.includes('addAttack'))){
+      if(fromLearned)fail('Only miracles may come from learned selection');
+      if(plusCount)fail('Weapon or armor after plus miracle unverified');
+      if(def.family==='weapon'){
+        if(!def.playModes.some(mode=>mode==='mainAttack'||mode==='addAttack'))fail('Weapon is not attackable');
+        if(def.playModes.includes('mainAttack'))mainCount++;
+        if(mainCount>1)fail('Too many main weapons');
+        attackElement=weaponCount===0?def.element:combineElements(attackElement,def.element);
+        weaponCount++;
+      } else {hasArmorBonus=true;if(aura)fail('Aura with armor attack bonus unverified');}
+      for(const eff of def.effects){
+        if(!['redirectAttack','stopAttack'].includes(eff.type)||eff.when!=='onDefense')
+          fail('Unsupported weapon or armor effect');
+      }
+      weaponAttack=add(weaponAttack,def.stats.attack);
+      lastWasMiracle=false;
+      selectedKinds.push('weapon');
+    } else if(def.family==='miracle'){
+      if(!Number.isSafeInteger(def.stats.mpCost)||def.stats.mpCost<0)
+        fail('Invalid miracle MP');
+      if(mult.length===1 && mult[0].when==='onDeclare' && mult[0].params.factor===2 &&
+         mult[0].params.scope==='weapon' && def.playModes.includes('cast')){
+        if(aura||plusCount||hasArmorBonus)fail('Aura stacked with other miracles or armor bonus unverified');
+        if(def.effects.length!==1)fail('Unrecognized Aura effects');
+        aura=def.id;
+      } else if(plus.length===1 && def.effects.length===1 &&
+         plus[0].when==='onDeclare' && plus[0].params.scope==='weapon' &&
+         def.playModes.includes('addAttack') && def.stats.attack>0){
+        if(aura)fail('Aura stacked with other miracles unverified');
+        plusCount++;
+        if(plusCount>2)fail('More than two plus miracles not verified');
+        if(plusCount===2 && (def.id!==miracles[0]?.id ||
+          plus[0].params.stacking!=='identicalPair'||fromLearned||miracles[0]?.fromLearned))
+          fail('Only identical verified hand-based plus pair may stack');
+        additive=add(additive,def.stats.attack);
+        attackElement=combineElements(attackElement,def.element);
+      } else fail('Unsupported attack miracle effect');
+      miracles.push({id:def.id,mpCost:def.stats.mpCost,discounted:false,fromLearned});
+      if(fromLearned)learnedDrawCount++;
+      casts.push({type:'learn',definitionId:def.id});
+      lastWasMiracle=true;
+      selectedKinds.push('miracle');
+    } else if(def.family==='item'&&def.playModes.includes('support')&&
+       discount.length===1&&discount[0].when==='onCost' &&
+       discount[0].params.target==='previousMiracle'&&def.effects.length===1){
+      if(fromLearned)fail('Spirit must come from hand');
+      if(!lastWasMiracle||!miracles.length)fail('Spirit must immediately follow a miracle');
+      const prior=miracles.at(-1);
+      if(prior.discounted)fail('Only one spirit per miracle');
+      prior.discounted=true;
+      lastWasMiracle=false;
+      selectedKinds.push('support');
+    } else {
+      fail('Unsupported weapon combination');
+    }
+  }
+  if(!weaponCount)fail('Attack requires a weapon');
+  if(miracles.length&&state.pending.targetId===caster.id)
+    fail('Boosted self-target attack has not been verified');
+  if(aura&&plusCount)fail('Aura plus additive miracle ordering unverified');
+  // Aura multiplies all weapon attack values, even addons chosen later.
+  const attack=add(aura?add(weaponAttack,weaponAttack):weaponAttack,additive);
+  const payableMP=miracles.reduce((n,m)=>add(n,m.discounted?0:m.mpCost),0);
+  if(caster.mp<payableMP)fail('Not enough MP');
+  const learnedMiracles=[...new Set(miracles.map(m=>m.id))];
+  return Object.freeze({
+    attack,element:attackElement,attackKind:'weapon',
+    instanceIds:Object.freeze(selected.filter(x=>x.instance).map(x=>x.instance.instanceId)),
+    payableMP,learnedDrawCount,learnedMiracles:Object.freeze(learnedMiracles),
+    hasModifiers:miracles.length>0,
+    selectedKinds:Object.freeze(selectedKinds)
+  });
+}
+/**
+ * All generated effects go through the existing common interpreter; this is
+ * reusable for a normal hit or Wall stop. NOT for unimplemented redirects.
+ */
+function queuedAttackCosts(attackContext,actorId) {
+  if(!attackContext||!Array.isArray(attackContext.instanceIds))
+    fail('Missing attack compilation');
+  const queue=[{type:'spend',playerId:actorId,instanceIds:attackContext.instanceIds}];
+  if(attackContext.learnedDrawCount)
+    queue.push({type:'grantDraw',playerId:actorId,count:attackContext.learnedDrawCount});
+  if(attackContext.hasModifiers){
+    queue.push({type:'mp',playerId:actorId,cost:attackContext.payableMP});
+    for(const definitionId of attackContext.learnedMiracles)
+      queue.push({type:'learn',playerId:actorId,definitionId});
+  }
+  return queue;
+}
+
+return {compileOrderedWeaponAttack,queuedAttackCosts};
+})();
+
+const __v2_module_7 = (() => {
+"use strict";
+const {canBlock, combineElements, calculateHit, MAX_HAND_SIZE} = __v2_module_0;
+const {runEffectQueueFixture} = __v2_module_5;
+const {compileOrderedWeaponAttack,queuedAttackCosts} = __v2_module_6;
+
+/**
+ * V2 G3, PART 1: pure compile/resolve for reference-backed BASIC weapon combat.
+ *
+ * Deliberately restricted to a laboratory fixture-draw mode. This code NEVER
+ * claims that drawing a constant card models the original 353/500 distribution.
+ * Do not expose the draw ID as a live player's option.
+ *
+ * Combat effects outside this small supported subset are rejected, not silently
+ * ignored: miracles, reflection/deflection, angel-stoppers vs miracles,
+ * statuses, currencies, wider attack, and any unreviewed effect combos.
+ */
+
+
+
+const MAX_ATTACK=Number.MAX_SAFE_INTEGER;
+function fail(message) { throw new Error(message); }
+function catalogDef(catalog,instance) {
+  if(!instance || typeof instance.instanceId!=='string')
+    fail('Malformed card instance');
+  const d=catalog.get(instance.definitionId);
+  if(!d)fail('Unknown card definition');
+  return d;
+}
+function locateHandCards(player,orderedIds,catalog) {
+  if(!Array.isArray(orderedIds)||new Set(orderedIds).size!==orderedIds.length)
+    fail('Invalid ordered selection');
+  return orderedIds.map(instanceId=>{
+    const instance=player.hand.find(c=>c.instanceId===instanceId);
+    if(!instance)fail('Card not present in hand');
+    return {instance,def:catalogDef(catalog,instance)};
+  });
+}
+function safeAdd(a,b) {
+  if(!Number.isSafeInteger(a)||!Number.isSafeInteger(b)||a<0||b<0||
+     a>MAX_ATTACK-b)fail('Invalid accumulated attack or defense');
+  return a+b;
+}
+function getPlayer(state,id) {
+  const player=state.players.find(p=>p.id===id);
+  if(!player)fail('Unknown player');
+  return player;
+}
+function explainDefenseEffect(def) {
+  for(const e of def.effects) {
+    if(e.type==='redirectAttack')fail('Redirect reactions require G3 reaction resolver');
+    if(e.type==='stripElement')continue;
+    if(e.type==='stopAttack'&&e.params.scope==='miracle')continue; // numeric guard against weapon
+    fail('Unsupported defense effect: '+e.type);
+  }
+}
+function explainAttackEffects(def) {
+  for(const e of def.effects) {
+    // These special effects are only used in defense, and do not activate in attack.
+    if(e.type==='redirectAttack'&&e.when==='onDefense')continue;
+    if(e.type==='stopAttack'&&e.when==='onDefense')continue;
+    fail('Unsupported attack effect: '+e.type);
+  }
+}
+/**
+ * Pure weapon attack compiler. Chained reflections preserve this calculated
+ * immutable payload rather than reselecting cards already consumed.
+ */
+function compileBasicWeaponAttack(state,catalog) {
+  return compileOrderedWeaponAttack(state,catalog);
+}
+
+/**
+ * Compile an already-staged order of card instances into a deterministic plan.
+ * Compiling DOES NOT spend cards or roll RNG. Can be called to validate legal
+ * actions after defending, before committing any state changes.
+ */
+function compileBasicResolution(state,catalog) {
+  if(!(catalog instanceof Map)||!catalog.size)fail('Missing catalog');
+  if(!state||state.schemaVersion!==2||state.phase!=='resolving'||!state.pending||
+     state.pending.type!=='attack')fail('Not a pending basic attack');
+  const p=state.pending;
+  const attacker=getPlayer(state,p.originalAttackerId),defender=getPlayer(state,p.targetId);
+  if(attacker.hp<=0||defender.hp<=0)fail('Actor or target is dead');
+  const attackContext=p.attackContext??compileBasicWeaponAttack(state,catalog);
+  const {attack,element}=attackContext;
+  if(attackContext.attackKind!=='weapon'||!Number.isSafeInteger(attack)||attack<0)
+    fail('Unsupported cached attack payload');
+  const isSelf=(p.sourceId??p.originalAttackerId)===defender.id;
+  let defending=[];
+  if(isSelf) {
+    if(p.defense!==null)fail('Self-target cannot defend');
+  } else {
+    if(!p.defense||p.defense.playerId!==defender.id)fail('Defense not submitted');
+    if(p.defense.learnedDefinitionId!==undefined)fail('Learned defensive miracle requires dedicated resolver');
+    defending=locateHandCards(defender,p.defense.instanceIds,catalog);
+  }
+  let armor=0,stripElement=false;
+  for(let i=0;i<defending.length;i++) {
+    const {def}=defending[i];
+    if(!def.playModes.includes('defend'))fail('Unsupported defense selection');
+    explainDefenseEffect(def);
+    const strip=def.effects.some(e=>e.type==='stripElement');
+    if(strip&&i!==0)fail('Attribute remover must be first');
+    if(strip){stripElement=true;continue;}
+    if(!['weapon','armor'].includes(def.family))
+      fail('Unsupported defense item without guard');
+    // Defensive item's stop-against-miracle effect is inert vs ordinary weapon.
+    // Element shields are computed below, after any attribute removal.
+    armor=safeAdd(armor,def.stats.guard);
+  }
+  for(const {def} of defending) {
+    if(def.effects.some(e=>e.type==='stripElement'))continue;
+    if(!canBlock(element,def.element,{rainbowCurtain:stripElement}))
+      fail('Illegal shield for attack element');
+  }
+  const hit=calculateHit({attack,element,armor,hp:defender.hp,rainbowCurtain:stripElement});
+  const queue=Object.freeze([
+    ...(p.attackContext?[]:queuedAttackCosts(attackContext,attacker.id)),
+    ...(isSelf?[]:[Object.freeze({type:'spend',playerId:defender.id,instanceIds:Object.freeze(defending.map(x=>x.instance.instanceId))})]),
+    Object.freeze({type:'hit',targetId:defender.id,damage:hit.damage,hpAfter:hit.hpAfter,instantDefeat:hit.instantDefeat}),
+    Object.freeze({type:'refill',order:'seating',maxHand:MAX_HAND_SIZE}),
+    Object.freeze({type:'advance',afterId:attacker.id})
+  ]);
+  return Object.freeze({
+    originalAttackerId:attacker.id,targetId:defender.id,
+    attack,element,armor,stripElement,
+    hit,queue
+  });
+}
+/**
+ * Resolve the already validated basic plan through the same effect runner
+ * used by miracle casts. Draws remain fixed only in explicit test mode.
+ */
+function resolveBasicFixture(state,catalog,options={}) {
+  if(options.labOnly!==true)fail('Only available in lab fixture mode');
+  if(!catalog.has(options.fixtureDrawDefinitionId))fail('Unknown fixture draw card');
+  const plan=compileBasicResolution(state,catalog);
+  const result=runEffectQueueFixture(state,catalog,plan.queue,options);
+  return {...result,plan};
+}
+
+return {compileBasicWeaponAttack,compileBasicResolution,resolveBasicFixture};
+})();
+
+const __v2_module_8 = (() => {
+"use strict";
+const {compileBasicWeaponAttack} = __v2_module_7;
+const {queuedAttackCosts} = __v2_module_6;
+const {runEffectQueueFixture} = __v2_module_5;
+
+/**
+ * G3 weapon-stop resolver: the defensive miracle Wall stops any neutral
+ * non-miracle weapon attack. The preceding Rainbow Curtain may strip an
+ * elemental attack. Both first-use (in hand) and learned casts are supported.
+ * Everything else is deliberately rejected until source-backed resolution.
+ */
+
+
+
+function bad(msg){throw new Error(msg);}
+function find(state,id) {
+ const p=state.players.find(p=>p.id===id);
+ if(!p)bad('Unknown wall actor');
+ return p;
+}
+const effect=(type,other={})=>Object.freeze({type,...other});
+function isWallDefense(state,catalog) {
+ const p=state?.pending;
+ if(!p?.defense)return false;
+ if(p.defense.learnedDefinitionId!==undefined)return p.defense.learnedDefinitionId==='m001';
+ const player=state.players.find(x=>x.id===p.targetId);
+ return p.defense.instanceIds.some(id=>{
+   const instance=player?.hand.find(c=>c.instanceId===id);
+   return !!instance&&catalog.get(instance.definitionId)?.effects.some(e=>e.type==='stopAttack'&&e.params.scope==='neutralWeapon');
+ });
+}
+function compileWallResolution(state,catalog) {
+ if(!state||state.schemaVersion!==2||state.phase!=='resolving'||state.pending?.type!=='attack')
+   bad('Not a pending wall defense');
+ const p=state.pending;
+ if(!p.defense||p.defense.playerId!==p.targetId)bad('Wall defense response required');
+ const caster=find(state,p.targetId),attacker=find(state,p.originalAttackerId);
+ if(caster.hp<=0||attacker.hp<=0)bad('Dead wall participant');
+ if((p.sourceId??p.originalAttackerId)===p.targetId)
+   bad('Self directed attacks cannot be stopped');
+ if(!Array.isArray(p.defense.instanceIds)||new Set(p.defense.instanceIds).size!==p.defense.instanceIds.length)
+   bad('Invalid wall card selection');
+ const attackContext=p.attackContext??compileBasicWeaponAttack(state,catalog);
+ if(attackContext.attackKind!=='weapon')bad('Wall cannot stop miracles');
+ const hand=p.defense.instanceIds.map(id=>{
+   const instance=caster.hand.find(x=>x.instanceId===id);
+   if(!instance)bad('Wall card no longer in hand');
+   const def=catalog.get(instance.definitionId);
+   if(!def)bad('Unknown wall card');
+   return {instance,def};
+ });
+ const wallFromHand=hand.filter(x=>x.def.family==='miracle'&&x.def.effects.some(
+   e=>e.type==='stopAttack'&&e.params.scope==='neutralWeapon'));
+ if(wallFromHand.length>1)bad('Only one Wall may be cast');
+ const learnedId=p.defense.learnedDefinitionId??null;
+ if(learnedId!==null){
+   const learned=catalog.get(learnedId);
+   if(learnedId!=='m001'||!caster.learned.includes(learnedId)||
+      learned?.family!=='miracle' || !learned.effects.some(e=>e.type==='stopAttack'&&e.params.scope==='neutralWeapon'))
+     bad('Wall was not learned');
+   if(wallFromHand.length)bad('Cannot cast Wall from hand and learned together');
+ }
+ if(wallFromHand.length+(learnedId!==null?1:0)!==1)bad('Exactly one Wall is required');
+ const strip=hand.length>0&&hand[0].def.effects.some(e=>e.type==='stripElement');
+ if(hand.length!==(strip?1:0)+wallFromHand.length)
+   bad('Wall may only combine with first Rainbow Curtain');
+ if(strip&&hand[0].def.effects.filter(e=>e.type==='stripElement').length!==1)
+   bad('Unsupported Rainbow Curtain');
+ if(!strip&&hand.some(x=>x.def.effects.some(e=>e.type==='stripElement')))
+   bad('Rainbow Curtain must be selected first');
+ if(wallFromHand.length && hand.at(-1)!==wallFromHand[0])
+   bad('Wall must follow the optional Rainbow Curtain');
+ if(attackContext.element!=='none'&&!strip)bad('Wall requires neutral weapon attack');
+ const wall=wallFromHand.length?wallFromHand[0].def:catalog.get(learnedId);
+ const mpCost=wall.stats.mpCost;
+ if(caster.mp<mpCost)bad('Not enough MP for Wall');
+ const queue=Object.freeze([
+   ...(p.attackContext?[]:queuedAttackCosts(attackContext,attacker.id)),
+   ...(hand.length?[effect('spend',{playerId:caster.id,instanceIds:hand.map(x=>x.instance.instanceId)})]:[]),
+   ...(learnedId!==null?[effect('grantDraw',{playerId:caster.id,count:1})]
+     :[effect('learn',{playerId:caster.id,definitionId:wall.id})]),
+   effect('mp',{playerId:caster.id,cost:mpCost}),
+   effect('hit',{targetId:caster.id,damage:0,hpAfter:caster.hp,instantDefeat:false,stopped:true}),
+   effect('refill'),effect('advance',{afterId:attacker.id})
+ ]);
+ return Object.freeze({wallId:wall.id,learnedCast:learnedId!==null,
+   stripElement:!!strip,attack:attackContext.attack,
+   element:attackContext.element,mpCost,queue});
+}
+function resolveWallFixture(state,catalog,opts={}) {
+ if(opts.labOnly!==true)bad('Only available in lab fixture mode');
+ const plan=compileWallResolution(state,catalog);
+ const result=runEffectQueueFixture(state,catalog,plan.queue,opts);
+ return {...result,plan};
+}
+
+return {isWallDefense,compileWallResolution,resolveWallFixture};
+})();
+
+const __v2_module_9 = (() => {
+"use strict";
+const {reflectTarget} = __v2_module_0;
+const {createInstance, drawRandom32} = __v2_module_2;
+const {compileBasicWeaponAttack,resolveBasicFixture} = __v2_module_7;
+const {isWallDefense,resolveWallFixture} = __v2_module_8;
+const {queuedAttackCosts} = __v2_module_6;
+const {runEffectQueueFixture} = __v2_module_5;
+
+/**
+ * V2 G3 Part 2: source-backed basic redirect / deflect resolver.
+ * Only weapons, including the reference-data neutral reflectors and the
+ * "Super Mirror" item, are supported. Other card families remain gated.
+ *
+ * NOTE: This module is fixture-only, with deterministic non-secret RNG.
+ * Do not publish its biased test draws as original game probabilities.
+ */
+
+
+
+
+
+
+function bad(message){throw new Error(message);}
+function player(state,id){
+ const found=state.players.find(p=>p.id===id);
+ if(!found)bad('Unknown player');
+ return found;
+}
+function locateDefense(state,catalog) {
+ if(!state || state.schemaVersion!==2 || state.phase!=='resolving' || !state.pending)
+   bad('No staged defense');
+ const p=state.pending;
+ if(!p.defense || p.defense.playerId!==p.targetId)
+   bad('Defense response missing');
+ const receiver=player(state,p.targetId);
+ const indices=p.defense.instanceIds;
+ if(!Array.isArray(indices) || new Set(indices).size!==indices.length)
+   bad('Invalid defense instance list');
+ return indices.map(id=>{
+   const instance=receiver.hand.find(c=>c.instanceId===id);
+   if(!instance)bad('Selected defense card was not held');
+   const def=catalog.get(instance.definitionId);
+   if(!def)bad('Missing defense definition');
+   return {instance,def};
+ });
+}
+/**
+ * Advances a redirect or applies a final defense. Attack hand cards are spent
+ * on the first redirect, while each redirect card is consumed at its hop.
+ * Refill of all surviving participants occurs once the final hit resolves.
+ */
+function resolveRedirectFixture(state,catalog,{
+ labOnly=false,fixtureDrawDefinitionId,deflectRng=null
+}={}) {
+ if(labOnly!==true)bad('Only available in lab fixture mode');
+ if(!(catalog instanceof Map)||!catalog.has(fixtureDrawDefinitionId))
+   bad('Unknown fixture draw card');
+ if(state?.phase!=='resolving'||!state.pending?.type||
+    state.pending.type!=='attack')bad('Not a pending attack');
+ const p=state.pending;
+ if((p.sourceId??p.originalAttackerId)===p.targetId && p.defense===null) {
+   // The prior deflection landed on its caster. It cannot defend itself.
+   return resolveBasicFixture(state,catalog,{labOnly:true,fixtureDrawDefinitionId});
+ }
+ const selected=locateDefense(state,catalog);
+ const redirected=selected.filter(x=>x.def.effects.some(e=>e.type==='redirectAttack'&&e.when==='onDefense'));
+ if(!redirected.length) {
+   if(isWallDefense(state,catalog))
+     return resolveWallFixture(state,catalog,{labOnly:true,fixtureDrawDefinitionId});
+   if(p.defense.learnedDefinitionId!==undefined)
+     bad('Unknown learned defensive miracle');
+   return resolveBasicFixture(state,catalog,{labOnly:true,fixtureDrawDefinitionId});
+ }
+ if(p.defense.learnedDefinitionId!==undefined)
+   bad('Redirect may not mix learned defensive miracles');
+ if(selected.length!==1)bad('A redirect card must be selected alone');
+ const reaction=redirected[0];
+ const effect=reaction.def.effects.find(e=>e.type==='redirectAttack'&&e.when==='onDefense');
+ if(!['reflect','deflect'].includes(effect.params.mode))
+   bad('Unsupported redirect mode');
+ const attackContext=p.attackContext??compileBasicWeaponAttack(state,catalog);
+ if(attackContext.attackKind!=='weapon')bad('Only weapon attack redirect implemented');
+ // Combined weapon attacks pay costs exactly once on the first redirect.
+ if(effect.params.scope==='neutralWeapon' && attackContext.element!=='none')
+   bad('Reaction cannot redirect this attack');
+ if(!['any','neutralWeapon'].includes(effect.params.scope))
+   bad('Unmapped redirect scope');
+ const sourceId=p.sourceId??p.originalAttackerId;
+ const living=state.players.filter(x=>x.hp>0).map(x=>x.id);
+ if(!living.includes(sourceId)||!living.includes(p.targetId))
+   bad('Redirect parties must be alive');
+ let nextSeed=state.rngSeed;
+ let rng=()=>0;
+ if(effect.params.mode==='deflect'){
+   if(deflectRng!==null) {
+     if(typeof deflectRng!=='function')bad('Invalid deterministic deflect RNG');
+     rng=deflectRng;
+   } else {
+     const outcome=drawRandom32(state.rngSeed);
+     nextSeed=outcome.nextSeed;
+     rng=()=>outcome.value;
+   }
+ }
+ const route=reflectTarget({
+   source:sourceId,target:p.targetId,actor:p.targetId,
+   mode:effect.params.mode,living,rng
+ });
+ // Reuse the central queue for every cost, including learned spell draws.
+ // In the paused mode the runner retains the pending attack and its refill
+ // credits, without drawing any cards or advancing a turn.
+ const initialCosts=p.attackContext?[]:queuedAttackCosts(attackContext,p.originalAttackerId);
+ const paused=runEffectQueueFixture(state,catalog,[
+   ...initialCosts,
+   {type:'spend',playerId:p.targetId,instanceIds:[reaction.instance.instanceId]}
+ ],{labOnly:true,fixtureDrawDefinitionId,interruptionOnly:true});
+ const result=paused.state;
+ result.rngSeed=nextSeed;
+ const events=[...paused.events,{
+   type:'redirect',mode:effect.params.mode,
+   by:p.targetId,from:sourceId,to:route.target,
+   cardId:reaction.def.id
+ }];
+ result.pending={
+   ...result.pending,sourceId:route.source,targetId:route.target,
+   attackContext,defense:null
+ };
+ if(route.target===p.targetId) {
+   // Self-deflection is an immediate hit, not an extra defense opportunity.
+   result.phase='resolving';result.activePlayerId=null;
+   const settled=resolveBasicFixture(result,catalog,{labOnly:true,fixtureDrawDefinitionId});
+   return {...settled,events:[...events,...settled.events],redirected:true,immediate:true};
+ }
+ result.phase='defense';result.activePlayerId=route.target;
+ return {state:result,plan:Object.freeze({type:'redirect',route,attackContext}),
+   events,redirected:true,immediate:false};
+}
+
+return {resolveRedirectFixture};
+})();
+
+const __v2_module_10 = (() => {
+"use strict";
+const {calculateHit,canBlock} = __v2_module_0;
+const {runEffectQueueFixture} = __v2_module_5;
+
+/**
+ * V2 G3 Part 3: intentionally narrow, reference-backed first-use solo miracles.
+ * Card source: the existing 68-card verified research subset.
+ * Does NOT handle re-casting from learned list, multiple miracles, Aura,
+ * wall or reflection; these require additional command/interrupt contracts.
+ */
+
+
+function fail(s){throw new Error(s);}
+function person(s,id) {
+ const p=s.players.find(x=>x.id===id);
+ if(!p)fail('Unknown player');
+ return p;
+}
+function selected(player,ids,catalog) {
+ if(!Array.isArray(ids)||new Set(ids).size!==ids.length)fail('Invalid card selection');
+ return ids.map(id=>{
+   const instance=player.hand.find(x=>x.instanceId===id);
+   if(!instance)fail('Selected card missing from hand');
+   const def=catalog.get(instance.definitionId);
+   if(!def)fail('Unknown definition');
+   return {instance,def};
+ });
+}
+function checkShieldEffects(card,{angel=false}={}) {
+ for(const effect of card.effects) {
+   if(effect.type==='stripElement')continue;
+   if(effect.type==='stopAttack'&&effect.params.scope==='miracle'&&angel)continue;
+   if(effect.type==='stopAttack'&&effect.params.scope==='miracle')continue;
+   fail('Unsupported miracle defense effect '+effect.type);
+ }
+}
+const item=(type,extra={})=>Object.freeze({type,...extra});
+function compileSoloMiracleResolution(state,catalog) {
+ if(!(catalog instanceof Map)||!catalog.size)fail('Catalog required');
+ if(!state||state.schemaVersion!==2||state.phase!=='resolving'||state.pending?.type!=='attack')
+   fail('Not a pending miracle attack');
+ const p=state.pending;
+ if(p.attackContext)fail('Miracle chains not implemented');
+ const caster=person(state,p.originalAttackerId),target=person(state,p.targetId);
+ if(caster.hp<=0||target.hp<=0)fail('Caster or target is dead');
+ const learnedId=p.attackLearnedDefinitionId??null;
+ const cards=selected(caster,p.attackInstanceIds,catalog);
+ if(learnedId!==null) {
+   if(cards.length!==0||typeof learnedId!=='string'||
+      !caster.learned.includes(learnedId))fail('Invalid learned miracle selection');
+ } else if(cards.length<1||cards.length>2) {
+   fail('Only one miracle and optional spirit');
+ }
+ const miracle=learnedId!==null?catalog.get(learnedId):cards[0].def;
+ if(!miracle)fail('Missing learned miracle definition');
+ // A +attack miracle selected FIRST is an offensive miracle, not a
+ // weapon modifier. Its onDeclare/addAttack tag is inert in this position.
+ const soloEffectsSupported=miracle.effects.length===0 ||
+   (miracle.effects.length===1&&miracle.effects[0].when==='onDeclare'&&
+    miracle.effects[0].type==='addAttack'&&miracle.effects[0].params.scope==='weapon');
+ if(miracle.family!=='miracle'||!miracle.playModes.includes('cast')||miracle.stats.attack<=0||
+    !soloEffectsSupported)fail('Not a supported solo attack miracle');
+ let spirit=false;
+ if(cards.length===2){
+   const support=cards[1].def;
+   if(support.family!=='item'||!support.playModes.includes('support')||
+      support.effects.length!==1 || support.effects[0].type!=='waivePreviousMp' ||
+      support.effects[0].params.target!=='previousMiracle')
+      fail('Only spirit directly after miracle is supported');
+   spirit=true;
+ }
+ const payableMP=spirit?0:miracle.stats.mpCost;
+ if(caster.mp<payableMP)fail('Not enough MP');
+ const self=p.targetId===p.originalAttackerId;
+ let defense=[];
+ if(self) {
+   if(p.defense!==null)fail('Self cast cannot be defended');
+ } else {
+   if(!p.defense||p.defense.playerId!==target.id)fail('Defense required');
+   if(p.defense.learnedDefinitionId!==undefined)
+     fail('Learned defensive miracle is unsupported against miracle attacks');
+   defense=selected(target,p.defense.instanceIds,catalog);
+ }
+ const angel=defense.some(c=>c.def.effects.some(e=>e.type==='stopAttack'&&e.params.scope==='miracle'));
+ if(angel&&defense.length!==1)fail('Angel stop armor must be selected alone');
+ const stripElement=defense.some((c,i)=>c.def.effects.some(e=>e.type==='stripElement'&&i===0));
+ let guard=0;
+ for(const [index,{def}] of defense.entries()) {
+   if(!def.playModes.includes('defend'))fail('Not a defensive card');
+   checkShieldEffects(def,{angel});
+   const strip=def.effects.some(e=>e.type==='stripElement');
+   if(strip) {
+     if(index!==0)fail('Rainbow curtain must be first');
+     continue;
+   }
+   if(def.family!=='weapon'&&def.family!=='armor')
+     fail('Unsupported item in miracle defense');
+   if(!angel&&!canBlock(miracle.element,def.element,{rainbowCurtain:stripElement}))
+     fail('Illegal shield for attack element');
+   guard+=def.stats.guard;
+   if(!Number.isSafeInteger(guard))fail('Guard overflow');
+ }
+ const stopped=angel;
+ const hit=stopped?Object.freeze({damage:0,hpAfter:target.hp,instantDefeat:false,effectiveElement:miracle.element})
+  :calculateHit({attack:miracle.stats.attack,element:miracle.element,armor:guard,hp:target.hp,rainbowCurtain:stripElement});
+ const queue=Object.freeze([
+   ...(learnedId!==null
+      ?[item('grantDraw',{playerId:caster.id,count:1})]
+      :[item('spend',{playerId:caster.id,instanceIds:cards.map(x=>x.instance.instanceId)})]),
+   item('mp',{playerId:caster.id,cost:payableMP}),
+   item('learn',{playerId:caster.id,definitionId:miracle.id}),
+   ...(self?[]:[item('spend',{playerId:target.id,instanceIds:defense.map(x=>x.instance.instanceId)})]),
+   item('hit',{targetId:target.id,...hit,stopped}),
+   item('refill'),item('advance',{afterId:caster.id})
+ ]);
+ return Object.freeze({miracleId:miracle.id,attack:miracle.stats.attack,element:miracle.element,
+   payableMP,spirit,stopped,guard,hit,queue});
+}
+/** Lab-only resolver for a compiled miracle queue. */
+function resolveSoloMiracleFixture(state,catalog,options={}) {
+ if(options.labOnly!==true)fail('Only available in lab fixture mode');
+ if(!(catalog instanceof Map)||!catalog.has(options.fixtureDrawDefinitionId))
+   fail('Unknown fixture draw card');
+ const plan=compileSoloMiracleResolution(state,catalog);
+ const result=runEffectQueueFixture(state,catalog,plan.queue,options);
+ return {...result,plan};
+}
+
+return {compileSoloMiracleResolution,resolveSoloMiracleFixture};
+})();
+
+const __v2_module_11 = (() => {
+"use strict";
+const {applyStagingCommand} = __v2_module_4;
+const {resolveRedirectFixture} = __v2_module_9;
+const {resolveSoloMiracleFixture} = __v2_module_10;
+
+/**
+ * V2 G3 integration layer: ONE lab command entrypoint for staged attacks.
+ *
+ * Caller must be the room's trusted owner: authorizedSeatId comes from the
+ * transport's seat authentication, never from command.actorId alone.
+ * Every failure throws before returning state; the caller must persist only
+ * the returned state, using an external transaction/CAS in live multiplayer.
+ *
+ * This module is LAB-ONLY. It uses an audited-incomplete fixture card draw
+ * and must not be used for production card probability or online play.
+ */
+
+
+
+function fail(message){throw new Error(message);}
+function attackFamily(state,catalog) {
+  const pending=state?.pending;
+  if(!pending||pending.type!=='attack')fail('No attack queued');
+  if(pending.attackContext) {
+    if(pending.attackContext.attackKind!=='weapon')
+      fail('Unknown compiled attack family');
+    return 'weapon';
+  }
+  if(pending.attackLearnedDefinitionId!==undefined) {
+    const actor=state.players.find(p=>p.id===pending.originalAttackerId);
+    const id=pending.attackLearnedDefinitionId;
+    if(!actor?.learned.includes(id)||catalog.get(id)?.family!=='miracle')
+      fail('Attack miracle is not learned');
+    return 'miracle';
+  }
+  const attackSequence=pending.attackSequence;
+  if(attackSequence!==undefined) {
+    if(!Array.isArray(attackSequence)||!attackSequence.length)
+      fail('Invalid attack sequence');
+    const first=attackSequence[0];
+    if(!first?.instanceId||Object.keys(first).length!==1)
+      fail('Unsupported sequence opening');
+  }
+  const firstId=attackSequence?.[0].instanceId??pending.attackInstanceIds?.[0];
+  if(typeof firstId!=='string')fail('No playable opening card');
+  const caster=state.players.find(p=>p.id===pending.originalAttackerId);
+  const instance=caster?.hand.find(c=>c.instanceId===firstId);
+  const def=catalog.get(instance?.definitionId);
+  if(!def)fail('Opening card is missing');
+  if(!['weapon','miracle'].includes(def.family))
+    fail('Unknown opening card family');
+  return def.family;
+}
+/**
+ * Resolve a complete defense response OR a direct self-targeting attack.
+ * If the defender redirects, the output returns to the "defense" phase.
+ */
+function resolveStagedFixture(state,catalog,{
+  labOnly=false,fixtureDrawDefinitionId,deflectRng=null
+}={}){
+  if(labOnly!==true)fail('Only available in lab fixture mode');
+  if(!(catalog instanceof Map)||!catalog.has(fixtureDrawDefinitionId))
+    fail('Unknown fixture draw card');
+  if(state?.schemaVersion!==2||state.phase!=='resolving')
+    fail('No attack waiting for resolution');
+  const family=attackFamily(state,catalog);
+  if(family==='miracle')
+    return resolveSoloMiracleFixture(state,catalog,{labOnly:true,fixtureDrawDefinitionId});
+  return resolveRedirectFixture(state,catalog,{
+    labOnly:true,fixtureDrawDefinitionId,deflectRng
+  });
+}
+/**
+ * Turn the authenticated input into a new state, resolving automatically as
+ * far as possible. One call can produce a pending defense, a redirect to a new
+ * defender, a completed turn, or finished match.
+ *
+ * IMPORTANT: events are internal audit/debug data only. A real transport must
+ * use viewStagingRoom(state, authenticatedSeatId), not broadcast these events
+ * or the full authoritative state.
+ */
+function submitAndResolveFixture(state,command,catalog,{
+  authorizedSeatId,labOnly=false,fixtureDrawDefinitionId,deflectRng=null
+}={}){
+  if(labOnly!==true)fail('Only available in lab fixture mode');
+  if(!(catalog instanceof Map)||!catalog.has(fixtureDrawDefinitionId))
+    fail('Unknown fixture draw card');
+  const stage=applyStagingCommand(state,command,catalog,{authorizedSeatId});
+  if(stage.duplicate)
+    return {state:stage.state,applied:false,duplicate:true,autoResolved:false,
+      events:[],plan:null};
+  if(stage.state.phase!=='resolving')
+    return {state:stage.state,applied:true,duplicate:false,autoResolved:false,
+      events:[],plan:null};
+  const resolved=resolveStagedFixture(stage.state,catalog,{
+    labOnly:true,fixtureDrawDefinitionId,deflectRng
+  });
+  return {...resolved,applied:true,duplicate:false,autoResolved:true};
+}
+
+return {resolveStagedFixture,submitAndResolveFixture};
+})();
+
+const __v2_module_12 = (() => {
+"use strict";
+const {migrateLegacyCatalog} = __v2_module_3;
+const {createStagingRoom,viewStagingRoom} = __v2_module_4;
+const {submitAndResolveFixture} = __v2_module_11;
+const {VERIFIED_BASIC_CARDS} = __v2_module_1;
+
+/**
+ * Offline 2-seat V2 lab controller.
+ *
+ * Owns an authoritative game state for same-device HOT-SEAT testing only.
+ * Never expose this controller as an online endpoint: a real match needs a
+ * trusted room owner, seat authentication, CAS, and audited card draws.
+ */
+
+
+
+
+const DEFAULT_HANDS=Object.freeze({
+  A:['w016','a003','m004','m005','d005','m002','i003','w027','d001'],
+  B:['w027','d005','m001','i001','d018','m003','w016','i002','a003']
+});
+const names=new Map(VERIFIED_BASIC_CARDS.map(x=>[x.id,x.referenceName]));
+const FALLBACK_DRAW='d001';
+
+function safeMessage(error){
+  const msg=error?.message;
+  return typeof msg==='string' && msg.length<=230 ? msg : 'この操作は現在の実験版では使えません';
+}
+function otherSeat(state,actor){
+  return state.players.find(p=>p.id!==actor)?.id??null;
+}
+function keyOf(item){
+  return item?.instanceId ? 'h:'+item.instanceId
+    : item?.learnedDefinitionId ? 'l:'+item.learnedDefinitionId : null;
+}
+function baseLabel(def){
+  if(!def)return '未登録';
+  const stat=def.stats;
+  return [
+    names.get(def.id)??def.id,
+    stat.attack ? '攻'+stat.attack : '',
+    stat.guard ? '守'+stat.guard : '',
+    stat.mpCost ? 'MP'+stat.mpCost : ''
+  ].filter(Boolean).join(' · ');
+}
+function createV2LabController({
+  hands=DEFAULT_HANDS,
+  firstSeatId='A',
+  fixtureDrawDefinitionId=FALLBACK_DRAW
+}={}){
+  const {byId:catalog,summary}=migrateLegacyCatalog();
+  if(!catalog.has(fixtureDrawDefinitionId))
+    throw new Error('Unknown fixture draw card');
+  const handEntries=Object.entries(hands).map(([id,handDefinitionIds])=>({
+    id,handDefinitionIds:[...handDefinitionIds]
+  }));
+  let state=createStagingRoom({
+    seats:handEntries,firstSeatId,rulesetId:'partial-reference-v2-lab'
+  },catalog);
+  let selected=[],visible=false,targetId=otherSeat(state,state.activePlayerId);
+  let notice='手番プレイヤーだけが「手札を見る」を押してください';
+  let commandSerial=0;
+
+  const active=()=>state.activePlayerId;
+  function pendingActor(){
+    if(state.phase==='finished')return null;
+    return active();
+  }
+  function own(){
+    const id=pendingActor();
+    return state.players.find(p=>p.id===id);
+  }
+  function view(){
+    const actor=own();
+    const status={
+      revealed:visible,phase:state.phase,revision:state.revision,
+      actorId:actor?.id??null,notice,targetId,
+      winnerId:state.winnerId??null,
+      selection:[...selected],
+      cardSetComplete:summary.complete,
+      cardSetCount:summary.unique
+    };
+    if(state.phase==='finished'){
+      return {...status,publicPlayers:state.players.map(p=>({
+        id:p.id,hp:p.hp,mp:p.mp,money:p.money,handCount:p.hand.length
+      })),pending:null,hand:[],learned:[],targets:[]};
+    }
+    // Never leak the opposing physical hand from this projection.
+    const projected=viewStagingRoom(state,actor.id);
+    const self=projected.players.find(p=>p.id===actor.id);
+    const hand=self.hand.map(card=>{
+      const def=catalog.get(card.definitionId);
+      return {instanceId:card.instanceId,definitionId:card.definitionId,
+        label:baseLabel(def),family:def.family,element:def.element,
+        playModes:[...def.playModes],
+        selectedOrder:selected.findIndex(x=>x.instanceId===card.instanceId)+1};
+    });
+    const learned=self.learned.map(id=>{
+      const def=catalog.get(id);
+      return {definitionId:id,label:baseLabel(def),
+        family:def?.family??'unknown',
+        selectedOrder:selected.findIndex(x=>x.learnedDefinitionId===id)+1};
+    });
+    return {...status,publicPlayers:projected.players.map(p=>({
+      id:p.id,hp:p.hp,mp:p.mp,money:p.money,handCount:p.handCount
+    })),
+      pending:projected.pending,
+      hand:visible?hand:[],
+      learned:visible?learned:[],
+      targets:state.phase==='turn'?state.players.filter(p=>p.hp>0).map(p=>p.id):[]
+    };
+  }
+  function reveal(){
+    if(state.phase==='finished')return view();
+    visible=true;notice='カードを順番にタップして選択';
+    return view();
+  }
+  function toggle(selection){
+    if(!visible || state.phase==='finished')throw new Error('先に自分の手札を表示してください');
+    const player=own(),key=keyOf(selection);
+    if(!key)throw new Error('Invalid selection');
+    const idx=selected.findIndex(x=>keyOf(x)===key);
+    if(idx>=0){selected.splice(idx,1);return view();}
+    if(selected.length>=18)throw new Error('一度に選択できるカード数を超えました');
+    if(selection.instanceId){
+      if(!player.hand.some(card=>card.instanceId===selection.instanceId))
+        throw new Error('そのカードは現在の手札にありません');
+    } else {
+      if(!player.learned.includes(selection.learnedDefinitionId))
+        throw new Error('その奇跡は習得していません');
+      if(state.phase==='defense' && selected.some(x=>x.learnedDefinitionId))
+        throw new Error('防御に複数の習得済み奇跡を使う操作は未対応');
+    }
+    if(state.phase==='defense' && selected.some(x=>x.learnedDefinitionId))
+      throw new Error('習得済み防御奇跡の後にはカードを追加できません');
+    selected.push({...selection});
+    return view();
+  }
+  function setTarget(id){
+    if(!visible||state.phase!=='turn')throw new Error('攻撃ターゲットは手番中のみ指定できます');
+    if(!state.players.some(p=>p.id===id&&p.hp>0))
+      throw new Error('攻撃先が無効です');
+    targetId=id;return view();
+  }
+  function submit(){
+    if(!visible)throw new Error('手札表示後に操作してください');
+    const actor=own();
+    if(!actor)throw new Error('試合は終了しました');
+    const n='lab-'+(++commandSerial);
+    let command;
+    if(state.phase==='defense'){
+      const learned=selected.filter(x=>x.learnedDefinitionId);
+      if(learned.length>1)throw new Error('習得済み防御奇跡は1つまで');
+      command={
+        commandId:n,expectedRevision:state.revision,actorId:actor.id,type:'defend',
+        orderedInstanceIds:selected.filter(x=>x.instanceId).map(x=>x.instanceId),
+        ...(learned.length?{learnedDefinitionId:learned[0].learnedDefinitionId}:{})
+      };
+    } else if(state.phase==='turn'){
+      if(!selected.length)throw new Error('使用するカードを選んでください');
+      if(selected.length===1&&selected[0].learnedDefinitionId){
+        command={commandId:n,expectedRevision:state.revision,actorId:actor.id,
+          type:'castLearned',learnedDefinitionId:selected[0].learnedDefinitionId,targetId};
+      } else if(selected.some(x=>x.learnedDefinitionId)){
+        command={commandId:n,expectedRevision:state.revision,actorId:actor.id,
+          type:'playSequence',targetId,orderedPlays:[...selected]};
+      } else {
+        command={commandId:n,expectedRevision:state.revision,actorId:actor.id,
+          type:'playCards',targetId,
+          orderedInstanceIds:selected.map(x=>x.instanceId)};
+      }
+    } else throw new Error('現在は操作できません');
+    try {
+      // The isolated controller IS the temporary room owner for the lab.
+      const result=submitAndResolveFixture(state,command,catalog,{
+        authorizedSeatId:actor.id,labOnly:true,
+        fixtureDrawDefinitionId
+      });
+      state=result.state;
+      selected=[];
+      visible=false;
+      targetId=state.phase==='turn'?otherSeat(state,state.activePlayerId):null;
+      notice=state.phase==='finished'?'検証試合が終了しました':
+        result.state.phase==='defense'?'相手の防御を待っています':
+          '手番が進みました。次のプレイヤーに渡してください';
+      return {ok:true,view:view(),events:result.events.map(x=>({type:x.type})),
+        changedRevision:state.revision};
+    } catch(error){
+      // Caller sees only the reason for failure, never an applied partial state.
+      notice=safeMessage(error);
+      return {ok:false,error:notice,view:view(),changedRevision:state.revision};
+    }
+  }
+  function reset(){
+    state=createStagingRoom({
+      seats:handEntries.map(p=>({id:p.id,handDefinitionIds:[...p.handDefinitionIds]})),
+      firstSeatId,rulesetId:'partial-reference-v2-lab'
+    },catalog);
+    selected=[];visible=false;targetId=otherSeat(state,firstSeatId);
+    notice='新しい検証試合。手番プレイヤーに渡してください';
+    commandSerial=0;
+    return view();
+  }
+  return {view,reveal,toggle,setTarget,submit,reset,
+    // Test-only state snapshot: never send to another player or persist online.
+    labSnapshot:()=>JSON.parse(JSON.stringify(state))};
+}
+
+return {createV2LabController};
+})();
+
+const __v2_module_13 = (() => {
+"use strict";
+const {createV2LabController} = __v2_module_12;
+
+/**
+ * Minimal accessible and touch-friendly offline V2 hotseat UI.
+ * All render output is generated from a PLAYER-SPECIFIC lab controller view.
+ */
+
+const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({
+ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+})[c]);
+const attr=x=>esc(encodeURIComponent(x));
+const elem=x=>({none:'無',fire:'火',water:'水',wood:'木',earth:'土',light:'光',dark:'闇'})[x]??'—';
+function portrait(p){
+ return '<div class="seat"><div><strong>P'+esc(p.id)+'</strong> <small>手札'+p.handCount+'枚</small></div>'+
+ '<div class="values"><span>HP <b>'+p.hp+'</b></span><span>MP <b>'+p.mp+
+ '</b></span><span>¥ <b>'+p.money+'</b></span></div></div>';
+}
+function cardButton(c,type){
+ const picked=c.selectedOrder>0;
+ return '<button type="button" class="battle-card'+(picked?' picked':'')+
+ '" data-card="'+type+'" data-id="'+attr(type==='hand'?c.instanceId:c.definitionId)+
+ '" aria-pressed="'+picked+'"><span class="rank">'+(picked?c.selectedOrder:'+')+
+ '</span><span class="card-label">'+esc(c.label)+'</span><small>'+
+ (type==='hand'?'手札 · '+elem(c.element):'習得済み奇跡')+'</small></button>';
+}
+function renderV2LabMarkup(data,{resetArmed=false}={}){
+ const text=data.phase==='turn'?'攻撃':data.phase==='defense'?'防御':'終了';
+ const header='<div class="topline"><div><strong class="brand">CARD LAB <em>V2</em></strong>'+
+ '<div class="sub">学校iPad用・ルール検証だけの試遊版</div></div>'+
+ '<span class="phase">'+text+'</span></div>'+
+ '<div class="disclaimer">⚠ <strong>オフライン1台交代制</strong>・固定カード補充によるテスト。'+
+ 'オンライン対戦・原作の出現率・全カード再現ではありません。</div>'+
+ '<section class="score" aria-label="プレイヤーの状態">'+data.publicPlayers.map(portrait).join('')+'</section>';
+ const footer='<footer><button type="button" class="quiet" data-action="reset">'+
+ (resetArmed?'もう一度押すと試合を初期化':'最初からやり直す')+
+ '</button><small>対戦ログの保存・ネットワーク通信は行いません。</small></footer>';
+ if(data.phase==='finished'){
+   return header+'<section class="stage" aria-live="polite"><h1>検証試合終了</h1><p>勝者：'+
+     (data.winnerId?'P'+esc(data.winnerId):'引き分け')+'</p><p class="status">'+
+     esc(data.notice)+'</p></section>'+footer;
+ }
+ if(!data.revealed){
+   return header+'<section class="pass-screen" aria-live="polite">'+
+     '<div class="seal" aria-hidden="true">◈</div><h1>P'+esc(data.actorId)+' の番</h1>'+
+     '<p>'+esc(data.notice)+'</p><p class="hint">端末をP'+esc(data.actorId)+
+     'へ渡してから手札を表示してください</p>'+
+     '<button type="button" class="primary wide" data-action="reveal">自分の手札を見る</button>'+
+     '</section>'+footer;
+ }
+ const title=data.phase==='turn'?'攻撃するカードを順番に選択':'防御カードを順番に選択';
+ const caption=data.phase==='turn'?'最初は武器か攻撃奇跡。選んだ順に処理':'何も選ばず確定すれば無防御';
+ const targets=data.phase==='turn'?
+    '<section class="targets"><h2>攻撃先</h2><div class="choice-row">'+
+    data.targets.map(id=>'<button type="button" class="'+(id===data.targetId?'chosen':'')+
+      '" data-target="'+attr(id)+'" aria-pressed="'+(id===data.targetId)+'">P'+esc(id)+
+      (id===data.actorId?'（自分）':'')+'</button>').join('')+
+    '</div></section>':'';
+ const picked=data.selection.map((x,i)=>{
+   const c=x.instanceId?data.hand.find(q=>q.instanceId===x.instanceId):
+     data.learned.find(q=>q.definitionId===x.learnedDefinitionId);
+   return '<span class="pick-index">'+(i+1)+'. '+esc(c?.label??'選択中')+'</span>';
+ }).join('');
+ const actionText=data.phase==='defense'?(data.selection.length?'防御を確定':'防御しない'):'攻撃を確定';
+ const notice='<p class="status" role="status">'+esc(data.notice)+'</p>';
+ return header+'<main class="stage">'+
+   '<div class="stage-heading"><h1>P'+esc(data.actorId)+'：'+title+'</h1><p>'+caption+'</p></div>'+
+   targets+'<section class="cards-panel"><h2>手札 <small>'+data.hand.length+'枚</small></h2>'+
+   '<div class="hand-grid">'+(data.hand.length?data.hand.map(c=>cardButton(c,'hand')).join(''):
+       '<p class="empty">手札がありません</p>')+'</div></section>'+
+   '<section class="cards-panel"><h2>習得済み奇跡</h2><div class="hand-grid">'+
+   (data.learned.length?data.learned.map(c=>cardButton(c,'learned')).join(''):
+       '<p class="empty">まだ習得していません</p>')+'</div></section>'+
+   '<section class="selection"><h2>選択順 <small>再タップで解除</small></h2><div class="picks">'+
+   (picked||'<span class="muted">まだ選択されていません</span>')+'</div></section>'+
+   notice+'<button type="button" class="primary wide confirm" data-action="submit">'+
+   actionText+'</button></main>'+footer;
+}
+function mountV2Lab(root,controller=createV2LabController()){
+ if(!root||typeof root.addEventListener!=='function')throw new Error('Root element required');
+ let resetArmed=false;
+ const render=()=>{root.innerHTML=renderV2LabMarkup(controller.view(),{resetArmed});};
+ root.addEventListener('click',event=>{
+   const node=event.target?.closest?.('button');
+   if(!node||!root.contains(node))return;
+   const action=node.getAttribute('data-action');
+   const kind=node.getAttribute('data-card');
+   try{
+     if(action==='reset'){
+       if(!resetArmed)resetArmed=true;
+       else{controller.reset();resetArmed=false;}
+     }else if(action==='reveal'){
+       resetArmed=false;controller.reveal();
+     }else if(action==='submit'){
+       resetArmed=false;controller.submit();
+     }else if(kind==='hand'){
+       resetArmed=false;controller.toggle({instanceId:decodeURIComponent(node.getAttribute('data-id'))});
+     }else if(kind==='learned'){
+       resetArmed=false;controller.toggle({learnedDefinitionId:decodeURIComponent(node.getAttribute('data-id'))});
+     }else if(node.hasAttribute('data-target')){
+       resetArmed=false;controller.setTarget(decodeURIComponent(node.getAttribute('data-target')));
+     }else return;
+   }catch(error){
+     const feedback=root.querySelector?.('[role="status"]');
+     if(feedback)feedback.textContent=String(error?.message??'この操作はできません').slice(0,180);
+   }
+   render();
+ });
+ render();
+ return {render,controller};
+}
+
+return {renderV2LabMarkup,mountV2Lab};
+})();
+
+__v2_module_13.mountV2Lab(document.getElementById("v2-root"));
+</script>
+</body>
+</html>
