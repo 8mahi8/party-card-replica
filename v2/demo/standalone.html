@@ -744,7 +744,9 @@ function takeOrderedPlays(actor,plays,catalog){
       const def=catalog.get(instance.definitionId);
       if(!def||!def.playModes.some(mode=>['mainAttack','addAttack','cast','support'].includes(mode)))
         throw new Error('Not a structural attack selection');
-      if(index===0 && def.family!=='weapon')throw new Error('Sequence must begin with weapon');
+      if(index===0 && def.family!=='weapon' &&
+         !(def.family==='miracle' && def.playModes.includes('cast') && def.stats.attack>0))
+        throw new Error('Sequence must begin with weapon or offensive miracle');
       return {instanceId};
     }
     if(keys[0]==='learnedDefinitionId'){
@@ -1755,6 +1757,18 @@ function compileSoloMiracleResolution(state,catalog) {
  const caster=person(state,p.originalAttackerId),target=person(state,p.targetId);
  if(caster.hp<=0||target.hp<=0)fail('Caster or target is dead');
  const learnedId=cached?null:(p.attackLearnedDefinitionId??null);
+ // Ordered plays can interleave learned and hand cards, but a miracle
+ // opening is SOLO (plus at most one immediate physical Spirit).
+ // Do not silently drop learned steps from attackSequence while resolving
+ // only attackInstanceIds.
+ if(!cached && p.attackSequence!==undefined){
+   if(!Array.isArray(p.attackSequence) ||
+      p.attackSequence.some(step=>!step||typeof step.instanceId!=='string'||
+        Object.keys(step).length!==1) ||
+      JSON.stringify(p.attackSequence.map(step=>step.instanceId))!==
+        JSON.stringify(p.attackInstanceIds))
+     fail('Miracle opening cannot mix learned or extra attack steps');
+ }
  const cards=cached?[]:selected(caster,p.attackInstanceIds,catalog);
  if(!cached){
    if(learnedId!==null) {
@@ -2178,9 +2192,13 @@ function baseLabel(def){
   if(!def)return '未登録';
   const stat=def.stats;
   const override=def.effects.find(e=>e.when==='onDeclare'&&e.type==='setAttackElement');
+  const plusAttack=def.playModes.includes('addAttack') &&
+    (def.family==='weapon'&&!def.playModes.includes('mainAttack') ||
+     def.family==='miracle'&&def.effects.some(e=>e.type==='addAttack'&&
+       e.when==='onDeclare'&&e.params.scope==='weapon'));
   return [
     names.get(def.id)??def.id,
-    stat.attack ? (def.family==='weapon' && def.playModes.includes('addAttack') && !def.playModes.includes('mainAttack') ? '+攻' : '攻')+stat.attack : '',
+    stat.attack ? (plusAttack ? '+攻' : '攻')+stat.attack : '',
     stat.guard ? '守'+stat.guard : '',
     stat.mpCost ? 'MP'+stat.mpCost : '',
     override ? '攻撃属性→'+({fire:'火',water:'水'}[override.params.element]??'?') : ''
@@ -2424,7 +2442,15 @@ function renderV2LabMarkup(data,{resetArmed=false}={}){
      '</section>'+footer;
  }
  const title=data.phase==='turn'?'攻撃するカードを順番に選択':'防御カードを順番に選択';
- const caption=data.phase==='turn'?'＋攻の追加武器だけでも攻撃可。選んだ順に処理':'何も選ばず確定すれば無防御';
+ const firstPicked=data.selection[0]?.instanceId
+   ?data.hand.find(c=>c.instanceId===data.selection[0].instanceId):null;
+ const soloPlusMiracle=data.phase==='turn' && firstPicked?.family==='miracle' &&
+   firstPicked.playModes.includes('addAttack');
+ const caption=data.phase==='turn'
+   ?(soloPlusMiracle
+     ?'火の玉・流星を先頭に選ぶと単独奇跡。続けられるのは直後の精霊のみ'
+     :'＋攻の追加武器だけでも攻撃可。選んだ順に処理')
+   :'何も選ばず確定すれば無防御';
  const targets=data.phase==='turn'?
     '<section class="targets"><h2>攻撃先</h2><div class="choice-row">'+
     data.targets.map(id=>'<button type="button" class="'+(id===data.targetId?'chosen':'')+
