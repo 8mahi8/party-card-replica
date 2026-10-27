@@ -51,7 +51,15 @@ export function renderV2LabMarkup(data,{resetArmed=false}={}){
      '</section>'+footer;
  }
  const title=data.phase==='turn'?'攻撃するカードを順番に選択':'防御カードを順番に選択';
- const caption=data.phase==='turn'?'＋攻の追加武器だけでも攻撃可。選んだ順に処理':'何も選ばず確定すれば無防御';
+ const firstPicked=data.selection[0]?.instanceId
+   ?data.hand.find(c=>c.instanceId===data.selection[0].instanceId):null;
+ const soloPlusMiracle=data.phase==='turn' && firstPicked?.family==='miracle' &&
+   firstPicked.playModes.includes('addAttack');
+ const caption=data.phase==='turn'
+   ?(soloPlusMiracle
+     ?'火の玉・流星を先頭に選ぶと単独奇跡。続けられるのは直後の精霊のみ'
+     :'＋攻の追加武器だけでも攻撃可。選んだ順に処理')
+   :'何も選ばず確定すれば無防御';
  const targets=data.phase==='turn'?
     '<section class="targets"><h2>攻撃先</h2><div class="choice-row">'+
     data.targets.map(id=>'<button type="button" class="'+(id===data.targetId?'chosen':'')+
