@@ -4,7 +4,8 @@
  * Does NOT handle re-casting from learned list, multiple miracles, Aura,
  * wall or reflection; these require additional command/interrupt contracts.
  */
-import {calculateHit,canBlock} from '../src/rules.mjs';
+import {calculateHit,canBlock,reflectTarget} from '../src/rules.mjs';
+import {drawRandom32} from './foundation.mjs';
 import {runEffectQueueFixture} from './effect-runner.mjs';
 
 function fail(s){throw new Error(s);}
@@ -131,34 +132,107 @@ export function resolveSoloMiracleFixture(state,catalog,options={}) {
  const p=state?.pending;
  if(state?.phase==='resolving'&&p?.type==='attack'&&p.defense){
    const defender=person(state,p.targetId);
-   const defenses=selected(defender,p.defense.instanceIds,catalog);
-   const reflectors=defenses.filter(({def})=>def.effects.some(e=>
+   if(p.defense.playerId!==defender.id)fail('Defense player mismatch');
+   const sequence=p.defense.sequence??[
+     ...p.defense.instanceIds.map(instanceId=>({instanceId})),
+     ...(p.defense.learnedDefinitionId===undefined?[]
+       :[{learnedDefinitionId:p.defense.learnedDefinitionId}])
+   ];
+   if(!Array.isArray(sequence)||sequence.length>3)
+     fail('Invalid miracle defensive selection');
+   const entries=sequence.map(step=>{
+     if(step.instanceId){
+       const found=selected(defender,[step.instanceId],catalog)[0];
+       return {...found,source:'hand'};
+     }
+     if(step.learnedDefinitionId){
+       if(!defender.learned.includes(step.learnedDefinitionId))
+         fail('Defensive miracle not learned');
+       const def=catalog.get(step.learnedDefinitionId);
+       if(def?.family!=='miracle'||!def.playModes.includes('defend'))
+         fail('Unsupported learned defense');
+       return {instance:null,def,source:'learned'};
+     }
+     fail('Malformed miracle defensive selection');
+   });
+   const redirects=entries.filter(({def})=>def.effects.some(e=>
      e.when==='onDefense'&&e.type==='redirectAttack'&&
-     e.params.mode==='reflect'&&e.params.scope==='any'));
-   if(reflectors.length){
-     if(reflectors.length!==1||defenses.length!==1||p.defense.learnedDefinitionId!==undefined)
-       fail('Super Mirror must be used alone');
+     ['miracle','any'].includes(e.params.scope)));
+   if(redirects.length){
+     const selectedRedirect=entries[0];
+     const e=selectedRedirect?.def.effects.find(e=>e.when==='onDefense'&&
+       e.type==='redirectAttack'&&['miracle','any'].includes(e.params.scope));
+     if(redirects.length!==1||!e||!['reflect','deflect'].includes(e.params.mode)||
+       !selectedRedirect.def.playModes.includes('defend'))
+       fail('Only one supported miracle redirect');
+     const isMiracle=selectedRedirect.def.family==='miracle';
+     const spirit=entries.length===2 && isMiracle && entries[1].source==='hand' &&
+       entries[1].def.family==='item'&&entries[1].def.playModes.includes('support')&&
+       entries[1].def.effects.length===1&&entries[1].def.effects[0].when==='onCost'&&
+       entries[1].def.effects[0].type==='waivePreviousMp'&&
+       entries[1].def.effects[0].params.target==='previousMiracle';
+     if(entries.length!==(spirit?2:1))
+       fail('Redirect must be used alone or followed immediately by Spirit');
+     if(isMiracle&&!selectedRedirect.def.effects.some(x=>x===e))
+       fail('Unsupported defensive miracle');
+     const mpCost=isMiracle&&!spirit?selectedRedirect.def.stats.mpCost:0;
+     if(defender.mp<mpCost)fail('Not enough MP for defensive miracle');
      const previousSource=p.sourceId??p.originalAttackerId;
-     if(previousSource===p.targetId)fail('Self-hit cannot be reflected');
-     const preview={...state,pending:{...p,defense:{
-       playerId:p.targetId,instanceIds:[]
-     }}};
+     if(previousSource===p.targetId)fail('Self-hit cannot be redirected');
+     const living=state.players.filter(x=>x.hp>0).map(x=>x.id);
+     let rngSeed=state.rngSeed;
+     let rng=()=>0;
+     if(e.params.mode==='deflect'){
+       if(options.deflectRng!==undefined&&options.deflectRng!==null){
+         if(typeof options.deflectRng!=='function')fail('Invalid deflect RNG');
+         rng=options.deflectRng;
+       }else{
+         const roll=drawRandom32(state.rngSeed);
+         rngSeed=roll.nextSeed;
+         rng=()=>roll.value;
+       }
+     }
+     const route=reflectTarget({source:previousSource,target:p.targetId,actor:p.targetId,
+       mode:e.params.mode,living,rng});
+     // Preview source spell cost without committing. Cached reflected attacks
+     // have already paid their cast price, and never charge it again.
+     const preview={...state,pending:{...p,defense:{playerId:p.targetId,instanceIds:[]}}};
      const base=compileSoloMiracleResolution(preview,catalog);
-     const costs=base.queue.filter(e=>['spend','grantDraw','mp','learn'].includes(e.type));
-     const result=runEffectQueueFixture(state,catalog,[
-       ...costs,item('spend',{playerId:p.targetId,
-         instanceIds:[reflectors[0].instance.instanceId]})
-     ],{...options,interruptionOnly:true});
-     const next=result.state;
-     next.pending={...next.pending,sourceId:p.targetId,targetId:previousSource,
+     const originalCosts=base.queue.filter(x=>
+       ['spend','grantDraw','mp','learn'].includes(x.type));
+     const defenseCosts=[
+       ...(selectedRedirect.source==='hand'
+         ?[item('spend',{playerId:defender.id,instanceIds:[
+           selectedRedirect.instance.instanceId,...(spirit?[entries[1].instance.instanceId]:[])
+         ]})]
+         :[item('grantDraw',{playerId:defender.id,count:1}),
+           ...(spirit?[item('spend',{playerId:defender.id,
+             instanceIds:[entries[1].instance.instanceId]})]:[])]),
+       ...(isMiracle?[item('mp',{playerId:defender.id,cost:mpCost}),
+         item('learn',{playerId:defender.id,definitionId:selectedRedirect.def.id})]:[])
+     ];
+     const paused=runEffectQueueFixture(state,catalog,[...originalCosts,...defenseCosts],
+       {...options,interruptionOnly:true});
+     const next=paused.state;
+     next.rngSeed=rngSeed;
+     next.pending={...next.pending,sourceId:route.source,targetId:route.target,
        attackContext:{attackKind:'miracle',miracleId:base.miracleId,
          attack:base.attack,element:base.element},defense:null};
-     next.phase='defense';next.activePlayerId=previousSource;
-     return {state:next,plan:Object.freeze({type:'miracleReflect',
-       miracleId:base.miracleId,targetId:previousSource}),
-       events:[...result.events,{type:'redirect',mode:'reflect',by:p.targetId,
-         from:previousSource,to:previousSource,cardId:reflectors[0].def.id}],
-       redirected:true,immediate:false};
+     const events=[...paused.events,{type:'redirect',mode:e.params.mode,
+       by:defender.id,from:previousSource,to:route.target,cardId:selectedRedirect.def.id}];
+     if(route.target===defender.id){
+       // A deflection that hits its own user resolves immediately: the
+       // defender cannot stop, deflect, reflect or guard against this hit.
+       next.phase='resolving';next.activePlayerId=null;
+       const plan=compileSoloMiracleResolution(next,catalog);
+       const settled=runEffectQueueFixture(next,catalog,plan.queue,options);
+       return {...settled,plan,events:[...events,...settled.events],
+         redirected:true,immediate:true};
+     }
+     next.phase='defense';next.activePlayerId=route.target;
+     return {state:next,plan:Object.freeze({type:'miracleRedirect',
+       mode:e.params.mode,miracleId:base.miracleId,targetId:route.target,
+       spirit,mpCost}),events,redirected:true,immediate:false};
    }
  }
  const plan=compileSoloMiracleResolution(state,catalog);
