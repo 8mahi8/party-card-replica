@@ -23,6 +23,8 @@ test('initial hotseat view contains public stats but never shows either hand',()
  assert.equal(v.publicPlayers.length,2);
  const markup=renderV2LabMarkup(v);
  assert.match(markup,/data-action="reveal"/);
+ assert.match(markup,/compact-pass/);
+ assert.doesNotMatch(markup,/class="score"/,'handoff should not push reveal below short iframe');
  assert.doesNotMatch(markup,/ワンダーソード/);
  assert.doesNotMatch(markup,/アイアンアーマー/);
  assert.doesNotMatch(markup,/data-card="hand"/);
