@@ -191,19 +191,39 @@ test('Wall-Spirit reacts safely after redirect to original attacker',()=>{
  assert.equal(r.players[0].hand.length,3);
  assert.equal(r.players[1].hand.length,1);
 });
-test('Hotseat can tap learned Wall then Spirit as two ordered choices',()=>{
- const ui=createV2LabController({hands:{A:['w016'],B:['i003']}});
- // Lab fixture cannot seed learned miracles through controller. Verify the
- // hand-origin Wall+Spirit flow from the same UI entrypoint instead.
- const lab=createV2LabController({hands:{A:['w016'],B:['m001','i003']}});
- const a=lab.reveal();
- lab.toggle({instanceId:a.hand[0].instanceId});
+test('Hotseat first learns Wall, then uses learned Wall -> Spirit in a later defense',()=>{
+ const lab=createV2LabController({hands:{
+  A:['w016','w016'],B:['m001','i003','i003','w016']
+ }});
+ const first=lab.reveal();
+ lab.toggle({instanceId:first.hand[0].instanceId});
+ assert.equal(lab.submit().ok,true); // A attacks B
+ let view=lab.reveal();
+ lab.toggle({instanceId:view.hand[0].instanceId}); // first-use Wall
+ lab.toggle({instanceId:view.hand[1].instanceId}); // adjacent Spirit
+ assert.equal(lab.submit().ok,true); // B learned Wall; no MP cost
+ assert.deepEqual(lab.labSnapshot().players[1].learned,['m001']);
+ assert.equal(lab.labSnapshot().players[1].mp,10);
+ view=lab.reveal(); // B turn
+ const weapon=view.hand.find(x=>x.definitionId==='w016');
+ lab.toggle({instanceId:weapon.instanceId});
  assert.equal(lab.submit().ok,true);
- const b=lab.reveal();
- lab.toggle({instanceId:b.hand[0].instanceId});
- lab.toggle({instanceId:b.hand[1].instanceId});
- const sent=lab.submit();
- assert.equal(sent.ok,true);
- assert.equal(sent.view.phase,'turn');
- assert.equal(sent.view.actorId,'B');
+ lab.reveal();assert.equal(lab.submit().ok,true); // A takes hit
+ view=lab.reveal(); // A turn again
+ lab.toggle({instanceId:view.hand.find(x=>x.definitionId==='w016').instanceId});
+ assert.equal(lab.submit().ok,true);
+ view=lab.reveal(); // B defends with learned Wall followed by Spirit
+ assert.equal(view.learned.some(x=>x.definitionId==='m001'),true);
+ lab.toggle({learnedDefinitionId:'m001'});
+ const spirit=view.hand.find(x=>x.definitionId==='i003');
+ lab.toggle({instanceId:spirit.instanceId});
+ assert.deepEqual(lab.view().selection,[
+  {learnedDefinitionId:'m001'},{instanceId:spirit.instanceId}
+ ]);
+ const outcome=lab.submit();
+ assert.equal(outcome.ok,true,outcome.error);
+ assert.equal(outcome.view.phase,'turn');
+ assert.equal(lab.labSnapshot().players[1].hp,40);
+ assert.equal(lab.labSnapshot().players[1].mp,10);
+ assert.equal(lab.labSnapshot().players[1].hand.length,5);
 });
