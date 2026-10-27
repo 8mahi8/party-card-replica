@@ -255,3 +255,58 @@ test('four real controller shield taps protect against an ice miracle',()=>{
  assert.equal(lab.labSnapshot().players[1].hand.length,4);
  assert.equal(lab.labSnapshot().players[0].mp,8);
 });
+
+
+test('lab prevents simultaneous Sky and Moonlight taps for a miracle before submit',()=>{
+ const lab=createV2LabController({hands:{A:['m002'],B:['d024','d029']}});
+ const attacker=lab.reveal();lab.toggle({instanceId:attacker.hand[0].instanceId});
+ assert.equal(lab.submit().ok,true);
+ const defense=lab.reveal(),sky=defense.hand[0],moon=defense.hand[1];
+ lab.toggle({instanceId:sky.instanceId});
+ const before=JSON.stringify(lab.labSnapshot()),rev=lab.view().revision;
+ assert.throws(()=>lab.toggle({instanceId:moon.instanceId}),/この検証版では奇跡/);
+ assert.deepEqual(lab.view().selection,[{instanceId:sky.instanceId}]);
+ assert.equal(JSON.stringify(lab.labSnapshot()),before);
+ assert.equal(lab.view().revision,rev);
+ lab.toggle({instanceId:sky.instanceId});
+ lab.toggle({instanceId:moon.instanceId});
+ assert.equal(lab.submit().ok,true);
+ assert.equal(lab.view().actorId,'A');
+});
+test('lab prevents ordinary armor stacked with a single miracle-only reflector',()=>{
+ for(const cards of [
+  ['d014','d024'],['d024','d014'],['d024','d018'],
+  ['d018','d029'],['i001','d029'],['i002','d014']
+ ]){
+  const lab=createV2LabController({hands:{A:['m002'],B:cards}});
+  const a=lab.reveal();lab.toggle({instanceId:a.hand[0].instanceId});
+  assert.equal(lab.submit().ok,true);
+  const b=lab.reveal();
+  lab.toggle({instanceId:b.hand[0].instanceId});
+  assert.throws(()=>lab.toggle({instanceId:b.hand[1].instanceId}),
+    /この検証版では奇跡/,cards.join(','));
+  assert.equal(lab.view().selection.length,1);
+ }
+});
+test('lab accepts Turbulence followed immediately by Spirit, but not Spirit then Sky',()=>{
+ const lab=createV2LabController({hands:{A:['m002'],B:['m007','i003','d024']}});
+ const a=lab.reveal();lab.toggle({instanceId:a.hand[0].instanceId});
+ assert.equal(lab.submit().ok,true);
+ const b=lab.reveal();
+ lab.toggle({instanceId:b.hand[0].instanceId});
+ lab.toggle({instanceId:b.hand[1].instanceId});
+ assert.equal(lab.view().selection.length,2);
+ assert.throws(()=>lab.toggle({instanceId:b.hand[2].instanceId}),/この検証版では奇跡/);
+ assert.equal(lab.submit().ok,true);
+});
+test('ordinary weapon still permits stacking Sky, Moonlight and standard armor',()=>{
+ const lab=createV2LabController({hands:{A:['w016'],B:['d024','d029','d005']}});
+ const a=lab.reveal();lab.toggle({instanceId:a.hand[0].instanceId});
+ assert.equal(lab.submit().ok,true);
+ const b=lab.reveal();
+ for(const x of b.hand)lab.toggle({instanceId:x.instanceId});
+ assert.equal(lab.view().selection.length,3);
+ const result=lab.submit();
+ assert.equal(result.ok,true,result.error);
+ assert.equal(lab.labSnapshot().players[1].hp,40);
+});
