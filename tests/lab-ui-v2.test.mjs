@@ -197,3 +197,35 @@ test('invalid empty-card confirm displays an error even after DOM rerender',()=>
  assert.equal(ui.view().phase,'turn');
  assert.equal(ui.view().revealed,true);
 });
+
+test('handoff scroll resets embedded frame but ordinary card taps do not',()=>{
+ const listeners={},positions=[];
+ const root={
+  ownerDocument:{defaultView:{scrollTo:(x,y)=>positions.push([x,y])}},
+  innerHTML:'',
+  addEventListener:(key,fn)=>{listeners[key]=fn;},
+  contains:()=>true,
+  querySelector:()=>null
+ };
+ const controller=createV2LabController();
+ mountV2Lab(root,controller);
+ const press=attrs=>{
+  const button={getAttribute:k=>attrs[k]??null,hasAttribute:k=>Object.hasOwn(attrs,k)};
+  listeners.click({target:{closest:()=>button}});
+ };
+ press({'data-action':'reveal'});
+ const id=controller.view().hand[0].instanceId;
+ press({'data-card':'hand','data-id':encodeURIComponent(id)});
+ assert.deepEqual(positions,[],'ordinary tap should not reset scroll');
+ press({'data-action':'submit'});
+ assert.equal(controller.view().phase,'defense');
+ assert.deepEqual(positions,[[0,0]],'handoff should move frame to top');
+ press({'data-action':'reveal'});
+ press({'data-action':'submit'});
+ assert.equal(controller.view().phase,'turn');
+ assert.deepEqual(positions,[[0,0],[0,0]],'next turn should also scroll to top');
+ press({'data-action':'reset'});
+ assert.equal(positions.length,2,'arming reset must not scroll');
+ press({'data-action':'reset'});
+ assert.deepEqual(positions,[[0,0],[0,0],[0,0]],'reset scrolls after confirmation');
+});
