@@ -56,11 +56,11 @@ test('Rainbow Curtain followed by four neutral shields blocks a water miracle',(
  assert.equal(r.state.players[1].hp,40);
  assert.equal(r.state.players[1].hand.length,5);
 });
-test('ordinary armor order after first Rainbow Curtain is preserved',()=>{
+test('Rainbow Curtain in second position is rejected at command validation',()=>{
  const s=attack(room({A:['m002'],B:['d014','i001','d001','d001']}));
- const d=defend(s,[0,1,2,3]),before=JSON.stringify(d);
- assert.throws(()=>resolve(d),/Rainbow curtain must be first|Attribute remover must be first/);
- assert.equal(JSON.stringify(d),before);
+ const before=JSON.stringify(s);
+ assert.throws(()=>defend(s,[0,1,2,3]),/Attribute remover must be first/);
+ assert.equal(JSON.stringify(s),before);
 });
 test('Sky + Moonlight + ordinary armor use numeric guard together on neutral weapon',()=>{
  const s=room({A:['w016'],B:['d022','d029','d005']});
