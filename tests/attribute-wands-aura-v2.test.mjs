@@ -145,6 +145,8 @@ test('addon-only plus Fireball and Meteor retain preexisting MP and attack behav
 test('lab hotseat selects all three source-example cards in order without leaking opponent hand',()=>{
  const ui=createV2LabController({hands:{A:['w016','m004','a014'],B:['d014']}});
  const cards=ui.reveal().hand;
+ assert.match(cards[2].label,/\+攻5/);
+ assert.match(cards[2].label,/攻撃属性→水/);
  for(const c of cards)ui.toggle({instanceId:c.instanceId});
  assert.equal(ui.submit().ok,true);
  assert.equal(ui.view().actorId,'B');
