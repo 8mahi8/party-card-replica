@@ -43,7 +43,15 @@ function getPlayer(state,id) {
 }
 function explainDefenseEffect(def) {
   for(const e of def.effects) {
-    if(e.type==='redirectAttack'&&e.params.scope==='miracle'&&def.family==='armor')continue; // miracle-only armor reaction is inert against a weapon
+    if(e.when==='onDefense'&&
+       (e.type==='redirectAttack'||e.type==='stopAttack')&&
+       e.params.scope==='miracle'){
+      // Armor with a printed guard still has numeric protection. A weapon
+      // whose ONLY defense is a miracle reaction is not a physical shield.
+      if(def.family==='weapon'&&def.stats.guard===0)
+        fail('Miracle-only weapon reaction cannot guard an ordinary weapon');
+      continue;
+    }
     if(e.type==='redirectAttack')fail('Redirect reactions require G3 reaction resolver');
     if(e.type==='stripElement')continue;
     if(e.type==='stopAttack'&&e.params.scope==='miracle')continue; // numeric guard against weapon
