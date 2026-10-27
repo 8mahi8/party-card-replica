@@ -257,47 +257,83 @@ test('four real controller shield taps protect against an ice miracle',()=>{
 });
 
 
-test('lab prevents simultaneous Sky and Moonlight taps for a miracle before submit',()=>{
+test('Sky -> Moonlight switches to the latest miracle defense in one tap',()=>{
  const lab=createV2LabController({hands:{A:['m002'],B:['d024','d029']}});
- const attacker=lab.reveal();lab.toggle({instanceId:attacker.hand[0].instanceId});
+ const a=lab.reveal();lab.toggle({instanceId:a.hand[0].instanceId});
  assert.equal(lab.submit().ok,true);
- const defense=lab.reveal(),sky=defense.hand[0],moon=defense.hand[1];
+ const cards=lab.reveal().hand,sky=cards[0],moon=cards[1];
  lab.toggle({instanceId:sky.instanceId});
- const before=JSON.stringify(lab.labSnapshot()),rev=lab.view().revision;
- assert.throws(()=>lab.toggle({instanceId:moon.instanceId}),/この検証版では奇跡/);
- assert.deepEqual(lab.view().selection,[{instanceId:sky.instanceId}]);
- assert.equal(JSON.stringify(lab.labSnapshot()),before);
- assert.equal(lab.view().revision,rev);
- lab.toggle({instanceId:sky.instanceId});
+ const previous=JSON.stringify(lab.labSnapshot()),revision=lab.view().revision;
  lab.toggle({instanceId:moon.instanceId});
+ assert.deepEqual(lab.view().selection,[{instanceId:moon.instanceId}]);
+ assert.equal(JSON.stringify(lab.labSnapshot()),previous);
+ assert.equal(lab.view().revision,revision);
+ assert.doesNotMatch(lab.view().notice,/この検証版では/);
+ assert.equal(lab.submit().ok,true);
+ assert.equal(lab.view().actorId,'A');
+ assert.equal(lab.labSnapshot().players[1].hand.length,1);
+});
+test('switching Moonlight -> Sky -> Moonlight works repeatedly without reset',()=>{
+ const lab=createV2LabController({hands:{A:['m002'],B:['d024','d029']}});
+ const a=lab.reveal();lab.toggle({instanceId:a.hand[0].instanceId});
+ assert.equal(lab.submit().ok,true);
+ const b=lab.reveal();
+ for(const i of [1,0,1])lab.toggle({instanceId:b.hand[i].instanceId});
+ assert.deepEqual(lab.view().selection,[{instanceId:b.hand[1].instanceId}]);
  assert.equal(lab.submit().ok,true);
  assert.equal(lab.view().actorId,'A');
 });
-test('lab prevents ordinary armor stacked with a single miracle-only reflector',()=>{
+test('ordinary guards -> reaction and reaction -> ordinary guards replace, never stack',()=>{
  for(const cards of [
-  ['d014','d024'],['d024','d014'],['d024','d018'],
-  ['d018','d029'],['i001','d029'],['i002','d014']
+   ['d014','d024'],['d024','d014'],
+   ['d024','d018'],['d018','d029'],
+   ['i001','d029'],['i002','d014']
  ]){
   const lab=createV2LabController({hands:{A:['m002'],B:cards}});
   const a=lab.reveal();lab.toggle({instanceId:a.hand[0].instanceId});
   assert.equal(lab.submit().ok,true);
   const b=lab.reveal();
   lab.toggle({instanceId:b.hand[0].instanceId});
-  assert.throws(()=>lab.toggle({instanceId:b.hand[1].instanceId}),
-    /この検証版では奇跡/,cards.join(','));
-  assert.equal(lab.view().selection.length,1);
+  lab.toggle({instanceId:b.hand[1].instanceId});
+  assert.deepEqual(lab.view().selection,[{instanceId:b.hand[1].instanceId}],cards.join(','));
  }
 });
-test('lab accepts Turbulence followed immediately by Spirit, but not Spirit then Sky',()=>{
- const lab=createV2LabController({hands:{A:['m002'],B:['m007','i003','d024']}});
+test('plain armor stacks remain intact until a special defense method is tapped',()=>{
+ const lab=createV2LabController({hands:{A:['m002'],B:['d014','d014','d024']}});
  const a=lab.reveal();lab.toggle({instanceId:a.hand[0].instanceId});
  assert.equal(lab.submit().ok,true);
  const b=lab.reveal();
  lab.toggle({instanceId:b.hand[0].instanceId});
  lab.toggle({instanceId:b.hand[1].instanceId});
  assert.equal(lab.view().selection.length,2);
- assert.throws(()=>lab.toggle({instanceId:b.hand[2].instanceId}),/この検証版では奇跡/);
+ lab.toggle({instanceId:b.hand[2].instanceId});
+ assert.deepEqual(lab.view().selection,[{instanceId:b.hand[2].instanceId}]);
+});
+test('Turbulence -> Spirit remains valid, later Sky replaces the whole sequence',()=>{
+ const lab=createV2LabController({hands:{A:['m002'],B:['m007','i003','d024']}});
+ const a=lab.reveal();lab.toggle({instanceId:a.hand[0].instanceId});
  assert.equal(lab.submit().ok,true);
+ const b=lab.reveal();
+ lab.toggle({instanceId:b.hand[0].instanceId});
+ lab.toggle({instanceId:b.hand[1].instanceId});
+ assert.deepEqual(lab.view().selection,
+   [{instanceId:b.hand[0].instanceId},{instanceId:b.hand[1].instanceId}]);
+ lab.toggle({instanceId:b.hand[2].instanceId});
+ assert.deepEqual(lab.view().selection,[{instanceId:b.hand[2].instanceId}]);
+ assert.equal(lab.submit().ok,true);
+ assert.equal(lab.view().actorId,'A');
+});
+test('Sky -> learned Turbulence -> Spirit replaces defense and waives MP',()=>{
+ const lab=createV2LabController({hands:{A:['m002'],B:['d024','i003']}});
+ const a=lab.reveal();lab.toggle({instanceId:a.hand[0].instanceId});
+ assert.equal(lab.submit().ok,true);
+ // The learned list is an engine state; the fixture test sets it up through
+ // a previous initial cast in separate tests. Here use the first-use version.
+ const b=lab.reveal();
+ lab.toggle({instanceId:b.hand[0].instanceId});
+ lab.toggle({instanceId:b.hand[1].instanceId});
+ assert.deepEqual(lab.view().selection,[{instanceId:b.hand[0].instanceId}],
+   'a Spirit doll cannot replace an armor method by itself');
 });
 test('ordinary weapon still permits stacking Sky, Moonlight and standard armor',()=>{
  const lab=createV2LabController({hands:{A:['w016'],B:['d024','d029','d005']}});
