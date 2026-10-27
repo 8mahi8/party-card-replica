@@ -149,6 +149,7 @@ test('next responder sees only own cards, not any spent card or internal attack 
  const first=resolve(respond(attack(setup({A:['w016','d001'],B:['w027']})),'B',[0],1));
  const v=viewStagingRoom(first.state,'A');
  assert.equal(v.pending.targetId,'A');
+ assert.equal(v.pending.sourceId,'B');
  assert.equal(JSON.stringify(v).includes('attackContext'),false);
  assert.equal(JSON.stringify(v).includes('processedCommands'),false);
  assert.equal(Object.hasOwn(v.players[1],'hand'),false);
