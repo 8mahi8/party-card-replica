@@ -54,7 +54,7 @@ export function resolveRedirectFixture(state,catalog,{
  if(state?.phase!=='resolving'||!state.pending?.type||
     state.pending.type!=='attack')bad('Not a pending attack');
  const p=state.pending;
- if(p.sourceId===p.targetId && p.defense===null) {
+ if((p.sourceId??p.originalAttackerId)===p.targetId && p.defense===null) {
    // The prior deflection landed on its caster. It cannot defend itself.
    return resolveBasicFixture(state,catalog,{labOnly:true,fixtureDrawDefinitionId});
  }
