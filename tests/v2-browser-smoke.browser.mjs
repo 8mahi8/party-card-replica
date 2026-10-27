@@ -111,18 +111,18 @@ async function run(){
  check(await evaluate('document.querySelectorAll(".battle-card.picked").length===1'),'selected card not highlighted');
  await click('[data-action="submit"]');
  await wait('.pass-screen');
- check(await evaluate('document.querySelector(".pass-screen h1").textContent.includes("PB")'),'wrong defender');
+ check(await evaluate('document.querySelector(".pass-screen h1").textContent.includes("P2")'),'wrong defender');
  check(await evaluate('document.querySelectorAll("[data-card]").length===0'),'opponent hand exposed on pass');
  await shot('ipad-pass-defense');
  await click('[data-action="reveal"]');
  await wait('[data-card="hand"]');
  await click('[data-action="submit"]');
  await wait('.pass-screen');
- check(await evaluate('document.querySelector(".pass-screen h1").textContent.includes("PB")'),'wrong next turn');
+ check(await evaluate('document.querySelector(".pass-screen h1").textContent.includes("P2")'),'wrong next turn');
  check(await evaluate('document.querySelectorAll("[data-card]").length===0'),'hand revealed on next turn');
  await click('[data-action="reset"]');await click('[data-action="reset"]');
  await wait('.pass-screen');
- check(await evaluate('document.querySelector(".pass-screen h1").textContent.includes("PA")'),'reset failed');
+ check(await evaluate('document.querySelector(".pass-screen h1").textContent.includes("P1")'),'reset failed');
  await viewport(390,844);
  await noOverflow('mobile pass');
  await click('[data-action="reveal"]');
@@ -130,6 +130,8 @@ async function run(){
  await noOverflow('mobile hand');
  const touch=await click('[data-card="hand"]',0);
  check(touch.w>=85&&touch.h>=44,'mobile tap target too small');
+ const confirm=await evaluate('(()=>{const r=document.querySelector(".confirm").getBoundingClientRect();return {top:r.top,bottom:r.bottom,h:r.height};})()');
+ check(confirm.top>=0&&confirm.bottom<=844&&confirm.h>=44,'confirm button not visible during card selection');
  await shot('mobile-card-selected');
  console.log('BROWSER_SMOKE_SUCCESS checks='+checks+' chrome='+chrome+
   ' viewports=1024x768,390x844');
