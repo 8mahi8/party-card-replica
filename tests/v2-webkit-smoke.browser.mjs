@@ -343,6 +343,53 @@ async function testAdditiveOnlyTouch(base){
  }
 }
 
+async function testPlusMiracleFirstTouch(base){
+ const context=await browser.newContext({
+   viewport:{width:1024,height:768},screen:{width:1024,height:768},
+   deviceScaleFactor:2,isMobile:true,hasTouch:true,locale:'ja-JP'
+ });
+ try{
+   page=await context.newPage();
+   await page.goto(base+'/embed-harness.html',{waitUntil:'load'});
+   const frame=page.frameLocator('#game-embed');
+   await frame.locator('[data-action=reveal]').tap();
+   const fireball=frame.locator('[data-card=hand]').filter({hasText:'火の玉'});
+   const addon=frame.locator('[data-card=hand]').filter({hasText:'ブーメラン'});
+   passed(await fireball.count()===1,'Fireball is present in test hand');
+   passed((await fireball.textContent()).includes('+攻2'),
+     'Fireball is labeled with its original printed +ATK2');
+   await fireball.tap();
+   passed((await frame.locator('.stage-heading').textContent()).includes('先頭に選ぶと単独奇跡'),
+     'First selected plus miracle is explained as a solo miracle');
+   await addon.tap();
+   await frame.locator('[data-action=submit]').tap();
+   passed((await frame.locator('[role=status]').textContent()).includes('Only spirit directly after miracle'),
+     'First-miracle plus an extra weapon cannot be accepted as weapon attack');
+   passed((await frame.locator('.picks').textContent()).includes('火の玉'),
+     'Invalid attack leaves the original card selected so it can be corrected');
+   await screenshot('webkit-fireball-first-invalid-additive');
+   await addon.tap();
+   await frame.locator('[data-action=submit]').tap();
+   await frame.locator('.compact-pass').waitFor();
+   passed((await frame.locator('.compact-pass h1').textContent()).includes('P2'),
+     'Corrected Fireball-only attack reaches the defender');
+   await frame.locator('[data-action=reveal]').tap();
+   await frame.locator('[data-action=submit]').tap();
+   await frame.locator('.compact-pass').waitFor();
+   await frame.locator('[data-action=reveal]').tap();
+   const info=await frame.locator('.seat').allTextContents();
+   passed(info[0].includes('MP 8'),'Fireball-only spends exactly MP2');
+   passed(info[1].includes('HP 38'),'Fireball-only deals 2 direct damage');
+   await screenshot('webkit-fireball-first-resolved');
+ }catch(error){
+   await screenshot('webkit-fireball-first-failure');
+   throw error;
+ }finally{
+   page=null;await context.close();
+ }
+}
+
+
 try{
   if(!existsSync(path.join(ROOT,'v2/demo/standalone.html')))
     throw new Error('Missing checked-in standalone HTML');
@@ -354,6 +401,7 @@ try{
   await testSkyMoonTouch(base);
   await testMiracleDefenseSwitchTouch(base);
   await testAdditiveOnlyTouch(base);
+  await testPlusMiracleFirstTouch(base);
   console.log('WEBKIT_SMOKE_SUCCESS checks='+checks+' engine=Playwright WebKit'+
     ' fixed-height frames=1024x460,390x430');
 }catch(error){
