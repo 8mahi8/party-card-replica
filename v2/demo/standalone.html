@@ -32,6 +32,13 @@ button:disabled{opacity:.45;cursor:not-allowed}
 .pass-screen p{max-width:560px;margin:12px auto;color:#c6dff1;line-height:1.65}
 .seal{margin:auto auto 14px;background:#233b63;border-radius:50%;display:grid;place-items:center;width:68px;height:68px;font-size:42px;color:#9ee8ec}
 .pass-screen .hint{font-size:13px;color:#9ebad6;margin-bottom:26px}
+/* The handoff must fit even a short Google Sites-like embed window. */
+.compact-pass{min-height:0;padding:clamp(15px,3vh,28px) 12px}
+.compact-pass .seal{width:46px;height:46px;font-size:29px;margin-bottom:8px}
+.compact-pass h1{font-size:20px}
+.compact-pass p{margin:6px auto;font-size:12px;line-height:1.45}
+.compact-pass .hint{margin-bottom:12px}
+.compact-pass .primary{min-height:50px}
 h2{font-size:15px;margin:0 0 11px;color:#d4eaff}
 h2 small{font-weight:400;color:#8fa7c7;margin-left:5px;font-size:12px}
 .targets{margin-bottom:18px}
@@ -2030,9 +2037,10 @@ function cardButton(c,type){
 }
 function renderV2LabMarkup(data,{resetArmed=false}={}){
  const text=data.phase==='turn'?'攻撃':data.phase==='defense'?'防御':'終了';
- const header='<div class="topline"><div><strong class="brand">CARD LAB <em>V2</em></strong>'+
+ const topLine='<div class="topline"><div><strong class="brand">CARD LAB <em>V2</em></strong>'+
  '<div class="sub">学校iPad用・ルール検証だけの試遊版</div></div>'+
- '<span class="phase">'+text+'</span></div>'+
+ '<span class="phase">'+text+'</span></div>';
+ const header=topLine+
  '<div class="disclaimer">⚠ <strong>オフライン1台交代制</strong>・固定カード補充によるテスト。'+
  'オンライン対戦・原作の出現率・全カード再現ではありません。</div>'+
  '<section class="score" aria-label="プレイヤーの状態">'+data.publicPlayers.map(portrait).join('')+'</section>';
@@ -2045,7 +2053,9 @@ function renderV2LabMarkup(data,{resetArmed=false}={}){
      esc(data.notice)+'</p></section>'+footer;
  }
  if(!data.revealed){
-   return header+'<section class="pass-screen" aria-live="polite">'+
+   // Hide the large stats/disclaimer block during private handoff so the
+   // reveal button remains visible in a short Google Sites-style iframe.
+   return topLine+'<section class="pass-screen compact-pass" aria-live="polite">'+
      '<div class="seal" aria-hidden="true">◈</div><h1>'+esc(seatLabel(data.actorId))+' の番</h1>'+
      '<p>'+esc(data.notice)+'</p><p class="hint">端末を'+esc(seatLabel(data.actorId))+
      'へ渡してから手札を表示してください</p>'+
