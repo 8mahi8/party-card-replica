@@ -8,9 +8,10 @@ const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({
  '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
 })[c]);
 const attr=x=>esc(encodeURIComponent(x));
+const seatLabel=id=>id==='A'?'P1':id==='B'?'P2':'P'+id;
 const elem=x=>({none:'無',fire:'火',water:'水',wood:'木',earth:'土',light:'光',dark:'闇'})[x]??'—';
 function portrait(p){
- return '<div class="seat"><div><strong>P'+esc(p.id)+'</strong> <small>手札'+p.handCount+'枚</small></div>'+
+ return '<div class="seat"><div><strong>'+esc(seatLabel(p.id))+'</strong> <small>手札'+p.handCount+'枚</small></div>'+
  '<div class="values"><span>HP <b>'+p.hp+'</b></span><span>MP <b>'+p.mp+
  '</b></span><span>¥ <b>'+p.money+'</b></span></div></div>';
 }
@@ -35,13 +36,13 @@ export function renderV2LabMarkup(data,{resetArmed=false}={}){
  '</button><small>対戦ログの保存・ネットワーク通信は行いません。</small></footer>';
  if(data.phase==='finished'){
    return header+'<section class="stage" aria-live="polite"><h1>検証試合終了</h1><p>勝者：'+
-     (data.winnerId?'P'+esc(data.winnerId):'引き分け')+'</p><p class="status">'+
+     (data.winnerId?esc(seatLabel(data.winnerId)):'引き分け')+'</p><p class="status">'+
      esc(data.notice)+'</p></section>'+footer;
  }
  if(!data.revealed){
    return header+'<section class="pass-screen" aria-live="polite">'+
-     '<div class="seal" aria-hidden="true">◈</div><h1>P'+esc(data.actorId)+' の番</h1>'+
-     '<p>'+esc(data.notice)+'</p><p class="hint">端末をP'+esc(data.actorId)+
+     '<div class="seal" aria-hidden="true">◈</div><h1>'+esc(seatLabel(data.actorId))+' の番</h1>'+
+     '<p>'+esc(data.notice)+'</p><p class="hint">端末を'+esc(seatLabel(data.actorId))+
      'へ渡してから手札を表示してください</p>'+
      '<button type="button" class="primary wide" data-action="reveal">自分の手札を見る</button>'+
      '</section>'+footer;
@@ -51,7 +52,7 @@ export function renderV2LabMarkup(data,{resetArmed=false}={}){
  const targets=data.phase==='turn'?
     '<section class="targets"><h2>攻撃先</h2><div class="choice-row">'+
     data.targets.map(id=>'<button type="button" class="'+(id===data.targetId?'chosen':'')+
-      '" data-target="'+attr(id)+'" aria-pressed="'+(id===data.targetId)+'">P'+esc(id)+
+      '" data-target="'+attr(id)+'" aria-pressed="'+(id===data.targetId)+'">'+esc(seatLabel(id))+
       (id===data.actorId?'（自分）':'')+'</button>').join('')+
     '</div></section>':'';
  const picked=data.selection.map((x,i)=>{
@@ -62,7 +63,7 @@ export function renderV2LabMarkup(data,{resetArmed=false}={}){
  const actionText=data.phase==='defense'?(data.selection.length?'防御を確定':'防御しない'):'攻撃を確定';
  const notice='<p class="status" role="status">'+esc(data.notice)+'</p>';
  return header+'<main class="stage">'+
-   '<div class="stage-heading"><h1>P'+esc(data.actorId)+'：'+title+'</h1><p>'+caption+'</p></div>'+
+   '<div class="stage-heading"><h1>'+esc(seatLabel(data.actorId))+'：'+title+'</h1><p>'+caption+'</p></div>'+
    targets+'<section class="cards-panel"><h2>手札 <small>'+data.hand.length+'枚</small></h2>'+
    '<div class="hand-grid">'+(data.hand.length?data.hand.map(c=>cardButton(c,'hand')).join(''):
        '<p class="empty">手札がありません</p>')+'</div></section>'+
