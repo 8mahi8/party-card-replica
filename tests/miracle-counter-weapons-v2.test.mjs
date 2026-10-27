@@ -75,7 +75,7 @@ test('Moonlight Axe reflects a miracle back to caster with original MP paid once
  assert.equal(done.players[0].mp,8);
 });
 test('Sky Harpoon deflects a miracle, including the original caster as a target',()=>{
- const first=resolve(defend(attack(room({A:['m002'],B:['a012']})),()=>0);
+ const first=resolve(defend(attack(room({A:['m002'],B:['a012']}))),()=>0);
  assert.equal(first.redirected,true);
  assert.equal(first.plan.mode,'deflect');
  assert.equal(first.state.activePlayerId,'A');
