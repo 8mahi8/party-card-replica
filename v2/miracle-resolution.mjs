@@ -69,6 +69,8 @@ export function compileSoloMiracleResolution(state,catalog) {
    if(p.defense!==null)fail('Self cast cannot be defended');
  } else {
    if(!p.defense||p.defense.playerId!==target.id)fail('Defense required');
+   if(p.defense.learnedDefinitionId!==undefined)
+     fail('Learned defensive miracle is unsupported against miracle attacks');
    defense=selected(target,p.defense.instanceIds,catalog);
  }
  const angel=defense.some(c=>c.def.effects.some(e=>e.type==='stopAttack'&&e.params.scope==='miracle'));
