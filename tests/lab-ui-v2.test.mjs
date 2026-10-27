@@ -174,3 +174,26 @@ test('deterministic single HTML bundle is checked into the V2 development branch
  });
  assert.equal(proc.status,0,proc.stderr||proc.stdout);
 });
+
+test('invalid empty-card confirm displays an error even after DOM rerender',()=>{
+ const listeners={},message={textContent:''};
+ const root={innerHTML:'',
+   addEventListener:(key,handler)=>{listeners[key]=handler;},
+   contains:()=>true,
+   querySelector:selector=>selector==='[role="status"]'?message:null
+ };
+ const ui=createV2LabController();
+ mountV2Lab(root,ui);
+ const click=action=>{
+   const button={
+     getAttribute:key=>key==='data-action'?action:null,
+     hasAttribute:()=>false
+   };
+   listeners.click({target:{closest:()=>button}});
+ };
+ click('reveal');
+ click('submit');
+ assert.match(message.textContent,/使用するカードを選んで/);
+ assert.equal(ui.view().phase,'turn');
+ assert.equal(ui.view().revealed,true);
+});
