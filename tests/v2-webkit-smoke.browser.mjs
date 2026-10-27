@@ -163,6 +163,52 @@ async function testScenario(base,{
     await context.close();
   }
 }
+async function testTurbulenceTouch(base){
+ const context=await browser.newContext({
+  viewport:{width:1024,height:768},screen:{width:1024,height:768},
+  deviceScaleFactor:2,isMobile:true,hasTouch:true,locale:'ja-JP'
+ });
+ try{
+  page=await context.newPage();
+  await page.goto(base+'/embed-harness.html',{waitUntil:'load'});
+  const frame=page.frameLocator('#game-embed');
+  await frame.locator('[data-action=reveal]').tap();
+  await frame.locator('[data-card=hand]').filter({hasText:'氷'}).tap();
+  await frame.locator('[data-action=submit]').tap();
+  await frame.locator('.compact-pass').waitFor();
+  passed((await frame.locator('.compact-pass h1').textContent()).includes('P2'),
+    'ice attack must hand off to P2 defense');
+  await frame.locator('[data-action=reveal]').tap();
+  passed(await frame.locator('[data-card=hand]').filter({hasText:'乱気流'}).count()===1,
+    'Turbulence missing from fixed P2 hand');
+  await frame.locator('[data-card=hand]').filter({hasText:'乱気流'}).tap();
+  await frame.locator('[data-card=hand]').filter({hasText:'精霊のぬいぐるみ'}).tap();
+  passed((await frame.locator('.picks').textContent()).includes('乱気流'),
+    'deflection selection not displayed');
+  await screenshot('webkit-turbulence-spirit-selected');
+  await frame.locator('[data-action=submit]').tap();
+  await frame.locator('.compact-pass').waitFor();
+  passed((await frame.locator('.compact-pass h1').textContent()).includes('P1'),
+    'deflection must redirect to original caster with deterministic seed');
+  await frame.locator('[data-action=reveal]').tap();
+  await frame.locator('[data-action=submit]').tap();
+  await frame.locator('.compact-pass').waitFor();
+  passed((await frame.locator('.compact-pass h1').textContent()).includes('P2'),
+    'the attacker defending a redirected miracle must complete the turn');
+  await frame.locator('[data-action=reveal]').tap();
+  const scores=await frame.locator('.seat').allTextContents();
+  passed(scores[0].includes('36')&&scores[1].includes('10'),
+    'after ice deflection caster should lose HP4, defender keeps MP10');
+  passed(await frame.locator('[data-card=learned]').filter({hasText:'乱気流'}).count()===1,
+    'first Turbulence defense must appear among learned miracles');
+  await screenshot('webkit-turbulence-complete');
+ }catch(e){
+  await screenshot('webkit-turbulence-failure');throw e;
+ }finally{
+  page=null;await context.close();
+ }
+}
+
 try{
   if(!existsSync(path.join(ROOT,'v2/demo/standalone.html')))
     throw new Error('Missing checked-in standalone HTML');
@@ -170,6 +216,7 @@ try{
   browser=await webkit.launch({headless:true});
   await testScenario(base,{width:1024,height:768,embedHeight:460,shotPrefix:'webkit-ipad'});
   await testScenario(base,{width:390,height:844,embedHeight:430,shotPrefix:'webkit-narrow'});
+  await testTurbulenceTouch(base);
   console.log('WEBKIT_SMOKE_SUCCESS checks='+checks+' engine=Playwright WebKit'+
     ' fixed-height frames=1024x460,390x430');
 }catch(error){
