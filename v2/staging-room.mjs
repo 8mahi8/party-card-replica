@@ -17,6 +17,7 @@ const MAX_PLAYERS=9;
 const MAX_HAND=18;
 const ALLOWED_KEYS={
   playCards:new Set(['commandId','expectedRevision','actorId','type','targetId','orderedInstanceIds']),
+  playSequence:new Set(['commandId','expectedRevision','actorId','type','targetId','orderedPlays']),
   castLearned:new Set(['commandId','expectedRevision','actorId','type','targetId','learnedDefinitionId']),
   defend:new Set(['commandId','expectedRevision','actorId','type','orderedInstanceIds','learnedDefinitionId'])
 };
@@ -42,7 +43,8 @@ function fingerprint(command) {
     actorId:command.actorId,
     type:command.type,
     expectedRevision:command.expectedRevision,
-    targetId:['playCards','castLearned'].includes(command.type)?command.targetId:null,
+    targetId:['playCards','playSequence','castLearned'].includes(command.type)?command.targetId:null,
+    orderedPlays:command.orderedPlays??null,
     orderedInstanceIds:command.orderedInstanceIds??null,
     learnedDefinitionId:command.learnedDefinitionId??null
   });
@@ -74,6 +76,41 @@ function takeLegalSelection(player,instanceIds,catalog,mode,{allowEmpty=false}={
     // Exact defense combinations, MP costs, reflection and stop priority: G3.
   }
   return selected;
+}
+/** Strictly preserve the sender's interleaved hand/learned order. */
+function takeOrderedPlays(actor,plays,catalog){
+  if(!Array.isArray(plays)||plays.length===0||plays.length>36)
+    throw new Error('Invalid ordered play sequence');
+  const handIds=new Set(),learnedIds=new Set();
+  return plays.map((step,index)=>{
+    if(!step||typeof step!=='object'||Array.isArray(step))
+      throw new Error('Malformed sequence step');
+    const keys=Object.keys(step);
+    if(keys.length!==1)throw new Error('Sequence step must name one source');
+    if(keys[0]==='instanceId'){
+      const instanceId=id(step.instanceId,'instance ID');
+      if(handIds.has(instanceId))throw new Error('Repeated card instance');
+      handIds.add(instanceId);
+      const instance=actor.hand.find(c=>c.instanceId===instanceId);
+      if(!instance)throw new Error('Selected card not held');
+      const def=catalog.get(instance.definitionId);
+      if(!def||!def.playModes.some(mode=>['mainAttack','addAttack','cast','support'].includes(mode)))
+        throw new Error('Not a structural attack selection');
+      if(index===0 && def.family!=='weapon')throw new Error('Sequence must begin with weapon');
+      return {instanceId};
+    }
+    if(keys[0]==='learnedDefinitionId'){
+      const defId=id(step.learnedDefinitionId,'learned definition ID');
+      if(learnedIds.has(defId))throw new Error('Repeated learned miracle in one sequence not verified');
+      learnedIds.add(defId);
+      const def=catalog.get(defId);
+      if(!actor.learned.includes(defId)||def?.family!=='miracle'||!def.playModes.includes('cast'))
+        throw new Error('Selected miracle not learned');
+      if(index===0)throw new Error('Sequence must begin with weapon');
+      return {learnedDefinitionId:defId};
+    }
+    throw new Error('Unknown sequence step source');
+  });
 }
 /**
  * Seed known opening hands (in tests or local lab only). A live game must use
@@ -135,7 +172,7 @@ export function applyStagingCommand(state,command,catalog,{authorizedSeatId}={})
   let pending;
   let phase;
   let activePlayerId;
-  if(command.type==='playCards'||command.type==='castLearned') {
+  if(['playCards','playSequence','castLearned'].includes(command.type)) {
     if(state.phase!=='turn')throw new Error('Not an attacking turn');
     id(command.targetId,'target ID');
     const target=seat(state,command.targetId);
@@ -149,12 +186,16 @@ export function applyStagingCommand(state,command,catalog,{authorizedSeatId}={})
         learned?.family!=='miracle'||!learned.playModes.includes('cast')||
         learned.stats.attack<=0)
         throw new Error('Offensive miracle not learned');
-    } else {
+    } else if(command.type==='playCards'){
       selected=takeLegalSelection(actor,command.orderedInstanceIds,catalog,'attack');
     }
+    const sequence=command.type==='playSequence'
+      ?takeOrderedPlays(actor,command.orderedPlays,catalog):null;
     pending={
       type:'attack',originalAttackerId:actor.id,targetId:target.id,
-      attackInstanceIds:selected.map(x=>x.instanceId),
+      attackInstanceIds:sequence?sequence.filter(x=>x.instanceId).map(x=>x.instanceId)
+        :selected.map(x=>x.instanceId),
+      ...(sequence?{attackSequence:sequence}:{}),
       ...(learned?{attackLearnedDefinitionId:learned.id}:{}),defense:null
     };
     // A self-targeting attack skips defense, as in the old rules engine.
