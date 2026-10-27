@@ -67,12 +67,13 @@ test('source explicit: Wonder Sword -> Aura -> Magic Water Wand is water ATK30',
  assert.equal(after.players[0].hand.length,3);
  assert.deepEqual(after.players[0].learned,['m004']);
 });
-test('same documented Aura effect also doubles a wand selected before Aura',()=>{
+test('wand before Aura does not silently assume old dye precedence',()=>{
+ // A July 2025 guide explicitly says the wand now needs to follow Aura
+ // for dye. The underlying damage order is not yet validated in Training.
  const h=room(['w016','a014','m004']);
- const a=attack(h,[0,1,2]),p=compile(a);
- assert.equal(p.attack,30);
- assert.equal(p.element,'water');
- assert.equal(resolve(defend(a,[0])).state.players[1].hp,13);
+ const a=attack(h,[0,1,2]),before=JSON.stringify(a);
+ assert.throws(()=>compile(a),/Attribute wand before Aura: original dye priority unverified/);
+ assert.equal(JSON.stringify(a),before);
 });
 test('another source-listed attribute wand converts neutral plus ATK to fire',()=>{
  const h=room(['w016','a015']);
