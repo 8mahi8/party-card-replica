@@ -122,12 +122,12 @@ test('a lone Aura or wall is not treated as a solo offensive miracle',()=>{
  const hands={A:['m004','m001'],B:['d001']};
  const s=lab(hands);
  assert.throws(()=>stage(s,{attack:[0]}),/Attack must start/);
- assert.throws(()=>stage(s,{attack:[1]}),/Attack must start/);
+ assert.throws(()=>stage(s,{attack:[1]}),/Not a structural attack/);
 });
 test('unverified miracle plus weapon or two attack miracles is rejected',()=>{
  const hands={A:['m002','m005','w016'],B:['d001']};
  const a=stage(lab(hands),{attack:[0,1]});
- assert.throws(()=>resolve(a),/Only one miracle and optional spirit/);
+ assert.throws(()=>resolve(a),/Only spirit directly after miracle/);
  const b=stage(lab(hands),{attack:[0,2]});
  assert.throws(()=>resolve(b),/Only spirit directly after miracle/);
 });
