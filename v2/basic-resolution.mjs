@@ -109,6 +109,7 @@ export function compileBasicResolution(state,catalog) {
     if(p.defense!==null)fail('Self-target cannot defend');
   } else {
     if(!p.defense||p.defense.playerId!==defender.id)fail('Defense not submitted');
+    if(p.defense.learnedDefinitionId!==undefined)fail('Learned defensive miracle requires dedicated resolver');
     defending=locateHandCards(defender,p.defense.instanceIds,catalog);
   }
   let armor=0,stripElement=false;
