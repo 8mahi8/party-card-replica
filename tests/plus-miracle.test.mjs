@@ -10,10 +10,10 @@ function setup(a,b){
  s.players[0].hand=a.map(card);s.players[1].hand=b.map(card);return s;
 }
 const combo=(s,handIndices,plusHandIndex)=>playPlusMiracleAttack(s,{playerId:'A',targetId:'B',handIndices,plusHandIndex},draw);
-test('Fireball and Meteor are partial source data (67 kinds, 184 slots)',()=>{
- assert.equal(VERIFIED_BASIC_CARDS.length,77);
+test('Fireball and Meteor retain verified values in expanded partial research data',()=>{
+ assert.equal(VERIFIED_BASIC_CARDS.length,83);
  const audit=auditCatalog(VERIFIED_BASIC_CARDS);
- assert.equal(audit.slots,195);assert.equal(audit.complete,false);
+ assert.equal(audit.slots,201);assert.equal(audit.complete,false);
  assert.deepEqual([card('m005').attack,card('m005').mpCost,card('m005').element,card('m005').weight],[2,2,'fire',1]);
  assert.deepEqual([card('m006').attack,card('m006').mpCost,card('m006').element,card('m006').weight],[10,7,'light',1]);
 });
