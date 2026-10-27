@@ -114,11 +114,29 @@ test('wand plus Fireball or Meteor holds unresolved elemental-composition questi
   assert.equal(JSON.stringify(a),before);
  }
 });
-test('wand plus conflicting attribute weapon is not silently overwritten',()=>{
- const h=room(['w018','a014']);
- const a=attack(h,[0,1]),before=JSON.stringify(a);
- assert.throws(()=>compile(a),/Conflicting elemental weapons with override wand unverified/);
- assert.equal(JSON.stringify(a),before);
+test('wand dye overrides normally incompatible elemental weapons, per published game rules',()=>{
+ // Fire weapon + water wand: unexceptional mixing would be neutral,
+ // but the wand has the explicit "attacks become water" effect.
+ const h=room(['w018','a014']),a=attack(h,[0,1]);
+ const p=compile(a);
+ assert.equal(p.attack,6);
+ assert.equal(p.element,'water');
+ const result=resolve(defend(a,[0])).state;
+ assert.equal(result.players[1].hp,37); // fire armor 3 blocks water
+ assert.equal(result.players[0].mp,10);
+});
+test('reverse special dye fire overrides an incompatible water weapon',()=>{
+ const h=room(['w021','a015']),a=attack(h,[0,1]),p=compile(a);
+ assert.equal(p.attack,3);
+ assert.equal(p.element,'fire');
+ assert.equal(resolve(defend(a)).state.players[1].hp,37);
+});
+test('neutral main, neutral extra and fire dye combine to one fire attack',()=>{
+ // The standalone dye is special even though the attack contains neutral cards.
+ const h=room(['w016','a003','a015']),a=attack(h,[0,1,2]),p=compile(a);
+ assert.equal(p.attack,15);
+ assert.equal(p.element,'fire');
+ assert.equal(resolve(defend(a)).state.players[1].hp,25);
 });
 test('malformed or miscategorized override cards fail adapter validation',()=>{
  for(const change of [
