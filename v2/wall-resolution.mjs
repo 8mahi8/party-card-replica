@@ -45,30 +45,72 @@ export function compileWallResolution(state,catalog) {
    if(!def)bad('Unknown wall card');
    return {instance,def};
  });
- const wallFromHand=hand.filter(x=>x.def.family==='miracle'&&x.def.effects.some(
-   e=>e.type==='stopAttack'&&e.params.scope==='neutralWeapon'));
- if(wallFromHand.length>1)bad('Only one Wall may be cast');
  const learnedId=p.defense.learnedDefinitionId??null;
  if(learnedId!==null){
    const learned=catalog.get(learnedId);
-   if(learnedId!=='m001'||!caster.learned.includes(learnedId)||
-      learned?.family!=='miracle' || !learned.effects.some(e=>e.type==='stopAttack'&&e.params.scope==='neutralWeapon'))
+   if(!caster.learned.includes(learnedId)||learned?.family!=='miracle'||
+      !learned.effects.some(e=>e.type==='stopAttack'&&e.params.scope==='neutralWeapon'))
      bad('Wall was not learned');
-   if(wallFromHand.length)bad('Cannot cast Wall from hand and learned together');
  }
- if(wallFromHand.length+(learnedId!==null?1:0)!==1)bad('Exactly one Wall is required');
- const strip=hand.length>0&&hand[0].def.effects.some(e=>e.type==='stripElement');
- if(hand.length!==(strip?1:0)+wallFromHand.length)
-   bad('Wall may only combine with first Rainbow Curtain');
- if(strip&&hand[0].def.effects.filter(e=>e.type==='stripElement').length!==1)
-   bad('Unsupported Rainbow Curtain');
- if(!strip&&hand.some(x=>x.def.effects.some(e=>e.type==='stripElement')))
-   bad('Rainbow Curtain must be selected first');
- if(wallFromHand.length && hand.at(-1)!==wallFromHand[0])
+ // The legacy defend format places the learned miracle AFTER all hand cards.
+ // The new defendSequence preserves its true place in the selection order,
+ // which is necessary for "learned Wall -> spirit doll".
+ const sequence=p.defense.sequence??[
+   ...p.defense.instanceIds.map(instanceId=>({instanceId})),
+   ...(learnedId===null?[]:[{learnedDefinitionId:learnedId}])
+ ];
+ if(!Array.isArray(sequence)||!sequence.length||sequence.length>4)
+   bad('Unsupported Wall defensive selection length');
+ if(JSON.stringify(sequence.filter(x=>x?.instanceId).map(x=>x.instanceId))!==
+     JSON.stringify(p.defense.instanceIds))
+   bad('Wall defense card sequence mismatch');
+ const learnedSteps=sequence.filter(x=>x?.learnedDefinitionId);
+ if(learnedSteps.length>1||
+    (learnedSteps[0]?.learnedDefinitionId??null)!==learnedId)
+   bad('Wall learned sequence mismatch');
+ let wall=null,wallIndex=-1,spiritIndex=-1,stripIndex=-1;
+ const kinds=sequence.map((step,i)=>{
+   let def,origin;
+   if(step?.instanceId&&Object.keys(step).length===1){
+     const found=hand.find(x=>x.instance.instanceId===step.instanceId);
+     if(!found)bad('Unheld card in Wall selection');
+     def=found.def;origin='hand';
+   } else if(step?.learnedDefinitionId&&Object.keys(step).length===1){
+     def=catalog.get(step.learnedDefinitionId);origin='learned';
+   } else bad('Malformed Wall selection order');
+   if(def?.family==='miracle'&&def.effects.some(
+      e=>e.type==='stopAttack'&&e.params.scope==='neutralWeapon')){
+     if(wall)bad('Only one Wall may be cast');
+     wall=def;wallIndex=i;return 'wall';
+   }
+   if(origin==='learned')bad('Unsupported learned defense miracle');
+   if(def.effects.length===1&&def.effects[0].type==='stripElement'&&
+      def.effects[0].when==='onDefense'){
+     if(stripIndex!==-1)bad('Only one Rainbow Curtain');
+     stripIndex=i;return 'strip';
+   }
+   if(def.family==='item'&&def.playModes.includes('support')&&
+      def.effects.length===1&&def.effects[0].type==='waivePreviousMp'&&
+      def.effects[0].when==='onCost'&&
+      def.effects[0].params.target==='previousMiracle'){
+     if(spiritIndex!==-1)bad('Only one spirit per Wall');
+     spiritIndex=i;return 'spirit';
+   }
+   bad('Wall may only combine with Rainbow Curtain and spirit');
+ });
+ if(!wall)bad('Exactly one Wall is required');
+ if(stripIndex!==-1&&stripIndex!==0)bad('Rainbow Curtain must be selected first');
+ if(wallIndex!==(stripIndex===0?1:0))
    bad('Wall must follow the optional Rainbow Curtain');
- if(attackContext.element!=='none'&&!strip)bad('Wall requires neutral weapon attack');
- const wall=wallFromHand.length?wallFromHand[0].def:catalog.get(learnedId);
- const mpCost=wall.stats.mpCost;
+ if(spiritIndex!==-1&&spiritIndex!==wallIndex+1)
+   bad('Spirit must immediately follow Wall');
+ if(kinds.length!==(stripIndex===0?1:0)+1+(spiritIndex===-1?0:1))
+   bad('Unsupported Wall defense ordering');
+ if(attackContext.element!=='none'&&stripIndex!==0)
+   bad('Wall requires neutral weapon attack');
+ const strip=stripIndex===0;
+ const spiritUsed=spiritIndex!==-1;
+ const mpCost=spiritUsed?0:wall.stats.mpCost;
  if(caster.mp<mpCost)bad('Not enough MP for Wall');
  const queue=Object.freeze([
    ...(p.attackContext?[]:queuedAttackCosts(attackContext,attacker.id)),
@@ -80,7 +122,7 @@ export function compileWallResolution(state,catalog) {
    effect('refill'),effect('advance',{afterId:attacker.id})
  ]);
  return Object.freeze({wallId:wall.id,learnedCast:learnedId!==null,
-   stripElement:!!strip,attack:attackContext.attack,
+   stripElement:strip,spiritUsed,attack:attackContext.attack,
    element:attackContext.element,mpCost,queue});
 }
 export function resolveWallFixture(state,catalog,opts={}) {
