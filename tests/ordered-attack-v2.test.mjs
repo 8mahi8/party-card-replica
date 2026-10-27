@@ -148,7 +148,7 @@ test('unknown combo of Aura plus Fireball and multiple Auras fails closed',()=>{
 });
 test('two mixed plus miracles are rejected until their combination is verified',()=>{
  const s=stage(create({A:['w016','m005','m006'],B:['d001']}),{attack:[0,1,2]});
- assert.throws(()=>plan(s),/Only identical verified plus pair/);
+ assert.throws(()=>plan(s),/Only identical verified hand-based plus pair/);
 });
 test('weapon after additive miracle is rejected pending gameplay evidence',()=>{
  const s=stage(create({A:['w016','m005','a003'],B:['d001']}),{attack:[0,1,2]});
@@ -171,13 +171,19 @@ test('Wall stops a boosted neutral weapon but attack magic still spends MP and l
  assert.deepEqual(r.state.players[0].learned,['m004']);
  assert.deepEqual(r.state.players[1].learned,['m001']);
 });
-test('boosted weapon reflect declines explicitly rather than dropping miracle cost',()=>{
+test('boosted weapon reflector stages the MP payment and learns the miracle once',()=>{
  const h={A:['w016','m005'],B:['w027']};
  const s=stage(create(h),{attack:[0,1],defense:[0]});
  const before=JSON.stringify(s);
- assert.throws(()=>resolveRedirectFixture(s,catalog,{labOnly:true,fixtureDrawDefinitionId:'d001'}),
-  /Boosted weapon reactions/);
+ const reflected=resolveRedirectFixture(s,catalog,{labOnly:true,fixtureDrawDefinitionId:'d001'});
  assert.equal(JSON.stringify(s),before);
+ assert.equal(reflected.state.phase,'defense');
+ assert.equal(reflected.state.pending.targetId,'A');
+ assert.equal(reflected.state.pending.attackContext.attack,12);
+ assert.equal(reflected.state.players[0].mp,8);
+ assert.deepEqual(reflected.state.players[0].learned,['m005']);
+ assert.equal(reflected.state.pending.spentByPlayer.A,2);
+ assert.equal(reflected.state.pending.spentByPlayer.B,1);
 });
 test('selected hand instance IDs are all consumed, replaced and unique',()=>{
  const h={A:['w016','m005','m005','i003'],B:['d001']};
