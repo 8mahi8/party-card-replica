@@ -255,5 +255,11 @@ finally{
  try{processChrome?.kill();}catch{}
  try{localServer?.close();}catch{}
  await sleep(100);
- if(temp)rmSync(temp,{recursive:true,force:true});
+ // Chrome can still flush profile files for a moment after SIGTERM.
+ // Retry ENOTEMPTY/EBUSY during cleanup; the browser assertions have
+ // already determined the job result and must not be masked by this race.
+ if(temp) {
+  try{rmSync(temp,{recursive:true,force:true,maxRetries:8,retryDelay:150});}
+  catch(error){console.warn('Temporary browser profile cleanup skipped: '+error.message);}
+ }
 }
