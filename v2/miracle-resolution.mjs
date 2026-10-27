@@ -4,8 +4,8 @@
  * Does NOT handle re-casting from learned list, multiple miracles, Aura,
  * wall or reflection; these require additional command/interrupt contracts.
  */
-import {calculateHit,canBlock,MAX_HAND_SIZE,MAX_LEARNED_MIRACLES} from '../src/rules.mjs';
-import {createInstance} from './foundation.mjs';
+import {calculateHit,canBlock} from '../src/rules.mjs';
+import {runEffectQueueFixture} from './effect-runner.mjs';
 
 function fail(s){throw new Error(s);}
 function person(s,id) {
@@ -97,68 +97,12 @@ export function compileSoloMiracleResolution(state,catalog) {
  return Object.freeze({miracleId:miracle.id,attack:miracle.stats.attack,element:miracle.element,
    payableMP,spirit,stopped,guard,hit,queue});
 }
-function nextAlive(players,after) {
- const offset=players.findIndex(p=>p.id===after);
- for(let i=1;i<=players.length;i++) {
-   const p=players[(offset+i)%players.length];
-   if(p.hp>0)return p.id;
- }
- return null;
-}
-/** Fixed draw lab implementation only. Does not use the incomplete reference
- * catalog to generate gameplay probabilities. */
-export function resolveSoloMiracleFixture(state,catalog,{labOnly=false,fixtureDrawDefinitionId}={}) {
- if(labOnly!==true)fail('Only available in lab fixture mode');
- if(!(catalog instanceof Map)||!catalog.has(fixtureDrawDefinitionId))
+/** Lab-only resolver for a compiled miracle queue. */
+export function resolveSoloMiracleFixture(state,catalog,options={}) {
+ if(options.labOnly!==true)fail('Only available in lab fixture mode');
+ if(!(catalog instanceof Map)||!catalog.has(options.fixtureDrawDefinitionId))
    fail('Unknown fixture draw card');
  const plan=compileSoloMiracleResolution(state,catalog);
- const s={...state,revision:state.revision+1,pending:null,
-   players:state.players.map(p=>({...p,hand:p.hand.map(x=>({...x})),learned:[...p.learned]})),
-   processedCommands:[...state.processedCommands]};
- const spent=Object.create(null),events=[];
- for(const e of plan.queue){
-   if(e.type==='spend'){
-     const who=person(s,e.playerId),ids=new Set(e.instanceIds),before=who.hand.length;
-     who.hand=who.hand.filter(x=>!ids.has(x.instanceId));
-     if(before-who.hand.length!==ids.size)fail('Missing spent card');
-     spent[who.id]=(spent[who.id]??0)+ids.size;
-     events.push({type:'spend',playerId:who.id,count:ids.size});
-   } else if(e.type==='mp'){
-     const who=person(s,e.playerId);
-     who.mp-=e.cost;
-     events.push({type:'payMp',playerId:who.id,cost:e.cost});
-   } else if(e.type==='learn'){
-     const who=person(s,e.playerId);
-     if(!who.learned.includes(e.definitionId))
-       who.learned=[...who.learned,e.definitionId].slice(-MAX_LEARNED_MIRACLES);
-     events.push({type:'learn',playerId:who.id,definitionId:e.definitionId});
-   } else if(e.type==='hit'){
-     const who=person(s,e.targetId);
-     who.hp=e.hpAfter;
-     events.push({type:'damage',targetId:who.id,damage:e.damage,
-       instantDefeat:e.instantDefeat,stopped:e.stopped});
-   } else if(e.type==='refill'){
-     for(const who of s.players) {
-       const n=spent[who.id]??0;
-       let added=0;
-       if(who.hp>0) {
-         while(added<n&&who.hand.length<MAX_HAND_SIZE){
-           who.hand.push(createInstance(fixtureDrawDefinitionId,s.nextInstanceSerial++,catalog));
-           added++;
-         }
-       }
-       if(n)events.push({type:'refill',playerId:who.id,added});
-     }
-   } else if(e.type==='advance'){
-     const living=s.players.filter(p=>p.hp>0);
-     if(living.length<=1){
-       s.phase='finished';s.activePlayerId=null;
-       s.winnerId=living.length===1?living[0].id:null;
-     } else {
-       s.phase='turn';s.activePlayerId=nextAlive(s.players,e.afterId);
-       s.turnCount++;
-     }
-   } else fail('Unknown miracle queue effect');
- }
- return {state:s,plan,events};
+ const result=runEffectQueueFixture(state,catalog,plan.queue,options);
+ return {...result,plan};
 }
