@@ -5,6 +5,7 @@
  * Everything else is deliberately rejected until source-backed resolution.
  */
 import {compileBasicWeaponAttack} from './basic-resolution.mjs';
+import {queuedAttackCosts} from './ordered-attack.mjs';
 import {runEffectQueueFixture} from './effect-runner.mjs';
 
 function bad(msg){throw new Error(msg);}
@@ -70,7 +71,7 @@ export function compileWallResolution(state,catalog) {
  const mpCost=wall.stats.mpCost;
  if(caster.mp<mpCost)bad('Not enough MP for Wall');
  const queue=Object.freeze([
-   ...(p.attackContext?[]:[effect('spend',{playerId:attacker.id,instanceIds:attackContext.instanceIds})]),
+   ...(p.attackContext?[]:queuedAttackCosts(attackContext,attacker.id)),
    ...(hand.length?[effect('spend',{playerId:caster.id,instanceIds:hand.map(x=>x.instance.instanceId)})]:[]),
    ...(learnedId!==null?[effect('grantDraw',{playerId:caster.id,count:1})]
      :[effect('learn',{playerId:caster.id,definitionId:wall.id})]),
