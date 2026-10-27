@@ -1670,18 +1670,24 @@ function compileSoloMiracleResolution(state,catalog) {
  if(!state||state.schemaVersion!==2||state.phase!=='resolving'||state.pending?.type!=='attack')
    fail('Not a pending miracle attack');
  const p=state.pending;
- if(p.attackContext)fail('Miracle chains not implemented');
+ const cached=p.attackContext??null;
+ if(cached&&(cached.attackKind!=='miracle'||typeof cached.miracleId!=='string'||
+    !Number.isSafeInteger(cached.attack)||cached.attack<=0||
+    typeof cached.element!=='string'))fail('Unsupported cached miracle attack');
  const caster=person(state,p.originalAttackerId),target=person(state,p.targetId);
  if(caster.hp<=0||target.hp<=0)fail('Caster or target is dead');
- const learnedId=p.attackLearnedDefinitionId??null;
- const cards=selected(caster,p.attackInstanceIds,catalog);
- if(learnedId!==null) {
-   if(cards.length!==0||typeof learnedId!=='string'||
-      !caster.learned.includes(learnedId))fail('Invalid learned miracle selection');
- } else if(cards.length<1||cards.length>2) {
-   fail('Only one miracle and optional spirit');
+ const learnedId=cached?null:(p.attackLearnedDefinitionId??null);
+ const cards=cached?[]:selected(caster,p.attackInstanceIds,catalog);
+ if(!cached){
+   if(learnedId!==null) {
+     if(cards.length!==0||typeof learnedId!=='string'||
+        !caster.learned.includes(learnedId))fail('Invalid learned miracle selection');
+   } else if(cards.length<1||cards.length>2) {
+     fail('Only one miracle and optional spirit');
+   }
  }
- const miracle=learnedId!==null?catalog.get(learnedId):cards[0].def;
+ const miracle=cached?catalog.get(cached.miracleId)
+   :(learnedId!==null?catalog.get(learnedId):cards[0].def);
  if(!miracle)fail('Missing learned miracle definition');
  // A +attack miracle selected FIRST is an offensive miracle, not a
  // weapon modifier. Its onDeclare/addAttack tag is inert in this position.
@@ -1690,6 +1696,8 @@ function compileSoloMiracleResolution(state,catalog) {
     miracle.effects[0].type==='addAttack'&&miracle.effects[0].params.scope==='weapon');
  if(miracle.family!=='miracle'||!miracle.playModes.includes('cast')||miracle.stats.attack<=0||
     !soloEffectsSupported)fail('Not a supported solo attack miracle');
+ if(cached&&(cached.attack!==miracle.stats.attack||cached.element!==miracle.element))
+   fail('Cached miracle payload mismatch');
  let spirit=false;
  if(cards.length===2){
    const support=cards[1].def;
@@ -1699,9 +1707,9 @@ function compileSoloMiracleResolution(state,catalog) {
       fail('Only spirit directly after miracle is supported');
    spirit=true;
  }
- const payableMP=spirit?0:miracle.stats.mpCost;
- if(caster.mp<payableMP)fail('Not enough MP');
- const self=p.targetId===p.originalAttackerId;
+ const payableMP=cached?0:(spirit?0:miracle.stats.mpCost);
+ if(!cached&&caster.mp<payableMP)fail('Not enough MP');
+ const self=(p.sourceId??p.originalAttackerId)===p.targetId;
  let defense=[];
  if(self) {
    if(p.defense!==null)fail('Self cast cannot be defended');
@@ -1734,11 +1742,13 @@ function compileSoloMiracleResolution(state,catalog) {
  const hit=stopped?Object.freeze({damage:0,hpAfter:target.hp,instantDefeat:false,effectiveElement:miracle.element})
   :calculateHit({attack:miracle.stats.attack,element:miracle.element,armor:guard,hp:target.hp,rainbowCurtain:stripElement});
  const queue=Object.freeze([
-   ...(learnedId!==null
-      ?[item('grantDraw',{playerId:caster.id,count:1})]
-      :[item('spend',{playerId:caster.id,instanceIds:cards.map(x=>x.instance.instanceId)})]),
-   item('mp',{playerId:caster.id,cost:payableMP}),
-   item('learn',{playerId:caster.id,definitionId:miracle.id}),
+   ...(cached?[]:[
+     ...(learnedId!==null
+       ?[item('grantDraw',{playerId:caster.id,count:1})]
+       :[item('spend',{playerId:caster.id,instanceIds:cards.map(x=>x.instance.instanceId)})]),
+     item('mp',{playerId:caster.id,cost:payableMP}),
+     item('learn',{playerId:caster.id,definitionId:miracle.id})
+   ]),
    ...(self?[]:[item('spend',{playerId:target.id,instanceIds:defense.map(x=>x.instance.instanceId)})]),
    item('hit',{targetId:target.id,...hit,stopped}),
    item('refill'),item('advance',{afterId:caster.id})
@@ -1751,6 +1761,39 @@ function resolveSoloMiracleFixture(state,catalog,options={}) {
  if(options.labOnly!==true)fail('Only available in lab fixture mode');
  if(!(catalog instanceof Map)||!catalog.has(options.fixtureDrawDefinitionId))
    fail('Unknown fixture draw card');
+ const p=state?.pending;
+ if(state?.phase==='resolving'&&p?.type==='attack'&&p.defense){
+   const defender=person(state,p.targetId);
+   const defenses=selected(defender,p.defense.instanceIds,catalog);
+   const reflectors=defenses.filter(({def})=>def.effects.some(e=>
+     e.when==='onDefense'&&e.type==='redirectAttack'&&
+     e.params.mode==='reflect'&&e.params.scope==='any'));
+   if(reflectors.length){
+     if(reflectors.length!==1||defenses.length!==1||p.defense.learnedDefinitionId!==undefined)
+       fail('Super Mirror must be used alone');
+     const previousSource=p.sourceId??p.originalAttackerId;
+     if(previousSource===p.targetId)fail('Self-hit cannot be reflected');
+     const preview={...state,pending:{...p,defense:{
+       playerId:p.targetId,instanceIds:[]
+     }}};
+     const base=compileSoloMiracleResolution(preview,catalog);
+     const costs=base.queue.filter(e=>['spend','grantDraw','mp','learn'].includes(e.type));
+     const result=runEffectQueueFixture(state,catalog,[
+       ...costs,item('spend',{playerId:p.targetId,
+         instanceIds:[reflectors[0].instance.instanceId]})
+     ],{...options,interruptionOnly:true});
+     const next=result.state;
+     next.pending={...next.pending,sourceId:p.targetId,targetId:previousSource,
+       attackContext:{attackKind:'miracle',miracleId:base.miracleId,
+         attack:base.attack,element:base.element},defense:null};
+     next.phase='defense';next.activePlayerId=previousSource;
+     return {state:next,plan:Object.freeze({type:'miracleReflect',
+       miracleId:base.miracleId,targetId:previousSource}),
+       events:[...result.events,{type:'redirect',mode:'reflect',by:p.targetId,
+         from:previousSource,to:previousSource,cardId:reflectors[0].def.id}],
+       redirected:true,immediate:false};
+   }
+ }
  const plan=compileSoloMiracleResolution(state,catalog);
  const result=runEffectQueueFixture(state,catalog,plan.queue,options);
  return {...result,plan};
@@ -1786,9 +1829,9 @@ function attackFamily(state,catalog) {
   const pending=state?.pending;
   if(!pending||pending.type!=='attack')fail('No attack queued');
   if(pending.attackContext) {
-    if(pending.attackContext.attackKind!=='weapon')
+    if(!['weapon','miracle'].includes(pending.attackContext.attackKind))
       fail('Unknown compiled attack family');
-    return 'weapon';
+    return pending.attackContext.attackKind;
   }
   if(pending.attackLearnedDefinitionId!==undefined) {
     const actor=state.players.find(p=>p.id===pending.originalAttackerId);
