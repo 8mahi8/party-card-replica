@@ -9,7 +9,7 @@ import {VERIFIED_BASIC_CARDS,PARTIAL_CARD_SOURCE} from '../src/verified-basic-ca
 const KNOWN_KEYS=new Set([
   'id','referenceName','kind','category','slot','element','attack','guard',
   'attackBonus','price','weight','reaction','reactionScope','stopScope',
-  'role','boost','plusAttack','mpCost','effect'
+  'role','boost','plusAttack','mpCost','effect','attackElementOverride'
 ]);
 const CATEGORY_BY_KIND=Object.freeze({weapon:'weapon_single',armor:'armor_normal',miracle:'miracle',defense_item:'item',support_item:'item'});
 const mk=(when,type,params={})=>({when,type,params});
@@ -52,6 +52,12 @@ export function convertLegacyCard(card,{ruleset=PARTIAL_CARD_SOURCE}={}) {
       }));
     } else if(card.reactionScope!==undefined)
       throw new Error('Orphan weapon reaction scope');
+    if(card.attackElementOverride!==undefined){
+      if(card.slot!=='addon'||!['fire','water'].includes(card.attackElementOverride)||
+         card.element!==card.attackElementOverride)
+        throw new Error('Unverified attribute override definition');
+      effects.push(mk('onDeclare','setAttackElement',{element:card.attackElementOverride}));
+    }
   } else if(card.kind==='armor') {
     if(!truthyInt(card.guard))throw new Error('Malformed armor');
     guard=card.guard;modes.push('defend');
