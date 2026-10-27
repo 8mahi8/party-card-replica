@@ -25,8 +25,6 @@ function locateDefense(state,catalog) {
  const p=state.pending;
  if(!p.defense || p.defense.playerId!==p.targetId)
    bad('Defense response missing');
- if(p.defense.learnedDefinitionId!==undefined)
-   bad('Redirect may not mix learned defensive miracles');
  const receiver=player(state,p.targetId);
  const indices=p.defense.instanceIds;
  if(!Array.isArray(indices) || new Set(indices).size!==indices.length)
@@ -66,6 +64,8 @@ export function resolveRedirectFixture(state,catalog,{
      bad('Unknown learned defensive miracle');
    return resolveBasicFixture(state,catalog,{labOnly:true,fixtureDrawDefinitionId});
  }
+ if(p.defense.learnedDefinitionId!==undefined)
+   bad('Redirect may not mix learned defensive miracles');
  if(selected.length!==1)bad('A redirect card must be selected alone');
  const reaction=redirected[0];
  const effect=reaction.def.effects.find(e=>e.type==='redirectAttack'&&e.when==='onDefense');
