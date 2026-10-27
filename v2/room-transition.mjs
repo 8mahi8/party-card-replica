@@ -19,9 +19,9 @@ function attackFamily(state,catalog) {
   const pending=state?.pending;
   if(!pending||pending.type!=='attack')fail('No attack queued');
   if(pending.attackContext) {
-    if(pending.attackContext.attackKind!=='weapon')
+    if(!['weapon','miracle'].includes(pending.attackContext.attackKind))
       fail('Unknown compiled attack family');
-    return 'weapon';
+    return pending.attackContext.attackKind;
   }
   if(pending.attackLearnedDefinitionId!==undefined) {
     const actor=state.players.find(p=>p.id===pending.originalAttackerId);
