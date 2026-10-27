@@ -12,6 +12,7 @@
 import {applyStagingCommand} from './staging-room.mjs';
 import {resolveRedirectFixture} from './redirect-resolution.mjs';
 import {resolveSoloMiracleFixture} from './miracle-resolution.mjs';
+import {compileOrderedWeaponAttack} from './ordered-attack.mjs';
 
 function fail(message){throw new Error(message);}
 function attackFamily(state,catalog) {
@@ -85,6 +86,13 @@ export function submitAndResolveFixture(state,command,catalog,{
   if(stage.duplicate)
     return {state:stage.state,applied:false,duplicate:true,autoResolved:false,
       events:[],plan:null};
+  // Attack selection must be validated BEFORE asking another seat to defend.
+  // Otherwise a bad weapon+miracle combination can strand both players in
+  // a pending-defense state with no way to correct the attacking selection.
+  if(stage.state.phase==='defense' &&
+    ['playCards','playSequence'].includes(command.type) &&
+    attackFamily(stage.state,catalog)==='weapon')
+    compileOrderedWeaponAttack(stage.state,catalog);
   if(stage.state.phase!=='resolving')
     return {state:stage.state,applied:true,duplicate:false,autoResolved:false,
       events:[],plan:null};
