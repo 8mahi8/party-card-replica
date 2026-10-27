@@ -30,7 +30,7 @@ const defend=(s,positions=[0])=>send(s,'B','defend',{orderedInstanceIds:position
 const resolve=(s,rng)=>resolveStagedFixture(s,catalog,{...fixture,...(rng?{deflectRng:rng}:{})});
 
 test('six dual-use miracle counters preserve wiki attack, price, weight and effect type',()=>{
- assert.deepEqual([summary.unique,summary.slots,summary.complete],[83,201,false]);
+ assert.deepEqual([summary.unique,summary.slots,summary.complete],[85,203,false]);
  for(const [id,atk] of [...STOP,...REFLECT,...DEFLECT]){
   const d=catalog.get(id);
   assert.equal(d.family,'weapon',id);
