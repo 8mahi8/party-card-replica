@@ -27,20 +27,37 @@ function effectsOf(def,type){
 function getSelected(state,catalog){
   const p=state?.pending;
   const player=state?.players?.find(x=>x.id===p?.originalAttackerId);
-  if(!player||!Array.isArray(p?.attackInstanceIds)||p.attackInstanceIds.length===0)
+  const steps=p?.attackSequence??p?.attackInstanceIds?.map(instanceId=>({instanceId}));
+  if(!player||!Array.isArray(steps)||steps.length===0)
     fail('No weapon selected');
-  if(new Set(p.attackInstanceIds).size!==p.attackInstanceIds.length)
-    fail('Repeated selected attack instance');
-  return {
-    caster:player,
-    selected:p.attackInstanceIds.map(id=>{
+  const seenPhysical=new Set(),seenLearned=new Set();
+  const selected=steps.map(step=>{
+    if(step?.instanceId && Object.keys(step).length===1){
+      const id=step.instanceId;
+      if(seenPhysical.has(id))fail('Repeated selected attack instance');
+      seenPhysical.add(id);
       const instance=player.hand.find(c=>c.instanceId===id);
       if(!instance)fail('Selected attack instance not held');
       const def=catalog.get(instance.definitionId);
       if(!def)fail('Unknown attack card');
-      return {instance,def};
-    })
-  };
+      return {instance,def,fromLearned:false};
+    }
+    if(step?.learnedDefinitionId && Object.keys(step).length===1){
+      const id=step.learnedDefinitionId;
+      if(seenLearned.has(id))fail('Repeated learned miracle in one sequence not verified');
+      seenLearned.add(id);
+      const def=catalog.get(id);
+      if(!player.learned.includes(id)||def?.family!=='miracle'||!def.playModes.includes('cast'))
+        fail('Selected miracle not learned');
+      return {instance:null,def,fromLearned:true};
+    }
+    fail('Malformed attack sequence step');
+  });
+  // The legacy field must match the hand-origin selections if both are present.
+  if(p.attackSequence && JSON.stringify(selected.filter(x=>x.instance).map(x=>x.instance.instanceId))
+      !==JSON.stringify(p.attackInstanceIds))
+    fail('Sequence and selected card instances do not match');
+  return {caster:player,selected};
 }
 export function compileOrderedWeaponAttack(state,catalog){
   if(!(catalog instanceof Map)||!catalog.size)fail('Card catalog required');
@@ -49,13 +66,15 @@ export function compileOrderedWeaponAttack(state,catalog){
     fail('Basic resolution requires weapon first');
   let weaponAttack=0,attackElement='none',mainCount=0,weaponCount=0;
   let aura=null,plusCount=0,additive=0,lastWasMiracle=false,hasArmorBonus=false;
+  let learnedDrawCount=0;
   const casts=[],selectedKinds=[];
   const miracles=[];
-  for(const {instance,def} of selected){
+  for(const {instance,def,fromLearned} of selected){
     const mult=effectsOf(def,'multiplyAttack');
     const plus=effectsOf(def,'addAttack');
     const discount=effectsOf(def,'waivePreviousMp');
     if(def.family==='weapon'||(def.family==='armor'&&def.playModes.includes('addAttack'))){
+      if(fromLearned)fail('Only miracles may come from learned selection');
       if(plusCount)fail('Weapon or armor after plus miracle unverified');
       if(def.family==='weapon'){
         if(!def.playModes.some(mode=>mode==='mainAttack'||mode==='addAttack'))fail('Weapon is not attackable');
@@ -86,18 +105,20 @@ export function compileOrderedWeaponAttack(state,catalog){
         plusCount++;
         if(plusCount>2)fail('More than two plus miracles not verified');
         if(plusCount===2 && (def.id!==miracles[0]?.id ||
-          plus[0].params.stacking!=='identicalPair'))
-          fail('Only identical verified plus pair may stack');
+          plus[0].params.stacking!=='identicalPair'||fromLearned||miracles[0]?.fromLearned))
+          fail('Only identical verified hand-based plus pair may stack');
         additive=add(additive,def.stats.attack);
         attackElement=combineElements(attackElement,def.element);
       } else fail('Unsupported attack miracle effect');
-      miracles.push({id:def.id,mpCost:def.stats.mpCost,discounted:false});
+      miracles.push({id:def.id,mpCost:def.stats.mpCost,discounted:false,fromLearned});
+      if(fromLearned)learnedDrawCount++;
       casts.push({type:'learn',definitionId:def.id});
       lastWasMiracle=true;
       selectedKinds.push('miracle');
     } else if(def.family==='item'&&def.playModes.includes('support')&&
        discount.length===1&&discount[0].when==='onCost' &&
        discount[0].params.target==='previousMiracle'&&def.effects.length===1){
+      if(fromLearned)fail('Spirit must come from hand');
       if(!lastWasMiracle||!miracles.length)fail('Spirit must immediately follow a miracle');
       const prior=miracles.at(-1);
       if(prior.discounted)fail('Only one spirit per miracle');
@@ -119,8 +140,8 @@ export function compileOrderedWeaponAttack(state,catalog){
   const learnedMiracles=[...new Set(miracles.map(m=>m.id))];
   return Object.freeze({
     attack,element:attackElement,attackKind:'weapon',
-    instanceIds:Object.freeze(selected.map(x=>x.instance.instanceId)),
-    payableMP,learnedMiracles:Object.freeze(learnedMiracles),
+    instanceIds:Object.freeze(selected.filter(x=>x.instance).map(x=>x.instance.instanceId)),
+    payableMP,learnedDrawCount,learnedMiracles:Object.freeze(learnedMiracles),
     hasModifiers:miracles.length>0,
     selectedKinds:Object.freeze(selectedKinds)
   });
@@ -133,6 +154,8 @@ export function queuedAttackCosts(attackContext,actorId) {
   if(!attackContext||!Array.isArray(attackContext.instanceIds))
     fail('Missing attack compilation');
   const queue=[{type:'spend',playerId:actorId,instanceIds:attackContext.instanceIds}];
+  if(attackContext.learnedDrawCount)
+    queue.push({type:'grantDraw',playerId:actorId,count:attackContext.learnedDrawCount});
   if(attackContext.hasModifiers){
     queue.push({type:'mp',playerId:actorId,cost:attackContext.payableMP});
     for(const definitionId of attackContext.learnedMiracles)
