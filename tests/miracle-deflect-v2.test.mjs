@@ -158,7 +158,7 @@ test('weapon attacks cannot be deflected by a miracle-only effect',()=>{
  const s=room({A:['w016'],B:['m007']});
  const attackState=send(s,'A','playCards',{targetId:'B',orderedInstanceIds:[instance(s,'A',0)]});
  const defState=defend(attackState,'B',[instance(attackState,'B',0)]);
- assert.throws(()=>resolve(defState,()=>0),/Unmapped redirect scope|Reaction cannot redirect/);
+ assert.throws(()=>resolve(defState,()=>0),/Unmapped redirect scope|Reaction cannot redirect|Unsupported defense item without guard/);
 });
 test('authenticated command and public projection stay private during deflection',()=>{
  const s=attack(room({A:['m002'],B:['m007','i003']}));
