@@ -152,6 +152,11 @@ async function testFixedHeightEmbed(){
   'embedded handoff must reset its own scroll position');
  check(await frameValue('d.querySelectorAll("[data-card]").length===0'),
   'embedded opponent hand must remain hidden');
+ const revealAtTablet=await frameValue(
+  '(()=>{const r=d.querySelector("[data-action=reveal]").getBoundingClientRect();'+
+  'return {top:r.top,bottom:r.bottom,height:r.height,viewport:f.contentWindow.innerHeight};})()');
+ check(revealAtTablet.top>=0&&revealAtTablet.bottom<=revealAtTablet.viewport+2,
+  'handoff reveal button hidden below 460px frame '+JSON.stringify(revealAtTablet));
  await shot('embed-ipad-handoff');
  await viewport(390,844);
  await evaluate('document.getElementById("game-embed").style.height="430px"');
@@ -168,6 +173,11 @@ async function testFixedHeightEmbed(){
  await poll(()=>frameValue('Boolean(d.querySelector(".pass-screen"))'));
  check(await frameValue('f.contentWindow.scrollY===0'),
   'narrow iframe pass must reset scroll');
+ const revealAtMobile=await frameValue(
+  '(()=>{const r=d.querySelector("[data-action=reveal]").getBoundingClientRect();'+
+  'return {top:r.top,bottom:r.bottom,height:r.height,viewport:f.contentWindow.innerHeight};})()');
+ check(revealAtMobile.top>=0&&revealAtMobile.bottom<=revealAtMobile.viewport+2,
+  'handoff reveal button hidden below 430px frame '+JSON.stringify(revealAtMobile));
  await shot('embed-mobile-handoff');
 }
 
