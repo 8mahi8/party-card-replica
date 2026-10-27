@@ -40,9 +40,16 @@ export function compileSoloMiracleResolution(state,catalog) {
  if(p.attackContext)fail('Miracle chains not implemented');
  const caster=person(state,p.originalAttackerId),target=person(state,p.targetId);
  if(caster.hp<=0||target.hp<=0)fail('Caster or target is dead');
+ const learnedId=p.attackLearnedDefinitionId??null;
  const cards=selected(caster,p.attackInstanceIds,catalog);
- if(cards.length<1||cards.length>2)fail('Only one miracle and optional spirit');
- const miracle=cards[0].def;
+ if(learnedId!==null) {
+   if(cards.length!==0||typeof learnedId!=='string'||
+      !caster.learned.includes(learnedId))fail('Invalid learned miracle selection');
+ } else if(cards.length<1||cards.length>2) {
+   fail('Only one miracle and optional spirit');
+ }
+ const miracle=learnedId!==null?catalog.get(learnedId):cards[0].def;
+ if(!miracle)fail('Missing learned miracle definition');
  if(miracle.family!=='miracle'||!miracle.playModes.includes('cast')||miracle.stats.attack<=0||
     miracle.effects.length)fail('Not a supported solo attack miracle');
  let spirit=false;
@@ -87,7 +94,9 @@ export function compileSoloMiracleResolution(state,catalog) {
  const hit=stopped?Object.freeze({damage:0,hpAfter:target.hp,instantDefeat:false,effectiveElement:miracle.element})
   :calculateHit({attack:miracle.stats.attack,element:miracle.element,armor:guard,hp:target.hp,rainbowCurtain:stripElement});
  const queue=Object.freeze([
-   item('spend',{playerId:caster.id,instanceIds:cards.map(x=>x.instance.instanceId)}),
+   ...(learnedId!==null
+      ?[item('grantDraw',{playerId:caster.id,count:1})]
+      :[item('spend',{playerId:caster.id,instanceIds:cards.map(x=>x.instance.instanceId)})]),
    item('mp',{playerId:caster.id,cost:payableMP}),
    item('learn',{playerId:caster.id,definitionId:miracle.id}),
    ...(self?[]:[item('spend',{playerId:target.id,instanceIds:defense.map(x=>x.instance.instanceId)})]),
