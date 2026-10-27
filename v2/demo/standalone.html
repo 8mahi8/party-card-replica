@@ -2090,14 +2090,20 @@ function mountV2Lab(root,controller=createV2LabController()){
    const action=node.getAttribute('data-action');
    const kind=node.getAttribute('data-card');
    let localError=null;
+   let handoff=false;
    try{
      if(action==='reset'){
        if(!resetArmed)resetArmed=true;
-       else{controller.reset();resetArmed=false;}
+       else{controller.reset();resetArmed=false;handoff=true;}
      }else if(action==='reveal'){
        resetArmed=false;controller.reveal();
      }else if(action==='submit'){
-       resetArmed=false;controller.submit();
+       resetArmed=false;
+       const outcome=controller.submit();
+       // A successful command conceals the cards or ends the match.
+       // Scroll back to the top inside the embed frame so the next player
+       // sees the pass screen rather than an empty bottom viewport.
+       handoff=outcome.ok && !outcome.view.revealed;
      }else if(kind==='hand'){
        resetArmed=false;controller.toggle({instanceId:decodeURIComponent(node.getAttribute('data-id'))});
      }else if(kind==='learned'){
@@ -2109,6 +2115,9 @@ function mountV2Lab(root,controller=createV2LabController()){
      localError=String(error?.message??'この操作はできません').slice(0,180);
    }
    render();
+   // Scroll the frame, not the hosting Google Sites page. Do this only
+   // after successful handoff/reset, never on ordinary card selection.
+   if(handoff)root.ownerDocument?.defaultView?.scrollTo?.(0,0);
    // An invalid tap must remain visible after the full screen rerenders.
    if(localError){
      const feedback=root.querySelector?.('[role="status"]');
