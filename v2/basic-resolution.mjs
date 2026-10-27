@@ -43,6 +43,7 @@ function getPlayer(state,id) {
 }
 function explainDefenseEffect(def) {
   for(const e of def.effects) {
+    if(e.type==='redirectAttack'&&e.params.scope==='miracle'&&def.family==='armor')continue; // miracle-only armor reaction is inert against a weapon
     if(e.type==='redirectAttack')fail('Redirect reactions require G3 reaction resolver');
     if(e.type==='stripElement')continue;
     if(e.type==='stopAttack'&&e.params.scope==='miracle')continue; // numeric guard against weapon
