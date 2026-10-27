@@ -209,6 +209,56 @@ async function testTurbulenceTouch(base){
  }
 }
 
+async function testSkyMoonTouch(base){
+ for(const {cardName,mode} of [
+  {cardName:'スカイヘルム',mode:'deflect'},
+  {cardName:'月光のよろい',mode:'reflect'}
+ ]){
+  const context=await browser.newContext({
+    viewport:{width:1024,height:768},screen:{width:1024,height:768},
+    deviceScaleFactor:2,isMobile:true,hasTouch:true,locale:'ja-JP'
+  });
+  try{
+   page=await context.newPage();
+   await page.goto(base+'/embed-harness.html',{waitUntil:'load'});
+   const frame=page.frameLocator('#game-embed');
+   await frame.locator('[data-action=reveal]').tap();
+   await frame.locator('[data-card=hand]').filter({hasText:'氷'}).tap();
+   await frame.locator('[data-action=submit]').tap();
+   await frame.locator('.compact-pass').waitFor();
+   await frame.locator('[data-action=reveal]').tap();
+   passed(await frame.locator('[data-card=hand]').filter({hasText:cardName}).count()===1,
+     cardName+' must be available in the nine-card P2 hand');
+   await frame.locator('[data-card=hand]').filter({hasText:cardName}).tap();
+   passed((await frame.locator('.picks').textContent()).includes(cardName),
+     cardName+' touch selection must be visible');
+   await screenshot('webkit-'+mode+'-selected');
+   await frame.locator('[data-action=submit]').tap();
+   await frame.locator('.compact-pass').waitFor();
+   passed((await frame.locator('.compact-pass h1').textContent()).includes('P1'),
+     cardName+' must redirect ice back to caster under lab seed');
+   await frame.locator('[data-action=reveal]').tap();
+   await frame.locator('[data-action=submit]').tap();
+   await frame.locator('.compact-pass').waitFor();
+   passed((await frame.locator('.compact-pass h1').textContent()).includes('P2'),
+     cardName+' reflected attack must finish the original turn');
+   await frame.locator('[data-action=reveal]').tap();
+   const info=await frame.locator('.seat').allTextContents();
+   passed(info[0].includes('36')&&info[1].includes('40'),
+     cardName+' reflected water miracle must damage caster only');
+   passed(info[0].includes('MP 8')&&info[1].includes('MP 10'),
+     cardName+' redirect cannot double-charge source or spend armor MP');
+   await screenshot('webkit-'+mode+'-complete');
+  }catch(error){
+   await screenshot('webkit-'+mode+'-failure');
+   throw error;
+  }finally{
+   page=null;
+   await context.close();
+  }
+ }
+}
+
 try{
   if(!existsSync(path.join(ROOT,'v2/demo/standalone.html')))
     throw new Error('Missing checked-in standalone HTML');
@@ -217,6 +267,7 @@ try{
   await testScenario(base,{width:1024,height:768,embedHeight:460,shotPrefix:'webkit-ipad'});
   await testScenario(base,{width:390,height:844,embedHeight:430,shotPrefix:'webkit-narrow'});
   await testTurbulenceTouch(base);
+  await testSkyMoonTouch(base);
   console.log('WEBKIT_SMOKE_SUCCESS checks='+checks+' engine=Playwright WebKit'+
     ' fixed-height frames=1024x460,390x430');
 }catch(error){
