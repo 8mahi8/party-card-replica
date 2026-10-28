@@ -155,6 +155,53 @@ export function runEffectQueueFixture(state,catalog,queue,{
      events.push({type:'uncontestedSale',sellerId:seller.id,buyerId:buyer.id,
        itemDefinitionId:item.definitionId,price:definition.stats.price,
        debit:payment.debit});
+   } else if(effect.type==='reflectedSale'){
+     // One Super Mirror against a forced sale, research fixture only.
+     // The original seller retains the item and becomes the payer; the
+     // original target who supplied Super Mirror receives the price.
+     const allowed=['type','originalSellerId','mirrorOwnerId','soldInstanceId'];
+     if(Object.keys(effect).some(k=>!allowed.includes(k)))
+       fail('Unexpected reflected sale property');
+     if(s.pending?.type!=='singleMirrorSale')
+       fail('Reflected sale requires researched mirror staging');
+     if(effect.originalSellerId===effect.mirrorOwnerId)
+       fail('Cannot reflect a sale to self');
+     const originalSeller=who(state,effect.originalSellerId);
+     const mirrorOwner=who(state,effect.mirrorOwnerId);
+     const originalItem=originalSeller.hand.find(c=>c.instanceId===effect.soldInstanceId);
+     const itemDef=catalog.get(originalItem?.definitionId);
+     if(!originalItem||!itemDef||itemDef.family==='trade')
+       fail('Invalid item offered for reflected sale');
+     if(!s.players.find(p=>p.id===originalSeller.id).hand.some(
+       c=>c.instanceId===originalItem.instanceId))
+       fail('Reflected sale must leave item with original owner');
+     const hasPaidCard=(owner,predicate)=>queue.some(q=>
+       q?.type==='spend'&&q.playerId===owner.id&&
+       Array.isArray(q.instanceIds)&&q.instanceIds.some(id=>{
+         const card=owner.hand.find(c=>c.instanceId===id);
+         return card&&predicate(catalog.get(card.definitionId));
+       }));
+     if(!hasPaidCard(originalSeller,d=>d?.family==='trade'&&
+       d.effects.some(e=>e.type==='forceSale'&&e.params.kind==='sell')))
+       fail('Reflected sale requires a spent Sell card');
+     if(!hasPaidCard(mirrorOwner,d=>d?.effects.some(e=>
+       e.type==='redirectAttack'&&e.params.mode==='reflect'&&
+       e.params.scope==='any')))
+       fail('Reflected sale requires a spent Super Mirror');
+     const seller=who(s,originalSeller.id),counter=who(s,mirrorOwner.id);
+     if(seller.hp<=0||counter.hp<=0)fail('Reflected sale player eliminated');
+     const payment=planForcedSalePayment({price:itemDef.stats.price,buyer:seller});
+     if(payment.buyerEliminated||payment.unpaid)
+       fail('Lethal reflected sale requires original verification');
+     if(!Number.isSafeInteger(counter.money+payment.sellerCredit))
+       fail('Mirror owner money overflow');
+     seller.hp=payment.buyerAfter.hp;
+     seller.mp=payment.buyerAfter.mp;
+     seller.money=payment.buyerAfter.money;
+     counter.money+=payment.sellerCredit;
+     events.push({type:'reflectedSale',originalSellerId:seller.id,
+       mirrorOwnerId:counter.id,itemDefinitionId:itemDef.id,
+       price:itemDef.stats.price,debit:payment.debit});
    } else if(effect.type==='refill'){
      for(const p of s.players){
        const amount=spent[p.id]??0;
