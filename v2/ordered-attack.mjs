@@ -65,7 +65,7 @@ export function compileOrderedWeaponAttack(state,catalog){
   if(selected[0].def.family!=='weapon')
     fail('Basic resolution requires weapon first');
   let weaponAttack=0,attackElement='none',mainCount=0,weaponCount=0;
-  let aura=null,plusCount=0,additive=0,lastWasMiracle=false,hasArmorBonus=false;
+  let aura=null,plusCount=0,additive=0,lastWasMiracle=false,hasArmorBonus=false,itemBonus=0;
   let learnedDrawCount=0;
   let forcedAttackElement=null;
   let wandPosition=-1,auraPosition=-1;
@@ -106,7 +106,7 @@ export function compileOrderedWeaponAttack(state,catalog){
         fail('Invalid miracle MP');
       if(mult.length===1 && mult[0].when==='onDeclare' && mult[0].params.factor===2 &&
          mult[0].params.scope==='weapon' && def.playModes.includes('cast')){
-        if(aura||plusCount||hasArmorBonus)fail('Aura stacked with other miracles or armor bonus unverified');
+        if(aura||plusCount||hasArmorBonus||itemBonus)fail('Aura stacked with other miracles or non-weapon bonus unverified');
         if(def.effects.length!==1)fail('Unrecognized Aura effects');
         aura=def.id;
         auraPosition=position;
@@ -127,6 +127,16 @@ export function compileOrderedWeaponAttack(state,catalog){
       casts.push({type:'learn',definitionId:def.id});
       lastWasMiracle=true;
       selectedKinds.push('miracle');
+    } else if(def.family==='item'&&def.playModes.includes('addAttack')&&
+       plus.length===1&&plus[0].when==='onDeclare'&&
+       plus[0].params.scope==='weapon'&&def.effects.length===1&&
+       def.stats.attack>0){
+      if(fromLearned)fail('Attack item must come from hand');
+      if(aura||plusCount)
+        fail('Non-weapon attack bonus mixed with miracles: damage precedence unverified');
+      itemBonus=add(itemBonus,def.stats.attack);
+      lastWasMiracle=false;
+      selectedKinds.push('itemBonus');
     } else if(def.family==='item'&&def.playModes.includes('support')&&
        discount.length===1&&discount[0].when==='onCost' &&
        discount[0].params.target==='previousMiracle'&&def.effects.length===1){
@@ -154,7 +164,7 @@ export function compileOrderedWeaponAttack(state,catalog){
       fail('Attribute wand before Aura: original dye priority unverified');
   }
   // Aura multiplies all weapon attack values, even addons chosen later.
-  const attack=add(aura?add(weaponAttack,weaponAttack):weaponAttack,additive);
+  const attack=add(add(aura?add(weaponAttack,weaponAttack):weaponAttack,additive),itemBonus);
   const payableMP=miracles.reduce((n,m)=>add(n,m.discounted?0:m.mpCost),0);
   if(caster.mp<payableMP)fail('Not enough MP');
   const learnedMiracles=[...new Set(miracles.map(m=>m.id))];
