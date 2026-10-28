@@ -84,6 +84,35 @@ export function resolvePrayFixture(state,catalog,options={}){
   return {...result,plan:Object.freeze({type:'pray',wasFull:full})};
 }
 /**
+ * End a turn by discarding selected physical artifacts, with NO replacement.
+ * Ordinary discard is a sourced rule; exceptions (return with HP penalty)
+ * are intentionally not generalized until an actual special card is listed.
+ */
+export function resolveDiscardFixture(state,catalog,options={}){
+  if(options.labOnly!==true)fail('Only available in lab fixture mode');
+  if(state?.schemaVersion!==2||state.phase!=='resolving'||
+     state.pending?.type!=='discard')
+    fail('No discard waiting for resolution');
+  const actorId=state.pending.originalAttackerId;
+  const actor=state.players.find(p=>p.id===actorId);
+  if(!actor||actor.hp<=0)fail('Invalid discarding actor');
+  const ids=state.pending.discardInstanceIds;
+  if(!Array.isArray(ids)||ids.length<1||ids.length>MAX_HAND_SIZE||
+     ids.some(x=>typeof x!=='string')||new Set(ids).size!==ids.length)
+    fail('Invalid discard selection');
+  for(const id of ids){
+    const card=actor.hand.find(c=>c.instanceId===id);
+    if(!card)fail('Discarded card not in hand');
+    if(catalog.get(card.definitionId)?.discardPolicy!=='ordinary')
+      fail('Special discard effect is not yet implemented');
+  }
+  const result=runEffectQueueFixture(state,catalog,[
+    {type:'discard',playerId:actorId,instanceIds:[...ids]},
+    {type:'advance',afterId:actorId}
+  ],options);
+  return {...result,plan:Object.freeze({type:'discard',count:ids.length})};
+}
+/**
  * Resolve a complete defense response OR a direct self-targeting attack.
  * If the defender redirects, the output returns to the "defense" phase.
  */
@@ -97,6 +126,8 @@ export function resolveStagedFixture(state,catalog,{
     fail('No attack waiting for resolution');
   if(state.pending?.type==='pray')
     return resolvePrayFixture(state,catalog,{labOnly,fixtureDrawDefinitionId});
+  if(state.pending?.type==='discard')
+    return resolveDiscardFixture(state,catalog,{labOnly,fixtureDrawDefinitionId});
   const family=attackFamily(state,catalog);
   if(family==='miracle')
     return resolveSoloMiracleFixture(state,catalog,{labOnly:true,fixtureDrawDefinitionId,deflectRng});
