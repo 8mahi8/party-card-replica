@@ -410,7 +410,7 @@ async function testPlusMiracleMiddleTouch(base){
      'All three cards display their selection before validation');
    const parentScrollBefore=await page.evaluate(()=>window.scrollY);
    await frame.locator('[data-action=submit]').tap();
-   passed((await frame.locator('[role=status]').textContent()).includes('Weapon or armor after plus miracle unverified'),
+   passed((await frame.locator('[role=status]').textContent()).includes('この選択順は原作で未確認です'),
      'Unverified later additive card is reported as unsupported, not submitted to defender');
    const feedbackBounds=await frame.locator('[role=status]').evaluate(el=>{
      const note=el.getBoundingClientRect();
