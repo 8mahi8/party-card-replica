@@ -573,6 +573,59 @@ async function testStrengthPowderTouch(base){
 }
 
 
+async function testAuraNeutralTouch(base){
+ for(const scenario of [
+   {cards:['w025','m004'],guard:[],hp:38,kind:'dark'},
+   {cards:['w024','m004'],guard:['d001'],hp:35,kind:'light'}
+ ]){
+  const context=await browser.newContext({
+    viewport:{width:1024,height:768},screen:{width:1024,height:768},
+    deviceScaleFactor:2,isMobile:true,hasTouch:true,locale:'ja-JP'
+  });
+  try{
+   page=await context.newPage();
+   await page.goto(base+'/embed-harness.html',{waitUntil:'load'});
+   const frame=page.frameLocator('#game-embed');
+   const frameRef=page.frames().find(f=>f!==page.mainFrame());
+   if(!frameRef)throw new Error('Aura neutral test frame missing');
+   await frameRef.evaluate(({cards,guard})=>{
+     const old=document.getElementById('v2-root'),fresh=document.createElement('div');
+     fresh.id='v2-root';old.replaceWith(fresh);
+     __v2_module_13.mountV2Lab(fresh,
+       __v2_module_12.createV2LabController({hands:{A:cards,B:guard}}));
+   },{cards:scenario.cards,guard:scenario.guard});
+   await frame.locator('[data-action=reveal]').tap();
+   await frame.locator('[data-card=hand]').nth(0).tap();
+   await frame.locator('[data-card=hand]').nth(1).tap();
+   await frame.locator('[data-action=submit]').tap();
+   await frame.locator('.compact-pass').waitFor();
+   passed((await frame.locator('.compact-pass h1').textContent()).includes('P2'),
+      scenario.kind+' + Aura must hand off to defender');
+   await frame.locator('[data-action=reveal]').tap();
+   if(scenario.guard.length){
+     await frame.locator('[data-card=hand]').first().tap();
+     passed((await frame.locator('.picks').textContent()).includes('革の帽子'),
+       'Neutral armor can be selected against light+Aura');
+   }
+   await frame.locator('[data-action=submit]').tap();
+   await frame.locator('.compact-pass').waitFor();
+   await frame.locator('[data-action=reveal]').tap();
+   const scores=await frame.locator('.seat').allTextContents();
+   passed(scores[1].includes('HP '+scenario.hp),
+     scenario.kind+' + Aura should be a neutral attack, not innate elemental: '+JSON.stringify(scores));
+   passed(scores[0].includes('MP 4'),'Aura pays MP6 exactly once');
+   passed((await frame.locator('.stage-heading').textContent()).includes('P2'),
+     'Aura neutral attack finishes in a regular next turn');
+   await screenshot('webkit-aura-neutral-'+scenario.kind+'-resolved');
+  }catch(error){
+   await screenshot('webkit-aura-neutral-'+scenario.kind+'-failure');throw error;
+  }finally{
+   page=null;await context.close();
+  }
+ }
+}
+
+
 try{
   if(!existsSync(path.join(ROOT,'v2/demo/standalone.html')))
     throw new Error('Missing checked-in standalone HTML');
@@ -588,6 +641,7 @@ try{
   await testPlusMiracleMiddleTouch(base);
   await testPrayerTouch(base);
   await testStrengthPowderTouch(base);
+  await testAuraNeutralTouch(base);
   console.log('WEBKIT_SMOKE_SUCCESS checks='+checks+' engine=Playwright WebKit'+
     ' fixed-height frames=1024x460,390x430');
 }catch(error){
