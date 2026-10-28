@@ -390,6 +390,70 @@ async function testPlusMiracleFirstTouch(base){
 }
 
 
+async function testPlusMiracleMiddleTouch(base){
+ const context=await browser.newContext({
+   viewport:{width:1024,height:768},screen:{width:1024,height:768},
+   deviceScaleFactor:2,isMobile:true,hasTouch:true,locale:'ja-JP'
+ });
+ try{
+   page=await context.newPage();
+   await page.goto(base+'/embed-harness.html',{waitUntil:'load'});
+   const frame=page.frameLocator('#game-embed');
+   await frame.locator('[data-action=reveal]').tap();
+   const weapon=frame.locator('[data-card=hand]').first();
+   const fireball=frame.locator('[data-card=hand]').filter({hasText:'火の玉'});
+   const addon=frame.locator('[data-card=hand]').filter({hasText:'ブーメラン'});
+   await weapon.tap();
+   await fireball.tap();
+   await addon.tap();
+   passed(await frame.locator('.battle-card.picked').count()===3,
+     'All three cards display their selection before validation');
+   await frame.locator('[data-action=submit]').tap();
+   passed((await frame.locator('[role=status]').textContent()).includes('Weapon or armor after plus miracle unverified'),
+     'Unverified later additive card is reported as unsupported, not submitted to defender');
+   passed((await frame.locator('.stage-heading h1').textContent()).includes('P1'),
+     'Unverified sequence must not advance the original attacker');
+   await screenshot('webkit-plus-miracle-middle-unverified');
+   await addon.tap();
+   await frame.locator('[data-action=submit]').tap();
+   await frame.locator('.compact-pass').waitFor();
+   passed((await frame.locator('.compact-pass h1').textContent()).includes('P2'),
+     'Player can remove the unverified addon and submit the legal prefix');
+   await frame.locator('[data-action=reveal]').tap();
+   await frame.locator('[data-action=submit]').tap();
+   await frame.locator('.compact-pass').waitFor();
+   await frame.locator('[data-action=reveal]').tap();
+   const scores=await frame.locator('.seat').allTextContents();
+   passed(scores[0].includes('MP 8')&&scores[1].includes('HP 28'),
+     'Corrected weapon plus Fireball causes attack12 and MP2 once');
+   // The reverse order is a supported research case, so it must still work.
+   await frame.locator('[data-action=reset]').tap();
+   await frame.locator('[data-action=reset]').tap();
+   await frame.locator('[data-action=reveal]').tap();
+   await frame.locator('[data-card=hand]').first().tap();
+   await frame.locator('[data-card=hand]').filter({hasText:'ブーメラン'}).tap();
+   await frame.locator('[data-card=hand]').filter({hasText:'火の玉'}).tap();
+   await frame.locator('[data-action=submit]').tap();
+   await frame.locator('.compact-pass').waitFor();
+   passed((await frame.locator('.compact-pass h1').textContent()).includes('P2'),
+     'Weapon plus addon plus Fireball remains accepted');
+   await frame.locator('[data-action=reveal]').tap();
+   await frame.locator('[data-action=submit]').tap();
+   await frame.locator('.compact-pass').waitFor();
+   await frame.locator('[data-action=reveal]').tap();
+   const secondScores=await frame.locator('.seat').allTextContents();
+   passed(secondScores[1].includes('HP 25')&&secondScores[0].includes('MP 8'),
+     'Supported reverse order causes attack15 and MP2');
+   await screenshot('webkit-plus-miracle-middle-corrected');
+ }catch(error){
+   await screenshot('webkit-plus-miracle-middle-failure');
+   throw error;
+ }finally{
+   page=null;await context.close();
+ }
+}
+
+
 try{
   if(!existsSync(path.join(ROOT,'v2/demo/standalone.html')))
     throw new Error('Missing checked-in standalone HTML');
@@ -402,6 +466,7 @@ try{
   await testMiracleDefenseSwitchTouch(base);
   await testAdditiveOnlyTouch(base);
   await testPlusMiracleFirstTouch(base);
+  await testPlusMiracleMiddleTouch(base);
   console.log('WEBKIT_SMOKE_SUCCESS checks='+checks+' engine=Playwright WebKit'+
     ' fixed-height frames=1024x460,390x430');
 }catch(error){
