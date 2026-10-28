@@ -55,8 +55,11 @@ export function renderV2LabMarkup(data,{resetArmed=false}={}){
    ?data.hand.find(c=>c.instanceId===data.selection[0].instanceId):null;
  const soloPlusMiracle=data.phase==='turn' && firstPicked?.family==='miracle' &&
    firstPicked.playModes.includes('addAttack');
+ const selectedWeapon=data.phase==='turn' && data.selection.some(x=>
+   x.instanceId&&data.hand.some(c=>c.instanceId===x.instanceId&&c.family==='weapon'));
  const caption=data.phase==='turn'
-   ?(soloPlusMiracle
+   ?(selectedWeapon?'武器は「捨てる」対象外です。攻撃に使うか、他のカードを選んでください'
+   :soloPlusMiracle
      ?'火の玉・流星を先頭に選ぶと単独奇跡。続けられるのは直後の精霊のみ'
      :data.canPray&&data.selection.length===0
        ?'武器がないときは「祈る」で神器を1枚引いて手番を終える'
