@@ -400,7 +400,7 @@ const ELEMENTS = new Set(['none','fire','water','wood','earth','light','dark']);
 const MODES = new Set(['mainAttack','addAttack','defend','cast','support','trade']);
 // Some original artifacts return to the hand and cost HP when discarded.
 // Until sourced effects are implemented, explicitly gate those definitions.
-const DISCARD_POLICIES = new Set(['ordinary','requiresSpecialResolution']);
+const DISCARD_POLICIES = new Set(['ordinary','forbidden','requiresSpecialResolution']);
 const EFFECT_TRIGGERS = new Set(['onDeclare','onCost','beforeHit','onDefense','afterHit','onTurnEnd']);
 const EFFECT_TYPES = new Set(['redirectAttack','stripElement','multiplyAttack','addAttack','stopAttack','waivePreviousMp','setAttackElement']);
 
@@ -454,8 +454,12 @@ function defineCard(spec) {
     throw new Error('Versioned evidence required');
   const effects=(spec.effects??[]);
   if(!Array.isArray(effects))throw new TypeError('Effects must be array');
-  const discardPolicy=spec.discardPolicy??'ordinary';
+  // Hands-on 2025 original-game report: physical weapons cannot be discarded.
+  // Special items can also be forbidden or require a sourced resolution.
+  const discardPolicy=spec.discardPolicy??(spec.family==='weapon'?'forbidden':'ordinary');
   assertAllowed(discardPolicy,DISCARD_POLICIES,'discard policy');
+  if(spec.family==='weapon' && discardPolicy==='ordinary')
+    throw new Error('Weapons cannot have ordinary discard policy');
   const normalized={
     id, family:spec.family, element:spec.element, drawWeight:spec.drawWeight,
     discardPolicy,
@@ -708,7 +712,7 @@ function convertLegacyCard(card,{ruleset=PARTIAL_CARD_SOURCE}={}) {
   return defineCard({
     id:card.id,family,element:card.element,drawWeight:card.weight,
     stats:{attack,guard,mpCost,price:card.price},playModes:modes,effects,
-    discardPolicy:card.discardPolicy??'ordinary',
+    discardPolicy:card.discardPolicy??(card.kind==='weapon'?'forbidden':'ordinary'),
     source:{ruleset,confidence:'secondary'}
   });
 }
@@ -952,6 +956,8 @@ function applyStagingCommand(state,command,catalog,{authorizedSeatId}={}) {
     if(cards.length>MAX_HAND)throw new Error('Too many discarded cards');
     for(const card of cards){
       const def=catalog.get(card.definitionId);
+      if(def?.discardPolicy==='forbidden')
+        throw new Error('This card cannot be discarded');
       if(!def||def.discardPolicy!=='ordinary')
         throw new Error('Special discard effect is not yet implemented');
     }
@@ -1131,9 +1137,11 @@ function runEffectQueueFixture(state,catalog,queue,{
      const ids=new Set(effect.instanceIds),p=who(s,effect.playerId);
      if(ids.size!==effect.instanceIds.length)fail('Repeated discarded card');
      for(const instance of p.hand){
-       if(ids.has(instance.instanceId) &&
-          catalog.get(instance.definitionId)?.discardPolicy!=='ordinary')
-         fail('Special discard effect is not yet implemented');
+       if(ids.has(instance.instanceId)){
+         const policy=catalog.get(instance.definitionId)?.discardPolicy;
+         if(policy==='forbidden')fail('This card cannot be discarded');
+         if(policy!=='ordinary')fail('Special discard effect is not yet implemented');
+       }
      }
      const before=p.hand.length;
      p.hand=p.hand.filter(x=>!ids.has(x.instanceId));
@@ -2200,8 +2208,9 @@ function resolveDiscardFixture(state,catalog,options={}){
   for(const id of ids){
     const card=actor.hand.find(c=>c.instanceId===id);
     if(!card)fail('Discarded card not in hand');
-    if(catalog.get(card.definitionId)?.discardPolicy!=='ordinary')
-      fail('Special discard effect is not yet implemented');
+    const policy=catalog.get(card.definitionId)?.discardPolicy;
+    if(policy==='forbidden')fail('This card cannot be discarded');
+    if(policy!=='ordinary')fail('Special discard effect is not yet implemented');
   }
   const result=runEffectQueueFixture(state,catalog,[
     {type:'discard',playerId:actorId,instanceIds:[...ids]},
