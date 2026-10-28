@@ -663,6 +663,7 @@ const ID=/^[a-zA-Z0-9._:-]{1,80}$/;
 const MAX_PLAYERS=9;
 const MAX_HAND=18;
 const ALLOWED_KEYS={
+  pray:new Set(['commandId','expectedRevision','actorId','type']),
   playCards:new Set(['commandId','expectedRevision','actorId','type','targetId','orderedInstanceIds']),
   playSequence:new Set(['commandId','expectedRevision','actorId','type','targetId','orderedPlays']),
   castLearned:new Set(['commandId','expectedRevision','actorId','type','targetId','learnedDefinitionId']),
@@ -858,7 +859,15 @@ function applyStagingCommand(state,command,catalog,{authorizedSeatId}={}) {
   let pending;
   let phase;
   let activePlayerId;
-  if(['playCards','playSequence','castLearned'].includes(command.type)) {
+  if(command.type==='pray'){
+    if(state.phase!=='turn'||actor.hp<=0)throw new Error('Cannot pray outside a living turn');
+    // The source game permits prayer only when NO physical weapon is held.
+    // This includes +ATK addon weapons; an offensive miracle is not a weapon.
+    if(actor.hand.some(card=>catalog.get(card.definitionId)?.family==='weapon'))
+      throw new Error('Cannot pray while holding a weapon');
+    pending={type:'pray',originalAttackerId:actor.id};
+    phase='resolving';activePlayerId=null;
+  } else if(['playCards','playSequence','castLearned'].includes(command.type)) {
     if(state.phase!=='turn')throw new Error('Not an attacking turn');
     id(command.targetId,'target ID');
     const target=seat(state,command.targetId);
@@ -1987,6 +1996,9 @@ const {applyStagingCommand} = __v2_module_4;
 const {resolveRedirectFixture} = __v2_module_9;
 const {resolveSoloMiracleFixture,compileSoloMiracleResolution} = __v2_module_10;
 const {compileOrderedWeaponAttack} = __v2_module_6;
+const {runEffectQueueFixture} = __v2_module_5;
+const {drawRandom32} = __v2_module_2;
+const {MAX_HAND_SIZE} = __v2_module_0;
 
 /**
  * V2 G3 integration layer: ONE lab command entrypoint for staged attacks.
@@ -1999,6 +2011,9 @@ const {compileOrderedWeaponAttack} = __v2_module_6;
  * This module is LAB-ONLY. It uses an audited-incomplete fixture card draw
  * and must not be used for production card probability or online play.
  */
+
+
+
 
 
 
@@ -2038,6 +2053,38 @@ function attackFamily(state,catalog) {
   return def.family;
 }
 /**
+ * A complete, independent turn: draw one fixture card and advance.
+ * With eighteen cards, the original game's prayer replaces one randomly
+ * discarded existing card. RNG is advanced by the authoritative room only.
+ * This uses the lab's fixed draw: NOT original drop odds or online behavior.
+ */
+function resolvePrayFixture(state,catalog,options={}){
+  if(options.labOnly!==true)fail('Only available in lab fixture mode');
+  if(state?.schemaVersion!==2||state.phase!=='resolving'||state.pending?.type!=='pray')
+    fail('No prayer waiting for resolution');
+  const actorId=state.pending.originalAttackerId;
+  const actor=state.players.find(p=>p.id===actorId);
+  if(!actor||actor.hp<=0)fail('Invalid praying actor');
+  if(actor.hand.some(c=>catalog.get(c.definitionId)?.family==='weapon'))
+    fail('Cannot pray while holding a weapon');
+  if(actor.hand.length>MAX_HAND_SIZE)fail('Hand exceeds cap');
+  let staged=state;
+  const full=actor.hand.length===MAX_HAND_SIZE;
+  let drawInstruction;
+  if(full){
+    const random=drawRandom32(state.rngSeed);
+    staged={...state,rngSeed:random.nextSeed};
+    const index=Math.floor(random.value*actor.hand.length);
+    drawInstruction={type:'spend',playerId:actorId,instanceIds:[actor.hand[index].instanceId]};
+  }else{
+    drawInstruction={type:'grantDraw',playerId:actorId,count:1};
+  }
+  const result=runEffectQueueFixture(staged,catalog,[
+    drawInstruction,{type:'refill'},{type:'advance',afterId:actorId}
+  ],options);
+  return {...result,plan:Object.freeze({type:'pray',wasFull:full})};
+}
+/**
  * Resolve a complete defense response OR a direct self-targeting attack.
  * If the defender redirects, the output returns to the "defense" phase.
  */
@@ -2049,6 +2096,8 @@ function resolveStagedFixture(state,catalog,{
     fail('Unknown fixture draw card');
   if(state?.schemaVersion!==2||state.phase!=='resolving')
     fail('No attack waiting for resolution');
+  if(state.pending?.type==='pray')
+    return resolvePrayFixture(state,catalog,{labOnly,fixtureDrawDefinitionId});
   const family=attackFamily(state,catalog);
   if(family==='miracle')
     return resolveSoloMiracleFixture(state,catalog,{labOnly:true,fixtureDrawDefinitionId,deflectRng});
@@ -2101,7 +2150,7 @@ function submitAndResolveFixture(state,command,catalog,{
   return {...resolved,applied:true,duplicate:false,autoResolved:true};
 }
 
-return {resolveStagedFixture,submitAndResolveFixture};
+return {resolvePrayFixture,resolveStagedFixture,submitAndResolveFixture};
 })();
 
 const __v2_module_12 = (() => {
@@ -2265,7 +2314,10 @@ function createV2LabController({
         family:def?.family??'unknown',
         selectedOrder:selected.findIndex(x=>x.learnedDefinitionId===id)+1};
     });
-    return {...status,publicPlayers:projected.players.map(p=>({
+    return {...status,
+      // Includes addon weapons; only an entirely weaponless hand may pray.
+      canPray:!self.hand.some(card=>catalog.get(card.definitionId)?.family==='weapon'),
+      publicPlayers:projected.players.map(p=>({
       id:p.id,hp:p.hp,mp:p.mp,money:p.money,handCount:p.handCount
     })),
       pending:projected.pending,
@@ -2337,8 +2389,12 @@ function createV2LabController({
         :{commandId:n,expectedRevision:state.revision,actorId:actor.id,type:'defend',
           orderedInstanceIds:selected.filter(x=>x.instanceId).map(x=>x.instanceId)};
     } else if(state.phase==='turn'){
-      if(!selected.length)throw new Error('使用するカードを選んでください');
-      if(selected.length===1&&selected[0].learnedDefinitionId){
+      if(!selected.length &&
+         actor.hand.some(card=>catalog.get(card.definitionId)?.family==='weapon'))
+        throw new Error('使用するカードを選んでください');
+      if(!selected.length){
+        command={commandId:n,expectedRevision:state.revision,actorId:actor.id,type:'pray'};
+      }else if(selected.length===1&&selected[0].learnedDefinitionId){
         command={commandId:n,expectedRevision:state.revision,actorId:actor.id,
           type:'castLearned',learnedDefinitionId:selected[0].learnedDefinitionId,targetId};
       } else if(selected.some(x=>x.learnedDefinitionId)){
@@ -2452,7 +2508,9 @@ function renderV2LabMarkup(data,{resetArmed=false}={}){
  const caption=data.phase==='turn'
    ?(soloPlusMiracle
      ?'火の玉・流星を先頭に選ぶと単独奇跡。続けられるのは直後の精霊のみ'
-     :'＋攻の追加武器だけでも攻撃可。選んだ順に処理')
+     :data.canPray&&data.selection.length===0
+       ?'武器がないときは「祈る」で神器を1枚引いて手番を終える'
+       :'＋攻の追加武器だけでも攻撃可。選んだ順に処理')
    :'何も選ばず確定すれば無防御';
  const targets=data.phase==='turn'?
     '<section class="targets"><h2>攻撃先</h2><div class="choice-row">'+
@@ -2465,7 +2523,8 @@ function renderV2LabMarkup(data,{resetArmed=false}={}){
      data.learned.find(q=>q.definitionId===x.learnedDefinitionId);
    return '<span class="pick-index">'+(i+1)+'. '+esc(c?.label??'選択中')+'</span>';
  }).join('');
- const actionText=data.phase==='defense'?(data.selection.length?'防御を確定':'防御しない'):'攻撃を確定';
+ const actionText=data.phase==='defense'?(data.selection.length?'防御を確定':'防御しない')
+   :data.canPray&&data.selection.length===0?'祈る（神器を1枚引く）':'攻撃を確定';
  const notice='<p class="status" role="status">'+esc(data.notice)+'</p>';
  return header+'<main class="stage">'+
    '<div class="stage-heading"><h1>'+esc(seatLabel(data.actorId))+'：'+title+'</h1><p>'+caption+'</p></div>'+
