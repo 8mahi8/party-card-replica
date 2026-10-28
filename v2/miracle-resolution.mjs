@@ -1,10 +1,10 @@
 /**
  * V2 G3: narrow solo attack miracles with ordered defensive reactions.
  * Includes initial/learned casts, reflection, deflection and plain armor
- * stacking. This is still a 77-card PARTIAL test catalog, not full rules.
+ * stacking. This is still a PARTIAL test catalog, not full rules.
  * Unsupported mixed special effects are rejected, never guessed.
  */
-import {calculateHit,canBlock,reflectTarget} from '../src/rules.mjs';
+import {calculateHit,sumLegalArmor,reflectTarget} from '../src/rules.mjs';
 import {drawRandom32} from './foundation.mjs';
 import {runEffectQueueFixture} from './effect-runner.mjs';
 
@@ -102,7 +102,7 @@ export function compileSoloMiracleResolution(state,catalog) {
  const angel=defense.some(c=>c.def.effects.some(e=>e.type==='stopAttack'&&e.params.scope==='miracle'));
  if(angel&&defense.length!==1)fail('Angel stop armor must be selected alone');
  const stripElement=defense.some((c,i)=>c.def.effects.some(e=>e.type==='stripElement'&&i===0));
- let guard=0;
+ const physicalShields=[];
  for(const [index,{def}] of defense.entries()) {
    if(!def.playModes.includes('defend'))fail('Not a defensive card');
    checkShieldEffects(def,{angel});
@@ -113,11 +113,14 @@ export function compileSoloMiracleResolution(state,catalog) {
    }
    if(def.family!=='weapon'&&def.family!=='armor')
      fail('Unsupported item in miracle defense');
-   if(!angel&&!canBlock(miracle.element,def.element,{rainbowCurtain:stripElement}))
-     fail('Illegal shield for attack element');
-   guard+=def.stats.guard;
-   if(!Number.isSafeInteger(guard))fail('Guard overflow');
+   physicalShields.push({guard:def.stats.guard,element:def.element});
  }
+ // Angel armor stops a miracle outright; its printed guard does not need
+ // to match the stopped miracle's original attribute. 'none' is all-blockable.
+ // Non-angel defenses share the SAME numeric and elemental calculation used
+ // for ordinary weapons, including Rainbow Curtain's attribute removal.
+ const guard=sumLegalArmor(angel?'none':miracle.element,physicalShields,
+   {rainbowCurtain:stripElement});
  const stopped=angel;
  const hit=stopped?Object.freeze({damage:0,hpAfter:target.hp,instantDefeat:false,effectiveElement:miracle.element})
   :calculateHit({attack:miracle.stats.attack,element:miracle.element,armor:guard,hp:target.hp,rainbowCurtain:stripElement});
