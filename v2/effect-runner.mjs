@@ -76,9 +76,11 @@ export function runEffectQueueFixture(state,catalog,queue,{
      const ids=new Set(effect.instanceIds),p=who(s,effect.playerId);
      if(ids.size!==effect.instanceIds.length)fail('Repeated discarded card');
      for(const instance of p.hand){
-       if(ids.has(instance.instanceId) &&
-          catalog.get(instance.definitionId)?.discardPolicy!=='ordinary')
-         fail('Special discard effect is not yet implemented');
+       if(ids.has(instance.instanceId)){
+         const policy=catalog.get(instance.definitionId)?.discardPolicy;
+         if(policy==='forbidden')fail('This card cannot be discarded');
+         if(policy!=='ordinary')fail('Special discard effect is not yet implemented');
+       }
      }
      const before=p.hand.length;
      p.hand=p.hand.filter(x=>!ids.has(x.instanceId));
