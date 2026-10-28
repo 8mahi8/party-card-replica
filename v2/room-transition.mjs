@@ -103,8 +103,9 @@ export function resolveDiscardFixture(state,catalog,options={}){
   for(const id of ids){
     const card=actor.hand.find(c=>c.instanceId===id);
     if(!card)fail('Discarded card not in hand');
-    if(catalog.get(card.definitionId)?.discardPolicy!=='ordinary')
-      fail('Special discard effect is not yet implemented');
+    const policy=catalog.get(card.definitionId)?.discardPolicy;
+    if(policy==='forbidden')fail('This card cannot be discarded');
+    if(policy!=='ordinary')fail('Special discard effect is not yet implemented');
   }
   const result=runEffectQueueFixture(state,catalog,[
     {type:'discard',playerId:actorId,instanceIds:[...ids]},
