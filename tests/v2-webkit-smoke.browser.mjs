@@ -515,6 +515,64 @@ async function testPrayerTouch(base){
 }
 
 
+async function testStrengthPowderTouch(base){
+ const context=await browser.newContext({
+   viewport:{width:1024,height:768},screen:{width:1024,height:768},
+   deviceScaleFactor:2,isMobile:true,hasTouch:true,locale:'ja-JP'
+ });
+ try{
+   page=await context.newPage();
+   await page.goto(base+'/embed-harness.html',{waitUntil:'load'});
+   const frame=page.frameLocator('#game-embed');
+   const frameRef=page.frames().find(f=>f!==page.mainFrame());
+   if(!frameRef)throw new Error('Strength Powder frame missing');
+   await frameRef.evaluate(()=>{
+     const old=document.getElementById('v2-root');
+     const fresh=document.createElement('div');fresh.id='v2-root';
+     old.replaceWith(fresh);
+     __v2_module_13.mountV2Lab(fresh,
+       __v2_module_12.createV2LabController({hands:{A:['w016','i004'],B:[]}}));
+   });
+   await frame.locator('[data-action=reveal]').tap();
+   const weapon=frame.locator('[data-card=hand]').filter({hasText:'ワンダーソード'});
+   const powder=frame.locator('[data-card=hand]').filter({hasText:'ちからの粉'});
+   passed(await powder.count()===1,'Strength Powder appears in the actual drawn hand');
+   passed((await powder.textContent()).includes('+攻10'),
+     'Strength Powder presents the sourced +10 attack value');
+   await powder.tap();
+   await frame.locator('[data-action=submit]').tap();
+   passed((await frame.locator('[role=status]').textContent()).includes('Attack must start with a weapon'),
+     'Powder alone cannot be played as a weapon');
+   passed((await frame.locator('.stage-heading').textContent()).includes('P1'),
+     'Rejected Powder-alone action cannot advance a turn');
+   await screenshot('webkit-strength-powder-invalid-alone');
+   await powder.tap();
+   await weapon.tap();
+   await powder.tap();
+   await frame.locator('[data-action=submit]').tap();
+   await frame.locator('.compact-pass').waitFor();
+   passed((await frame.locator('.compact-pass h1').textContent()).includes('P2'),
+     'Weapon then Powder is a legal two-card attack');
+   passed(await frame.locator('[data-card]').count()===0,
+     'Defense hand stays concealed after Powder attack');
+   await frame.locator('[data-action=reveal]').tap();
+   await frame.locator('[data-action=submit]').tap();
+   await frame.locator('.compact-pass').waitFor();
+   await frame.locator('[data-action=reveal]').tap();
+   const info=await frame.locator('.seat').allTextContents();
+   passed(info[1].includes('HP 20') && info[0].includes('MP 10'),
+     'Weapon10 + Powder10 hits for 20 with no miracle MP');
+   passed(info[0].includes('手札2枚'),
+     'Both used physical cards are replenished after the attack');
+   await screenshot('webkit-strength-powder-attack-resolved');
+ }catch(error){
+   await screenshot('webkit-strength-powder-failure');throw error;
+ }finally{
+   page=null;await context.close();
+ }
+}
+
+
 try{
   if(!existsSync(path.join(ROOT,'v2/demo/standalone.html')))
     throw new Error('Missing checked-in standalone HTML');
@@ -529,6 +587,7 @@ try{
   await testPlusMiracleFirstTouch(base);
   await testPlusMiracleMiddleTouch(base);
   await testPrayerTouch(base);
+  await testStrengthPowderTouch(base);
   console.log('WEBKIT_SMOKE_SUCCESS checks='+checks+' engine=Playwright WebKit'+
     ' fixed-height frames=1024x460,390x430');
 }catch(error){
