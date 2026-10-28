@@ -9,9 +9,9 @@ import {VERIFIED_BASIC_CARDS,PARTIAL_CARD_SOURCE} from '../src/verified-basic-ca
 const KNOWN_KEYS=new Set([
   'id','referenceName','kind','category','slot','element','attack','guard',
   'attackBonus','price','weight','reaction','reactionScope','stopScope',
-  'role','boost','plusAttack','mpCost','effect','attackElementOverride','discardPolicy'
+  'role','boost','plusAttack','mpCost','effect','attackElementOverride','discardPolicy','tradeAction'
 ]);
-const CATEGORY_BY_KIND=Object.freeze({weapon:'weapon_single',armor:'armor_normal',miracle:'miracle',defense_item:'item',support_item:'item'});
+const CATEGORY_BY_KIND=Object.freeze({weapon:'weapon_single',armor:'armor_normal',miracle:'miracle',defense_item:'item',support_item:'item',trade:'trade'});
 const mk=(when,type,params={})=>({when,type,params});
 const truthyInt=x=>Number.isSafeInteger(x)&&x>=0;
 // Documented 2025 server-selection example: weapon + Fireball + Fireball.
@@ -93,6 +93,10 @@ export function convertLegacyCard(card,{ruleset=PARTIAL_CARD_SOURCE}={}) {
       if(card.boost!=='double_weapon')throw new Error('Unmapped miracle boost');
       modes.push('cast');effects.push(mk('onDeclare','multiplyAttack',{factor:2,scope:'weapon'}));
     } else throw new Error('Unmapped miracle role');
+  } else if(card.kind==='trade') {
+    if(card.tradeAction!=='sell')throw new Error('Unmapped trade action');
+    modes.push('trade');
+    effects.push(mk('onDeclare','forceSale',{kind:'sell'}));
   } else if(card.kind==='defense_item') {
     modes.push('defend');
     if(card.effect==='strip_element')effects.push(mk('onDefense','stripElement'));
