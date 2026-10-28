@@ -10,7 +10,6 @@
  * https://note.com/makariki/n/n437bc90ac4dc
  * https://ameblo.jp/shibransk/entry-12647363984.html
  */
-import {previewUncontestedSale} from './trade-sale.mjs';
 import {planForcedSalePayment} from './trade-payment.mjs';
 import {runEffectQueueFixture} from './effect-runner.mjs';
 
