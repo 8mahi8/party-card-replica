@@ -99,9 +99,15 @@ export function convertLegacyCard(card,{ruleset=PARTIAL_CARD_SOURCE}={}) {
     else if(card.effect==='reflect_any')effects.push(mk('onDefense','redirectAttack',{mode:'reflect',scope:'any'}));
     else throw new Error('Unmapped defense item effect');
   } else if(card.kind==='support_item') {
-    modes.push('support');
-    if(card.effect==='free_previous_miracle')effects.push(mk('onCost','waivePreviousMp',{target:'previousMiracle'}));
-    else throw new Error('Unmapped support item effect');
+    if(card.effect==='free_previous_miracle'){
+      modes.push('support');
+      effects.push(mk('onCost','waivePreviousMp',{target:'previousMiracle'}));
+    }else if(card.effect==='add_attack' && truthyInt(card.attackBonus) && card.attackBonus>0){
+      // Non-weapon +ATK item: never allowed as opening card.
+      attack=card.attackBonus;
+      modes.push('addAttack');
+      effects.push(mk('onDeclare','addAttack',{scope:'weapon',stacking:'single'}));
+    }else throw new Error('Unmapped support item effect');
   }
   return defineCard({
     id:card.id,family,element:card.element,drawWeight:card.weight,
