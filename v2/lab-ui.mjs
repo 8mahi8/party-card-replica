@@ -58,7 +58,9 @@ export function renderV2LabMarkup(data,{resetArmed=false}={}){
  const caption=data.phase==='turn'
    ?(soloPlusMiracle
      ?'火の玉・流星を先頭に選ぶと単独奇跡。続けられるのは直後の精霊のみ'
-     :'＋攻の追加武器だけでも攻撃可。選んだ順に処理')
+     :data.canPray&&data.selection.length===0
+       ?'武器がないときは「祈る」で神器を1枚引いて手番を終える'
+       :'＋攻の追加武器だけでも攻撃可。選んだ順に処理')
    :'何も選ばず確定すれば無防御';
  const targets=data.phase==='turn'?
     '<section class="targets"><h2>攻撃先</h2><div class="choice-row">'+
@@ -71,7 +73,8 @@ export function renderV2LabMarkup(data,{resetArmed=false}={}){
      data.learned.find(q=>q.definitionId===x.learnedDefinitionId);
    return '<span class="pick-index">'+(i+1)+'. '+esc(c?.label??'選択中')+'</span>';
  }).join('');
- const actionText=data.phase==='defense'?(data.selection.length?'防御を確定':'防御しない'):'攻撃を確定';
+ const actionText=data.phase==='defense'?(data.selection.length?'防御を確定':'防御しない')
+   :data.canPray&&data.selection.length===0?'祈る（神器を1枚引く）':'攻撃を確定';
  const notice='<p class="status" role="status">'+esc(data.notice)+'</p>';
  return header+'<main class="stage">'+
    '<div class="stage-heading"><h1>'+esc(seatLabel(data.actorId))+'：'+title+'</h1><p>'+caption+'</p></div>'+
