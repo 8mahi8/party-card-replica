@@ -85,7 +85,7 @@ function baseLabel(def){
   const override=def.effects.find(e=>e.when==='onDeclare'&&e.type==='setAttackElement');
   const plusAttack=def.playModes.includes('addAttack') &&
     (def.family==='weapon'&&!def.playModes.includes('mainAttack') ||
-     def.family==='miracle'&&def.effects.some(e=>e.type==='addAttack'&&
+     ['miracle','item'].includes(def.family)&&def.effects.some(e=>e.type==='addAttack'&&
        e.when==='onDeclare'&&e.params.scope==='weapon'));
   return [
     names.get(def.id)??def.id,
