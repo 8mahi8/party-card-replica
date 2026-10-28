@@ -1267,7 +1267,10 @@ function compileOrderedWeaponAttack(state,catalog){
   if(caster.mp<payableMP)fail('Not enough MP');
   const learnedMiracles=[...new Set(miracles.map(m=>m.id))];
   return Object.freeze({
-    attack,element:forcedAttackElement??attackElement,attackKind:'weapon',
+    // The ordinary Aura attack is neutral even with an elemental weapon.
+    // A verified dye wand AFTER Aura is the explicit exception: it sets
+    // the final fire/water attribute. Do not preserve the weapon element.
+    attack,element:forcedAttackElement??(aura?'none':attackElement),attackKind:'weapon',
     instanceIds:Object.freeze(selected.filter(x=>x.instance).map(x=>x.instance.instanceId)),
     payableMP,learnedDrawCount,learnedMiracles:Object.freeze(learnedMiracles),
     hasModifiers:miracles.length>0,
