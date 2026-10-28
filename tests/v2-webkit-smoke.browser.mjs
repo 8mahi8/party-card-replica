@@ -736,6 +736,67 @@ async function testRainbowDefenseTouch(base){
 }
 
 
+async function testDiscardTouch(base){
+ for(const scenario of [
+   {width:1024,height:768,embedHeight:460,tag:'ipad'},
+   {width:390,height:844,embedHeight:430,tag:'narrow'}
+ ]){
+  const context=await browser.newContext({
+   viewport:{width:scenario.width,height:scenario.height},
+   screen:{width:scenario.width,height:scenario.height},
+   deviceScaleFactor:2,isMobile:true,hasTouch:true,locale:'ja-JP'
+  });
+  try{
+   page=await context.newPage();
+   await page.goto(base+'/embed-harness.html',{waitUntil:'load'});
+   await page.locator('#game-embed').evaluate((el,h)=>{el.style.height=h+'px';},
+    scenario.embedHeight);
+   const frame=page.frameLocator('#game-embed');
+   const embedded=page.frames().find(f=>f!==page.mainFrame());
+   if(!embedded)throw new Error('No discard embedded frame');
+   await embedded.evaluate(()=>{
+    const old=document.getElementById('v2-root'),fresh=document.createElement('div');
+    fresh.id='v2-root';old.replaceWith(fresh);
+    __v2_module_14.mountV2Lab(fresh,
+      __v2_module_13.createV2LabController({
+       hands:{A:['w016','d005','m002'],B:['d001']}
+      }));
+   });
+   await frame.locator('[data-action=reveal]').tap();
+   passed(await frame.locator('[data-action=discard]').count()===0,
+      'discard button is unavailable before selecting hand cards');
+   await frame.locator('[data-card=hand]').nth(0).tap();
+   await frame.locator('[data-card=hand]').nth(2).tap();
+   const discard=frame.locator('[data-action=discard]');
+   passed(await discard.count()===1,'discard action appears after selected cards');
+   passed((await discard.textContent()).includes('補充なし・ターン終了'),
+      'discard action clearly states its turn cost and no draw');
+   await screenshot('webkit-discard-'+scenario.tag+'-selected');
+   await discard.tap();
+   await frame.locator('.compact-pass').waitFor();
+   passed((await frame.locator('.compact-pass h1').textContent()).includes('P2'),
+      'discard ends A turn and transfers hidden seat');
+   passed(await frame.locator('[data-card]').count()===0,
+      'discard handoff must not expose any private cards');
+   await frame.locator('[data-action=reveal]').tap();
+   const seats=await frame.locator('.seat').allTextContents();
+   passed(seats[0].includes('手札1枚'),
+      'discarded two of three without a replacement: '+JSON.stringify(seats));
+   passed(seats[1].includes('手札1枚'),
+      'uninvolved opponent hand preserved: '+JSON.stringify(seats));
+   passed((await frame.locator('.stage-heading').textContent()).includes('P2'),
+      'discard advances exactly one turn');
+   await screenshot('webkit-discard-'+scenario.tag+'-complete');
+  }catch(error){
+   await screenshot('webkit-discard-'+scenario.tag+'-failure');
+   throw error;
+  }finally{
+   page=null;await context.close();
+  }
+ }
+}
+
+
 try{
   if(!existsSync(path.join(ROOT,'v2/demo/standalone.html')))
     throw new Error('Missing checked-in standalone HTML');
@@ -754,6 +815,7 @@ try{
   await testAuraNeutralTouch(base);
   await testNewSoloMiraclesTouch(base);
   await testRainbowDefenseTouch(base);
+  await testDiscardTouch(base);
   console.log('WEBKIT_SMOKE_SUCCESS checks='+checks+' engine=Playwright WebKit'+
     ' fixed-height frames=1024x460,390x430');
 }catch(error){
