@@ -10,7 +10,7 @@ const match=(a,b)=>{
   const s=createMatch({playerIds:['A','B'],firstPlayerId:'A',rng:()=>0,draw});
   s.players[0].hand=a;s.players[1].hand=b;return s;
 };
-test('source-backed basic subset grows as research-backed, never full 353',()=>{
+test('source-backed partial subset stays distinct from the full reference deck',()=>{
   assert.equal(VERIFIED_BASIC_CARDS.length,RESEARCH_CATALOG_CONTRACT.unique);
   assert.equal(new Set(VERIFIED_BASIC_CARDS.map(c=>c.id)).size,RESEARCH_CATALOG_CONTRACT.unique);
   assert.equal(auditCatalog(VERIFIED_BASIC_CARDS).complete,false);
