@@ -4,8 +4,8 @@
  * stacking. This is still a PARTIAL test catalog, not full rules.
  * Unsupported mixed special effects are rejected, never guessed.
  */
-import {calculateHit,sumLegalArmor,reflectTarget} from '../src/rules.mjs';
-import {drawRandom32} from './foundation.mjs';
+import {calculateHit,sumLegalArmor} from '../src/rules.mjs';
+import {planRedirectRoute} from './redirect-route.mjs';
 import {runEffectQueueFixture} from './effect-runner.mjs';
 
 function fail(s){throw new Error(s);}
@@ -208,21 +208,10 @@ export function resolveSoloMiracleFixture(state,catalog,options={}) {
      if(defender.mp<mpCost)fail('Not enough MP for defensive miracle');
      const previousSource=p.sourceId??p.originalAttackerId;
      if(previousSource===p.targetId)fail('Self-hit cannot be redirected');
-     const living=state.players.filter(x=>x.hp>0).map(x=>x.id);
-     let rngSeed=state.rngSeed;
-     let rng=()=>0;
-     if(e.params.mode==='deflect'){
-       if(options.deflectRng!==undefined&&options.deflectRng!==null){
-         if(typeof options.deflectRng!=='function')fail('Invalid deflect RNG');
-         rng=options.deflectRng;
-       }else{
-         const roll=drawRandom32(state.rngSeed);
-         rngSeed=roll.nextSeed;
-         rng=()=>roll.value;
-       }
-     }
-     const route=reflectTarget({source:previousSource,target:p.targetId,actor:p.targetId,
-       mode:e.params.mode,living,rng});
+     const {route,nextSeed:rngSeed,immediate}=planRedirectRoute(state,{
+       sourceId:previousSource,targetId:p.targetId,mode:e.params.mode,
+       deflectRng:options.deflectRng??null
+     });
      // Preview source spell cost without committing. Cached reflected attacks
      // have already paid their cast price, and never charge it again.
      const preview={...state,pending:{...p,defense:{playerId:p.targetId,instanceIds:[]}}};
@@ -249,7 +238,7 @@ export function resolveSoloMiracleFixture(state,catalog,options={}) {
          attack:base.attack,element:base.element},defense:null};
      const events=[...paused.events,{type:'redirect',mode:e.params.mode,
        by:defender.id,from:previousSource,to:route.target,cardId:selectedRedirect.def.id}];
-     if(route.target===defender.id){
+     if(immediate){
        // A deflection that hits its own user resolves immediately: the
        // defender cannot stop, deflect, reflect or guard against this hit.
        next.phase='resolving';next.activePlayerId=null;
