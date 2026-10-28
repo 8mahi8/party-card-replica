@@ -56,8 +56,8 @@ function assertNoEarlyRefill(result,expectedOriginal){
  assert.equal(result.state.turnCount,0);
  assert.equal(countEvents(result.events,'refill'),0);
  assert.equal(countEvents(result.events,'turnAdvance'),0);
- assert.equal(result.state.players.some(p=>p.hand.some(c=>c.definitionId==='d001'&&
-  c.instanceId.startsWith('ci-')&&Number(c.instanceId.slice(3))>10_000)),false);
+ assert.equal(result.state.pending.defense,null,
+  'redirect must preserve unresolved attack without a premature defender action');
 }
 function assertNormalFinish(result,next='B'){
  const s=result.state;
