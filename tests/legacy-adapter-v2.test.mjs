@@ -1,14 +1,15 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import {RESEARCH_CATALOG_CONTRACT} from './helpers/research-catalog-contract.mjs';
 import {convertLegacyCard,migrateLegacyCatalog} from '../v2/legacy-adapter.mjs';
 import {VERIFIED_BASIC_CARDS} from '../src/verified-basic-cards.mjs';
 import {createInstance} from '../v2/foundation.mjs';
 
 const get=(id)=>VERIFIED_BASIC_CARDS.find(c=>c.id===id);
-test('entire current 90-card partial catalog migrates with exact 209-slot total and no duplicate IDs',()=>{
+test('entire current current-card partial catalog migrates with exact reference-slot total and no duplicate IDs',()=>{
  const out=migrateLegacyCatalog();
- assert.equal(out.summary.unique,90);assert.equal(out.summary.slots,209);assert.equal(out.summary.complete,false);
- assert.equal(out.byId.size,90);assert.equal(out.definitions.length,90);
+ assert.equal(out.summary.unique,RESEARCH_CATALOG_CONTRACT.unique);assert.equal(out.summary.slots,RESEARCH_CATALOG_CONTRACT.slots);assert.equal(out.summary.complete,false);
+ assert.equal(out.byId.size,RESEARCH_CATALOG_CONTRACT.unique);assert.equal(out.definitions.length,RESEARCH_CATALOG_CONTRACT.unique);
 });
 test('base attack, guard, MP, price, element, weight are preserved for every card',()=>{
  const out=migrateLegacyCatalog();
