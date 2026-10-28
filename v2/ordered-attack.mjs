@@ -134,6 +134,7 @@ export function compileOrderedWeaponAttack(state,catalog){
       if(fromLearned)fail('Attack item must come from hand');
       if(aura||plusCount)
         fail('Non-weapon attack bonus mixed with miracles: damage precedence unverified');
+      if(itemBonus)fail('More than one +ATK item unverified');
       itemBonus=add(itemBonus,def.stats.attack);
       lastWasMiracle=false;
       selectedKinds.push('itemBonus');
