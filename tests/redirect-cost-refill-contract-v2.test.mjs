@@ -211,3 +211,22 @@ test('invalid final defense after redirect is atomic; pause credits are not spen
  assert.equal(JSON.stringify(view).includes('spentByPlayer'),false);
  assert.equal(JSON.stringify(view).includes('attackContext'),false);
 });
+
+test('unused third-seat hand is untouched and receives no replacement cards',()=>{
+ const original=room({A:['m002'],B:['d029'],C:['d001','w016']});
+ const originalC=who(original,'C').hand.map(c=>({...c}));
+ const before=JSON.stringify(original);
+ const outgoing=send(original,'A','playCards',{indices:[0]});
+ const redirected=send(outgoing.state,'B','defend',{indices:[0]});
+ assertNoEarlyRefill(redirected,'A');
+ assert.equal(redirected.state.activePlayerId,'A');
+ const result=send(redirected.state,'A','defend',{indices:[]});
+ assert.equal(result.state.phase,'turn');
+ assert.equal(result.state.activePlayerId,'B');
+ assert.equal(result.state.turnCount,1);
+ assert.deepEqual(who(result.state,'C').hand,originalC);
+ assert.deepEqual(result.events.filter(e=>e.type==='refill').map(e=>[e.playerId,e.added]),[
+  ['A',1],['B',1]
+ ]);
+ assert.equal(JSON.stringify(original),before);
+});
