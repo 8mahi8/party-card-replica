@@ -7,6 +7,9 @@
 const FAMILIES = new Set(['weapon','armor','miracle','item','trade']);
 const ELEMENTS = new Set(['none','fire','water','wood','earth','light','dark']);
 const MODES = new Set(['mainAttack','addAttack','defend','cast','support','trade']);
+// Some original artifacts return to the hand and cost HP when discarded.
+// Until sourced effects are implemented, explicitly gate those definitions.
+const DISCARD_POLICIES = new Set(['ordinary','requiresSpecialResolution']);
 const EFFECT_TRIGGERS = new Set(['onDeclare','onCost','beforeHit','onDefense','afterHit','onTurnEnd']);
 const EFFECT_TYPES = new Set(['redirectAttack','stripElement','multiplyAttack','addAttack','stopAttack','waivePreviousMp','setAttackElement']);
 
@@ -60,8 +63,11 @@ export function defineCard(spec) {
     throw new Error('Versioned evidence required');
   const effects=(spec.effects??[]);
   if(!Array.isArray(effects))throw new TypeError('Effects must be array');
+  const discardPolicy=spec.discardPolicy??'ordinary';
+  assertAllowed(discardPolicy,DISCARD_POLICIES,'discard policy');
   const normalized={
     id, family:spec.family, element:spec.element, drawWeight:spec.drawWeight,
+    discardPolicy,
     stats:Object.freeze(stats), playModes:Object.freeze([...spec.playModes]),
     effects:Object.freeze(effects.map(freezeEffect)),
     source:Object.freeze({ruleset:String(spec.source.ruleset),confidence:String(spec.source.confidence)})
