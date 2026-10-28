@@ -465,6 +465,56 @@ async function testPlusMiracleMiddleTouch(base){
 }
 
 
+async function testPrayerTouch(base){
+ const context=await browser.newContext({
+   viewport:{width:1024,height:768},screen:{width:1024,height:768},
+   deviceScaleFactor:2,isMobile:true,hasTouch:true,locale:'ja-JP'
+ });
+ try{
+   page=await context.newPage();
+   await page.goto(base+'/embed-harness.html',{waitUntil:'load'});
+   const frame=page.frameLocator('#game-embed');
+   const frameRef=page.frames().find(f=>f!==page.mainFrame());
+   if(!frameRef)throw new Error('Prayer test frame missing');
+   // A test-only replacement of the controller in the already-bundled app.
+   // No test-card hook or alternate hand is shipped in the Google Sites HTML.
+   await frameRef.evaluate(()=>{
+     const old=document.getElementById('v2-root');
+     const fresh=document.createElement('div');
+     fresh.id='v2-root';
+     old.replaceWith(fresh); // remove original controller's event listeners
+     __v2_module_13.mountV2Lab(fresh,
+       __v2_module_12.createV2LabController({hands:{A:['d014'],B:['w016']}}));
+   });
+   await frame.locator('[data-action=reveal]').tap();
+   passed((await frame.locator('.stage-heading').textContent()).includes('武器がないとき'),
+     'Weaponless attack turn must explain how to pray');
+   passed((await frame.locator('[data-action=submit]').textContent()).includes('祈る'),
+     'Prayer appears as the main submit button when no weapons are held');
+   passed(await frame.locator('[data-card=hand]').count()===1,
+     'Fixed prayer fixture starts with one non-weapon armor card');
+   await screenshot('webkit-prayer-available');
+   await frame.locator('[data-action=submit]').tap();
+   await frame.locator('.compact-pass').waitFor();
+   passed((await frame.locator('.compact-pass h1').textContent()).includes('P2'),
+     'Praying ends the turn without opening a defense response');
+   passed(await frame.locator('[data-card]').count()===0,
+     'Praying does not reveal the next player hand');
+   await frame.locator('[data-action=reveal]').tap();
+   const stats=await frame.locator('.seat').allTextContents();
+   passed(stats[0].includes('手札2枚')&&stats[1].includes('手札1枚'),
+     'Prayer draws one card for first seat, preserving second seat');
+   passed(stats[0].includes('HP 40')&&stats[0].includes('MP 10'),
+     'Prayer changes neither HP nor MP');
+   await screenshot('webkit-prayer-finished');
+ }catch(error){
+   await screenshot('webkit-prayer-failure');throw error;
+ }finally{
+   page=null;await context.close();
+ }
+}
+
+
 try{
   if(!existsSync(path.join(ROOT,'v2/demo/standalone.html')))
     throw new Error('Missing checked-in standalone HTML');
@@ -478,6 +528,7 @@ try{
   await testAdditiveOnlyTouch(base);
   await testPlusMiracleFirstTouch(base);
   await testPlusMiracleMiddleTouch(base);
+  await testPrayerTouch(base);
   console.log('WEBKIT_SMOKE_SUCCESS checks='+checks+' engine=Playwright WebKit'+
     ' fixed-height frames=1024x460,390x430');
 }catch(error){
