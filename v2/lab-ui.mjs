@@ -77,8 +77,9 @@ export function renderV2LabMarkup(data,{resetArmed=false}={}){
    :data.canPray&&data.selection.length===0?'祈る（神器を1枚引く）':'攻撃を確定';
  const notice='<p class="status" role="status">'+esc(data.notice)+'</p>';
  const discardOption=data.phase==='turn' && data.canDiscardSelection
-   ?'<button type="button" class="quiet wide discard-option" data-action="discard">選んだ'+
-     data.selection.length+'枚を捨てる（補充なし・ターン終了）</button>'
+   ?'<button type="button" class="quiet discard-option" data-action="discard">'+
+     '<strong>'+data.selection.length+'枚捨てる</strong><small>補充なし・ターン終了</small>'+
+     '</button>'
    :'';
  return header+'<main class="stage">'+
    '<div class="stage-heading"><h1>'+esc(seatLabel(data.actorId))+'：'+title+'</h1><p>'+caption+'</p></div>'+
@@ -90,8 +91,9 @@ export function renderV2LabMarkup(data,{resetArmed=false}={}){
        '<p class="empty">まだ習得していません</p>')+'</div></section>'+
    '<section class="selection"><h2>選択順 <small>再タップで解除</small></h2><div class="picks">'+
    (picked||'<span class="muted">まだ選択されていません</span>')+'</div></section>'+
-   notice+discardOption+'<button type="button" class="primary wide confirm" data-action="submit">'+
-   actionText+'</button></main>'+footer;
+   notice+'<div class="action-bar">'+discardOption+
+   '<button type="button" class="primary wide confirm" data-action="submit">'+
+   actionText+'</button></div></main>'+footer;
 }
 export function mountV2Lab(root,controller=createV2LabController()){
  if(!root||typeof root.addEventListener!=='function')throw new Error('Root element required');
