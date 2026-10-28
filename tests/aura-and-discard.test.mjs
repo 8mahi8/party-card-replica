@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import {RESEARCH_CATALOG_CONTRACT} from './helpers/research-catalog-contract.mjs';
 import {createMatch,playAuraWeaponAttack,defend,discardCards} from '../src/match.mjs';
 import {findVerifiedBasicCard as card, VERIFIED_BASIC_CARDS} from '../src/verified-basic-cards.mjs';
 import {auditCatalog} from '../src/catalog-audit.mjs';
@@ -13,9 +14,9 @@ test('Aura has MP6 and 0.2% reference weight; catalog remains incomplete',()=>{
  const aura=card('m004');
  assert.equal(aura.kind,'miracle');assert.equal(aura.role,'boost_weapon');
  assert.equal(aura.mpCost,6);assert.equal(aura.weight,1);
- assert.equal(VERIFIED_BASIC_CARDS.length,90);
+ assert.equal(VERIFIED_BASIC_CARDS.length,RESEARCH_CATALOG_CONTRACT.unique);
  const audit=auditCatalog(VERIFIED_BASIC_CARDS);
- assert.equal(audit.slots,209);assert.equal(audit.complete,false);
+ assert.equal(audit.slots,RESEARCH_CATALOG_CONTRACT.slots);assert.equal(audit.complete,false);
 });
 test('Aura doubles selected main and additional weapons together',()=>{
  const s=setup(['w016','a003','m004'],['d005']); // 10+3, shield5
