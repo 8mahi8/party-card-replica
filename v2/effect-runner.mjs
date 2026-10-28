@@ -8,6 +8,7 @@
  */
 import {createInstance} from './foundation.mjs';
 import {MAX_HAND_SIZE,MAX_LEARNED_MIRACLES} from '../src/rules.mjs';
+import {planForcedSalePayment} from './trade-payment.mjs';
 
 function fail(message){throw new Error(message);}
 function who(state,id){
@@ -114,6 +115,35 @@ export function runEffectQueueFixture(state,catalog,queue,{
      events.push({type:'damage',targetId:p.id,damage:effect.damage,
        instantDefeat:effect.instantDefeat,hpAfter:effect.hpAfter,
        ...(effect.stopped===undefined?{}:{stopped:effect.stopped})});
+   } else if(effect.type==='uncontestedSale'){
+     // Source-verified transfer and debit only. A real live trade must first
+     // implement Super Mirror counterplay; this effect is lab-fixture ONLY.
+     if(effect.sellerId===effect.buyerId)fail('Cannot sell to self');
+     const seller=who(s,effect.sellerId),buyer=who(s,effect.buyerId);
+     if(seller.hp<=0||buyer.hp<=0)fail('Trade seat eliminated');
+     const saleIndex=seller.hand.findIndex(x=>x.instanceId===effect.soldInstanceId);
+     if(saleIndex<0)fail('Sold card is not held');
+     const item=seller.hand[saleIndex],definition=catalog.get(item.definitionId);
+     if(!definition||definition.family==='trade')
+       fail('Unverified trade item cannot be sold');
+     if(buyer.hand.length>=MAX_HAND_SIZE)
+       fail('Buyer hand cap needs original-game verification');
+     const payment=planForcedSalePayment({price:definition.stats.price,buyer});
+     // The buyer-death transfer, seller payout and hand ownership timing
+     // cannot yet be asserted from the original client's observed actions.
+     if(payment.buyerEliminated||payment.unpaid)
+       fail('Lethal forced sale requires original verification');
+     if(!Number.isSafeInteger(seller.money+payment.sellerCredit))
+       fail('Seller money overflow');
+     seller.hand.splice(saleIndex,1);
+     buyer.hand.push(item);
+     buyer.hp=payment.buyerAfter.hp;
+     buyer.mp=payment.buyerAfter.mp;
+     buyer.money=payment.buyerAfter.money;
+     seller.money+=payment.sellerCredit;
+     events.push({type:'uncontestedSale',sellerId:seller.id,buyerId:buyer.id,
+       itemDefinitionId:item.definitionId,price:definition.stats.price,
+       debit:payment.debit});
    } else if(effect.type==='refill'){
      for(const p of s.players){
        const amount=spent[p.id]??0;
