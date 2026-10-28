@@ -2869,7 +2869,11 @@ function mountV2Lab(root,controller=createV2LabController()){
 return {renderV2LabMarkup,mountV2Lab};
 })();
 
-__v2_module_15.mountV2Lab(document.getElementById("v2-root"));
+const __v2_lab_test_controller = __v2_module_14;
+
+const __v2_lab_test_ui = __v2_module_15;
+
+__v2_lab_test_ui.mountV2Lab(document.getElementById("v2-root"));
 </script>
 </body>
 </html>
