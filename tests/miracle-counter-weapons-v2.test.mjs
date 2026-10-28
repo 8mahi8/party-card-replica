@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import {RESEARCH_CATALOG_CONTRACT} from './helpers/research-catalog-contract.mjs';
 import {migrateLegacyCatalog} from '../v2/legacy-adapter.mjs';
 import {createStagingRoom,applyStagingCommand} from '../v2/staging-room.mjs';
 import {resolveStagedFixture} from '../v2/room-transition.mjs';
@@ -30,7 +31,7 @@ const defend=(s,positions=[0])=>send(s,'B','defend',{orderedInstanceIds:position
 const resolve=(s,rng)=>resolveStagedFixture(s,catalog,{...fixture,...(rng?{deflectRng:rng}:{})});
 
 test('six dual-use miracle counters preserve wiki attack, price, weight and effect type',()=>{
- assert.deepEqual([summary.unique,summary.slots,summary.complete],[90,209,false]);
+ assert.deepEqual([summary.unique,summary.slots,summary.complete],[RESEARCH_CATALOG_CONTRACT.unique,RESEARCH_CATALOG_CONTRACT.slots,false]);
  for(const [id,atk] of [...STOP,...REFLECT,...DEFLECT]){
   const d=catalog.get(id);
   assert.equal(d.family,'weapon',id);
