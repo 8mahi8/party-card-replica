@@ -35,7 +35,7 @@ const resolve=(s,deflectRng=null)=>resolveStagedFixture(s,catalog,{...fixture,de
 
 test('all five Sky and three Moonlight armors have cited guard, price and miracle-only effect',()=>{
  const {summary}=migrateLegacyCatalog();
- assert.equal(summary.unique,86);assert.equal(summary.slots,205);assert.equal(summary.complete,false);
+ assert.equal(summary.unique,90);assert.equal(summary.slots,209);assert.equal(summary.complete,false);
  for(const [id,guard] of SKY){
   const d=catalog.get(id);
   assert.equal(d.stats.guard,guard,id);assert.equal(d.stats.price,5,id);
