@@ -626,6 +626,63 @@ async function testAuraNeutralTouch(base){
 }
 
 
+async function testNewSoloMiraclesTouch(base){
+ for(const scenario of [
+  {kind:'fire',A:['m008'],B:['d015'],expectedHP:33,expectedMP:5,guard:true},
+  {kind:'waterfall-spirit',A:['m011','i003'],B:[],expectedHP:15,expectedMP:10,guard:false}
+ ]){
+  const context=await browser.newContext({
+    viewport:{width:1024,height:768},screen:{width:1024,height:768},
+    deviceScaleFactor:2,isMobile:true,hasTouch:true,locale:'ja-JP'
+  });
+  try{
+   page=await context.newPage();
+   await page.goto(base+'/embed-harness.html',{waitUntil:'load'});
+   const frame=page.frameLocator('#game-embed');
+   const embedded=page.frames().find(f=>f!==page.mainFrame());
+   if(!embedded)throw new Error('Solo miracle test frame missing');
+   await embedded.evaluate(({A,B})=>{
+     const original=document.getElementById('v2-root'),fresh=document.createElement('div');
+     fresh.id='v2-root';original.replaceWith(fresh);
+     __v2_module_13.mountV2Lab(fresh,
+       __v2_module_12.createV2LabController({hands:{A,B}}));
+   },{A:scenario.A,B:scenario.B});
+   await frame.locator('[data-action=reveal]').tap();
+   passed(await frame.locator('[data-card=hand]').count()===scenario.A.length,
+      scenario.kind+': new miracle cards appear in hand');
+   const cards=frame.locator('[data-card=hand]');
+   for(let i=0;i<scenario.A.length;i++)await cards.nth(i).tap();
+   await frame.locator('[data-action=submit]').tap();
+   await frame.locator('.compact-pass').waitFor();
+   passed((await frame.locator('.compact-pass h1').textContent()).includes('P2'),
+      scenario.kind+': solo miracle moves immediately to defender');
+   passed(await frame.locator('[data-card]').count()===0,
+      scenario.kind+': defender hand remains hidden on handoff');
+   await frame.locator('[data-action=reveal]').tap();
+   if(scenario.guard){
+     await frame.locator('[data-card=hand]').first().tap();
+   }
+   await frame.locator('[data-action=submit]').tap();
+   await frame.locator('.compact-pass').waitFor();
+   await frame.locator('[data-action=reveal]').tap();
+   const scores=await frame.locator('.seat').allTextContents();
+   passed(scores[1].includes('HP '+scenario.expectedHP),
+      scenario.kind+': grounded elemental hit/guard result '+JSON.stringify(scores));
+   passed(scores[0].includes('MP '+scenario.expectedMP),
+      scenario.kind+': the correct cost is paid or Spirit waived');
+   passed(scores[0].includes('手札'+scenario.A.length+'枚'),
+      scenario.kind+': spent cards are refilled without leaking');
+   await screenshot('webkit-solo-miracle-'+scenario.kind+'-resolved');
+  }catch(error){
+   await screenshot('webkit-solo-miracle-'+scenario.kind+'-failure');
+   throw error;
+  }finally{
+   page=null;await context.close();
+  }
+ }
+}
+
+
 try{
   if(!existsSync(path.join(ROOT,'v2/demo/standalone.html')))
     throw new Error('Missing checked-in standalone HTML');
@@ -642,6 +699,7 @@ try{
   await testPrayerTouch(base);
   await testStrengthPowderTouch(base);
   await testAuraNeutralTouch(base);
+  await testNewSoloMiraclesTouch(base);
   console.log('WEBKIT_SMOKE_SUCCESS checks='+checks+' engine=Playwright WebKit'+
     ' fixed-height frames=1024x460,390x430');
 }catch(error){
