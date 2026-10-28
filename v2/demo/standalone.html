@@ -278,7 +278,7 @@ const add=(id,referenceName,attack,price,weight=1,{element='none',reaction,react
 const shield=(id,referenceName,guard,price,weight,{element='none',attackBonus,stopScope,reaction,reactionScope}={})=>
   Object.freeze({id,referenceName,kind:'armor',category:'armor_normal',element,guard,price,weight,...(attackBonus===undefined?{}:{attackBonus}),...(stopScope===undefined?{}:{stopScope}),...(reaction===undefined?{}:{reaction,reactionScope})});
 
-/** Read-only 85-card subset. Do not normalize and sample as the full deck. */
+/** Read-only 86-card subset. Do not normalize and sample as the full deck. */
 const VERIFIED_BASIC_CARDS = Object.freeze([
   main('w001','銅のこん棒',1,1,3),
   main('w002','銀のこん棒',1,10,1),
@@ -365,6 +365,7 @@ const VERIFIED_BASIC_CARDS = Object.freeze([
   Object.freeze({id:'m006',referenceName:'流星',kind:'miracle',role:'attack',plusAttack:true,category:'miracle',element:'light',attack:10,mpCost:7,price:0,weight:1}),
   Object.freeze({id:'m007',referenceName:'乱気流',kind:'miracle',role:'deflect_miracle',category:'miracle',element:'none',mpCost:5,price:0,weight:1}),
   Object.freeze({id:'i003',referenceName:'精霊のぬいぐるみ',kind:'support_item',category:'item',element:'none',effect:'free_previous_miracle',price:5,weight:2}),
+  Object.freeze({id:'i004',referenceName:'ちからの粉',kind:'support_item',category:'item',element:'none',effect:'add_attack',attackBonus:10,price:15,weight:2}),
 ]);
 
 function findVerifiedBasicCard(id) {
@@ -620,9 +621,15 @@ function convertLegacyCard(card,{ruleset=PARTIAL_CARD_SOURCE}={}) {
     else if(card.effect==='reflect_any')effects.push(mk('onDefense','redirectAttack',{mode:'reflect',scope:'any'}));
     else throw new Error('Unmapped defense item effect');
   } else if(card.kind==='support_item') {
-    modes.push('support');
-    if(card.effect==='free_previous_miracle')effects.push(mk('onCost','waivePreviousMp',{target:'previousMiracle'}));
-    else throw new Error('Unmapped support item effect');
+    if(card.effect==='free_previous_miracle'){
+      modes.push('support');
+      effects.push(mk('onCost','waivePreviousMp',{target:'previousMiracle'}));
+    }else if(card.effect==='add_attack' && truthyInt(card.attackBonus) && card.attackBonus>0){
+      // Non-weapon +ATK item: never allowed as opening card.
+      attack=card.attackBonus;
+      modes.push('addAttack');
+      effects.push(mk('onDeclare','addAttack',{scope:'weapon',stacking:'single'}));
+    }else throw new Error('Unmapped support item effect');
   }
   return defineCard({
     id:card.id,family,element:card.element,drawWeight:card.weight,
@@ -1154,7 +1161,7 @@ function compileOrderedWeaponAttack(state,catalog){
   if(selected[0].def.family!=='weapon')
     fail('Basic resolution requires weapon first');
   let weaponAttack=0,attackElement='none',mainCount=0,weaponCount=0;
-  let aura=null,plusCount=0,additive=0,lastWasMiracle=false,hasArmorBonus=false;
+  let aura=null,plusCount=0,additive=0,lastWasMiracle=false,hasArmorBonus=false,itemBonus=0;
   let learnedDrawCount=0;
   let forcedAttackElement=null;
   let wandPosition=-1,auraPosition=-1;
@@ -1195,7 +1202,7 @@ function compileOrderedWeaponAttack(state,catalog){
         fail('Invalid miracle MP');
       if(mult.length===1 && mult[0].when==='onDeclare' && mult[0].params.factor===2 &&
          mult[0].params.scope==='weapon' && def.playModes.includes('cast')){
-        if(aura||plusCount||hasArmorBonus)fail('Aura stacked with other miracles or armor bonus unverified');
+        if(aura||plusCount||hasArmorBonus||itemBonus)fail('Aura stacked with other miracles or non-weapon bonus unverified');
         if(def.effects.length!==1)fail('Unrecognized Aura effects');
         aura=def.id;
         auraPosition=position;
@@ -1216,6 +1223,17 @@ function compileOrderedWeaponAttack(state,catalog){
       casts.push({type:'learn',definitionId:def.id});
       lastWasMiracle=true;
       selectedKinds.push('miracle');
+    } else if(def.family==='item'&&def.playModes.includes('addAttack')&&
+       plus.length===1&&plus[0].when==='onDeclare'&&
+       plus[0].params.scope==='weapon'&&def.effects.length===1&&
+       def.stats.attack>0){
+      if(fromLearned)fail('Attack item must come from hand');
+      if(aura||plusCount)
+        fail('Non-weapon attack bonus mixed with miracles: damage precedence unverified');
+      if(itemBonus)fail('More than one +ATK item unverified');
+      itemBonus=add(itemBonus,def.stats.attack);
+      lastWasMiracle=false;
+      selectedKinds.push('itemBonus');
     } else if(def.family==='item'&&def.playModes.includes('support')&&
        discount.length===1&&discount[0].when==='onCost' &&
        discount[0].params.target==='previousMiracle'&&def.effects.length===1){
@@ -1243,7 +1261,7 @@ function compileOrderedWeaponAttack(state,catalog){
       fail('Attribute wand before Aura: original dye priority unverified');
   }
   // Aura multiplies all weapon attack values, even addons chosen later.
-  const attack=add(aura?add(weaponAttack,weaponAttack):weaponAttack,additive);
+  const attack=add(add(aura?add(weaponAttack,weaponAttack):weaponAttack,additive),itemBonus);
   const payableMP=miracles.reduce((n,m)=>add(n,m.discounted?0:m.mpCost),0);
   if(caster.mp<payableMP)fail('Not enough MP');
   const learnedMiracles=[...new Set(miracles.map(m=>m.id))];
@@ -2246,7 +2264,7 @@ function baseLabel(def){
   const override=def.effects.find(e=>e.when==='onDeclare'&&e.type==='setAttackElement');
   const plusAttack=def.playModes.includes('addAttack') &&
     (def.family==='weapon'&&!def.playModes.includes('mainAttack') ||
-     def.family==='miracle'&&def.effects.some(e=>e.type==='addAttack'&&
+     ['miracle','item'].includes(def.family)&&def.effects.some(e=>e.type==='addAttack'&&
        e.when==='onDeclare'&&e.params.scope==='weapon'));
   return [
     names.get(def.id)??def.id,
