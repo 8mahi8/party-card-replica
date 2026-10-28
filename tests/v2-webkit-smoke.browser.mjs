@@ -683,6 +683,59 @@ async function testNewSoloMiraclesTouch(base){
 }
 
 
+async function testRainbowDefenseTouch(base){
+ for(const scenario of [
+  {kind:'light',handA:['m006'],handB:['i001','d005'],mp:3,hp:35},
+  {kind:'dark',handA:['m003'],handB:['i001'],mp:5,hp:35}
+ ]){
+  const context=await browser.newContext({
+   viewport:{width:1024,height:768},screen:{width:1024,height:768},
+   deviceScaleFactor:2,isMobile:true,hasTouch:true,locale:'ja-JP'
+  });
+  try{
+   page=await context.newPage();
+   await page.goto(base+'/embed-harness.html',{waitUntil:'load'});
+   const frame=page.frameLocator('#game-embed');
+   const embedded=page.frames().find(f=>f!==page.mainFrame());
+   if(!embedded)throw new Error('Rainbow test frame missing');
+   await embedded.evaluate(({A,B})=>{
+    const previous=document.getElementById('v2-root');
+    const fresh=document.createElement('div');fresh.id='v2-root';
+    previous.replaceWith(fresh);
+    __v2_module_13.mountV2Lab(fresh,
+      __v2_module_12.createV2LabController({hands:{A,B}}));
+   },{A:scenario.handA,B:scenario.handB});
+   await frame.locator('[data-action=reveal]').tap();
+   await frame.locator('[data-card=hand]').first().tap();
+   await frame.locator('[data-action=submit]').tap();
+   await frame.locator('.compact-pass').waitFor();
+   passed((await frame.locator('.compact-pass h1').textContent()).includes('P2'),
+     scenario.kind+': handoff to defender after elemental miracle');
+   await frame.locator('[data-action=reveal]').tap();
+   const choices=frame.locator('[data-card=hand]');
+   passed(await choices.count()===scenario.handB.length,
+     scenario.kind+': both defensive cards render in original order');
+   for(let i=0;i<scenario.handB.length;i++)await choices.nth(i).tap();
+   await frame.locator('[data-action=submit]').tap();
+   await frame.locator('.compact-pass').waitFor();
+   await frame.locator('[data-action=reveal]').tap();
+   const scores=await frame.locator('.seat').allTextContents();
+   passed(scores[1].includes('HP '+scenario.hp),
+     scenario.kind+': Rainbow removes attribute, expected HP '+scenario.hp);
+   passed(scores[0].includes('MP '+scenario.mp),
+     scenario.kind+': attacker pays miracle cost once');
+   passed((await frame.locator('.stage-heading').textContent()).includes('P2'),
+     scenario.kind+': no instant KO and normal next turn');
+   await screenshot('webkit-rainbow-'+scenario.kind+'-resolved');
+  }catch(error){
+   await screenshot('webkit-rainbow-'+scenario.kind+'-failure');throw error;
+  }finally{
+   page=null;await context.close();
+  }
+ }
+}
+
+
 try{
   if(!existsSync(path.join(ROOT,'v2/demo/standalone.html')))
     throw new Error('Missing checked-in standalone HTML');
@@ -700,6 +753,7 @@ try{
   await testStrengthPowderTouch(base);
   await testAuraNeutralTouch(base);
   await testNewSoloMiraclesTouch(base);
+  await testRainbowDefenseTouch(base);
   console.log('WEBKIT_SMOKE_SUCCESS checks='+checks+' engine=Playwright WebKit'+
     ' fixed-height frames=1024x460,390x430');
 }catch(error){
