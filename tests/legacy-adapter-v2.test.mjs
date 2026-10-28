@@ -5,10 +5,10 @@ import {VERIFIED_BASIC_CARDS} from '../src/verified-basic-cards.mjs';
 import {createInstance} from '../v2/foundation.mjs';
 
 const get=(id)=>VERIFIED_BASIC_CARDS.find(c=>c.id===id);
-test('entire current 86-card partial catalog migrates with exact 205-slot total and no duplicate IDs',()=>{
+test('entire current 90-card partial catalog migrates with exact 209-slot total and no duplicate IDs',()=>{
  const out=migrateLegacyCatalog();
- assert.equal(out.summary.unique,86);assert.equal(out.summary.slots,205);assert.equal(out.summary.complete,false);
- assert.equal(out.byId.size,86);assert.equal(out.definitions.length,86);
+ assert.equal(out.summary.unique,90);assert.equal(out.summary.slots,209);assert.equal(out.summary.complete,false);
+ assert.equal(out.byId.size,90);assert.equal(out.definitions.length,90);
 });
 test('base attack, guard, MP, price, element, weight are preserved for every card',()=>{
  const out=migrateLegacyCatalog();
