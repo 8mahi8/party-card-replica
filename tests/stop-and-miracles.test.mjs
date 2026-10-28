@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import {RESEARCH_CATALOG_CONTRACT} from './helpers/research-catalog-contract.mjs';
 import {createMatch,playAttack,playMiracleAttack,defend} from '../src/match.mjs';
 import {findVerifiedBasicCard as card,VERIFIED_BASIC_CARDS} from '../src/verified-basic-cards.mjs';
 import {auditCatalog,createAuditedDraw} from '../src/catalog-audit.mjs';
@@ -12,10 +13,10 @@ const setup=(a,b)=>{
 const attack=(a,b)=>playAttack(setup(a,b),{playerId:'A',targetId:'B',handIndices:[0]},draw);
 const cast=(a,b,handIndex=0)=>playMiracleAttack(setup(a,b),{playerId:'A',targetId:'B',handIndex},draw);
 
-test('research-backed stopper and miracle cards persist in current 90-card subset, not full deck',()=>{
- assert.equal(VERIFIED_BASIC_CARDS.length,90);
+test('research-backed stopper and miracle cards persist in current current-card subset, not full deck',()=>{
+ assert.equal(VERIFIED_BASIC_CARDS.length,RESEARCH_CATALOG_CONTRACT.unique);
  const audit=auditCatalog(VERIFIED_BASIC_CARDS);
- assert.equal(audit.slots,209);assert.equal(audit.complete,false);
+ assert.equal(audit.slots,RESEARCH_CATALOG_CONTRACT.slots);assert.equal(audit.complete,false);
  assert.throws(()=>createAuditedDraw(VERIFIED_BASIC_CARDS),/incomplete/);
  for (const [id,guard] of [['d018',9],['d019',11],['d020',13],['d021',15]]){
   assert.equal(card(id).guard,guard);assert.equal(card(id).stopScope,'miracle');
