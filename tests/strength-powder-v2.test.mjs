@@ -60,7 +60,7 @@ test('Powder after a normal weapon works with zero MP, independent of miracle ca
 });
 test('source confirms Powder->Aura->Spirit can be selected, but damage-order is not verified',()=>{
  const s=room(['w016','i004','m004','i003'],0),before=JSON.stringify(s);
- assert.throws(()=>act(s,[0,1,2,3]),/Aura stacked with other miracles or non-weapon bonus unverified/);
+ assert.throws(()=>act(s,[0,1,2,3]),/non-weapon bonus unverified/);
  assert.equal(JSON.stringify(s),before);
  // This is a LAB-ONLY research limitation, NOT a claim original rejects it.
 });
