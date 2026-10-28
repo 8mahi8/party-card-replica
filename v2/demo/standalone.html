@@ -394,6 +394,9 @@ const __v2_module_2 = (() => {
 const FAMILIES = new Set(['weapon','armor','miracle','item','trade']);
 const ELEMENTS = new Set(['none','fire','water','wood','earth','light','dark']);
 const MODES = new Set(['mainAttack','addAttack','defend','cast','support','trade']);
+// Some original artifacts return to the hand and cost HP when discarded.
+// Until sourced effects are implemented, explicitly gate those definitions.
+const DISCARD_POLICIES = new Set(['ordinary','requiresSpecialResolution']);
 const EFFECT_TRIGGERS = new Set(['onDeclare','onCost','beforeHit','onDefense','afterHit','onTurnEnd']);
 const EFFECT_TYPES = new Set(['redirectAttack','stripElement','multiplyAttack','addAttack','stopAttack','waivePreviousMp','setAttackElement']);
 
@@ -447,8 +450,11 @@ function defineCard(spec) {
     throw new Error('Versioned evidence required');
   const effects=(spec.effects??[]);
   if(!Array.isArray(effects))throw new TypeError('Effects must be array');
+  const discardPolicy=spec.discardPolicy??'ordinary';
+  assertAllowed(discardPolicy,DISCARD_POLICIES,'discard policy');
   const normalized={
     id, family:spec.family, element:spec.element, drawWeight:spec.drawWeight,
+    discardPolicy,
     stats:Object.freeze(stats), playModes:Object.freeze([...spec.playModes]),
     effects:Object.freeze(effects.map(freezeEffect)),
     source:Object.freeze({ruleset:String(spec.source.ruleset),confidence:String(spec.source.confidence)})
@@ -595,7 +601,7 @@ const {VERIFIED_BASIC_CARDS,PARTIAL_CARD_SOURCE} = __v2_module_1;
 const KNOWN_KEYS=new Set([
   'id','referenceName','kind','category','slot','element','attack','guard',
   'attackBonus','price','weight','reaction','reactionScope','stopScope',
-  'role','boost','plusAttack','mpCost','effect','attackElementOverride'
+  'role','boost','plusAttack','mpCost','effect','attackElementOverride','discardPolicy'
 ]);
 const CATEGORY_BY_KIND=Object.freeze({weapon:'weapon_single',armor:'armor_normal',miracle:'miracle',defense_item:'item',support_item:'item'});
 const mk=(when,type,params={})=>({when,type,params});
@@ -698,6 +704,7 @@ function convertLegacyCard(card,{ruleset=PARTIAL_CARD_SOURCE}={}) {
   return defineCard({
     id:card.id,family,element:card.element,drawWeight:card.weight,
     stats:{attack,guard,mpCost,price:card.price},playModes:modes,effects,
+    discardPolicy:card.discardPolicy??'ordinary',
     source:{ruleset,confidence:'secondary'}
   });
 }
@@ -735,6 +742,7 @@ const MAX_PLAYERS=9;
 const MAX_HAND=18;
 const ALLOWED_KEYS={
   pray:new Set(['commandId','expectedRevision','actorId','type']),
+  discard:new Set(['commandId','expectedRevision','actorId','type','orderedInstanceIds']),
   playCards:new Set(['commandId','expectedRevision','actorId','type','targetId','orderedInstanceIds']),
   playSequence:new Set(['commandId','expectedRevision','actorId','type','targetId','orderedPlays']),
   castLearned:new Set(['commandId','expectedRevision','actorId','type','targetId','learnedDefinitionId']),
@@ -930,7 +938,23 @@ function applyStagingCommand(state,command,catalog,{authorizedSeatId}={}) {
   let pending;
   let phase;
   let activePlayerId;
-  if(command.type==='pray'){
+  if(command.type==='discard'){
+    if(state.phase!=='turn'||actor.hp<=0)
+      throw new Error('Cannot discard outside a living turn');
+    // Discard uses PHYSICAL card instances; learned spells cannot be thrown.
+    // Rare return-with-damage artifacts will require a separate researched
+    // resolution, never silently destroy those cards as ordinary discard.
+    const cards=selectInstances(actor.hand,command.orderedInstanceIds);
+    if(cards.length>MAX_HAND)throw new Error('Too many discarded cards');
+    for(const card of cards){
+      const def=catalog.get(card.definitionId);
+      if(!def||def.discardPolicy!=='ordinary')
+        throw new Error('Special discard effect is not yet implemented');
+    }
+    pending={type:'discard',originalAttackerId:actor.id,
+      discardInstanceIds:cards.map(x=>x.instanceId)};
+    phase='resolving';activePlayerId=null;
+  } else if(command.type==='pray'){
     if(state.phase!=='turn'||actor.hp<=0)throw new Error('Cannot pray outside a living turn');
     // The source game permits prayer only when NO physical weapon is held.
     // This includes +ATK addon weapons; an offensive miracle is not a weapon.
@@ -1094,6 +1118,23 @@ function runEffectQueueFixture(state,catalog,queue,{
      if(before-p.hand.length!==ids.size)fail('Card disappeared during resolution');
      spent[p.id]=(spent[p.id]??0)+ids.size;
      events.push({type:'spend',playerId:p.id,count:ids.size});
+   } else if(effect.type==='discard'){
+     // Unlike a played card, a discarded artifact gets NO replacement.
+     // Only G3's strict discard command may compile this action. Keep
+     // ordinary spend/refill credits and previous pending effects distinct.
+     if(!Array.isArray(effect.instanceIds)||!effect.instanceIds.length)
+       fail('Invalid discarded IDs');
+     const ids=new Set(effect.instanceIds),p=who(s,effect.playerId);
+     if(ids.size!==effect.instanceIds.length)fail('Repeated discarded card');
+     for(const instance of p.hand){
+       if(ids.has(instance.instanceId) &&
+          catalog.get(instance.definitionId)?.discardPolicy!=='ordinary')
+         fail('Special discard effect is not yet implemented');
+     }
+     const before=p.hand.length;
+     p.hand=p.hand.filter(x=>!ids.has(x.instanceId));
+     if(before-p.hand.length!==ids.size)fail('Discarded card not in hand');
+     events.push({type:'discard',playerId:p.id,count:ids.size});
    } else if(effect.type==='grantDraw'){
      const p=who(s,effect.playerId);
      if(!positiveCount(effect.count)||effect.count<1||effect.count>18)
@@ -2136,6 +2177,35 @@ function resolvePrayFixture(state,catalog,options={}){
   return {...result,plan:Object.freeze({type:'pray',wasFull:full})};
 }
 /**
+ * End a turn by discarding selected physical artifacts, with NO replacement.
+ * Ordinary discard is a sourced rule; exceptions (return with HP penalty)
+ * are intentionally not generalized until an actual special card is listed.
+ */
+function resolveDiscardFixture(state,catalog,options={}){
+  if(options.labOnly!==true)fail('Only available in lab fixture mode');
+  if(state?.schemaVersion!==2||state.phase!=='resolving'||
+     state.pending?.type!=='discard')
+    fail('No discard waiting for resolution');
+  const actorId=state.pending.originalAttackerId;
+  const actor=state.players.find(p=>p.id===actorId);
+  if(!actor||actor.hp<=0)fail('Invalid discarding actor');
+  const ids=state.pending.discardInstanceIds;
+  if(!Array.isArray(ids)||ids.length<1||ids.length>MAX_HAND_SIZE||
+     ids.some(x=>typeof x!=='string')||new Set(ids).size!==ids.length)
+    fail('Invalid discard selection');
+  for(const id of ids){
+    const card=actor.hand.find(c=>c.instanceId===id);
+    if(!card)fail('Discarded card not in hand');
+    if(catalog.get(card.definitionId)?.discardPolicy!=='ordinary')
+      fail('Special discard effect is not yet implemented');
+  }
+  const result=runEffectQueueFixture(state,catalog,[
+    {type:'discard',playerId:actorId,instanceIds:[...ids]},
+    {type:'advance',afterId:actorId}
+  ],options);
+  return {...result,plan:Object.freeze({type:'discard',count:ids.length})};
+}
+/**
  * Resolve a complete defense response OR a direct self-targeting attack.
  * If the defender redirects, the output returns to the "defense" phase.
  */
@@ -2149,6 +2219,8 @@ function resolveStagedFixture(state,catalog,{
     fail('No attack waiting for resolution');
   if(state.pending?.type==='pray')
     return resolvePrayFixture(state,catalog,{labOnly,fixtureDrawDefinitionId});
+  if(state.pending?.type==='discard')
+    return resolveDiscardFixture(state,catalog,{labOnly,fixtureDrawDefinitionId});
   const family=attackFamily(state,catalog);
   if(family==='miracle')
     return resolveSoloMiracleFixture(state,catalog,{labOnly:true,fixtureDrawDefinitionId,deflectRng});
@@ -2201,7 +2273,7 @@ function submitAndResolveFixture(state,command,catalog,{
   return {...resolved,applied:true,duplicate:false,autoResolved:true};
 }
 
-return {resolvePrayFixture,resolveStagedFixture,submitAndResolveFixture};
+return {resolvePrayFixture,resolveDiscardFixture,resolveStagedFixture,submitAndResolveFixture};
 })();
 
 const __v2_module_13 = (() => {
@@ -2343,6 +2415,10 @@ function createV2LabController({
       actorId:actor?.id??null,notice,targetId,
       winnerId:state.winnerId??null,
       selection:[...selected],
+      canDiscardSelection:state.phase==='turn' && selected.length>0 &&
+        selected.every(x=>x.instanceId &&
+          catalog.get(actor?.hand.find(c=>c.instanceId===x.instanceId)?.definitionId)
+            ?.discardPolicy==='ordinary'),
       cardSetComplete:summary.complete,
       cardSetCount:summary.unique
     };
@@ -2427,13 +2503,19 @@ function createV2LabController({
       throw new Error('攻撃先が無効です');
     targetId=id;return view();
   }
-  function submit(){
+  function submit({discard=false}={}){
     if(!visible)throw new Error('手札表示後に操作してください');
     const actor=own();
     if(!actor)throw new Error('試合は終了しました');
     const n='lab-'+(++commandSerial);
     let command;
-    if(state.phase==='defense'){
+    if(discard){
+      if(state.phase!=='turn')throw new Error('捨てるは自分の手番だけ使えます');
+      if(!selected.length||selected.some(x=>!x.instanceId))
+        throw new Error('捨てる神器を手札から選んでください');
+      command={commandId:n,expectedRevision:state.revision,actorId:actor.id,
+        type:'discard',orderedInstanceIds:selected.map(x=>x.instanceId)};
+    }else if(state.phase==='defense'){
       const learned=selected.filter(x=>x.learnedDefinitionId);
       if(learned.length>1)throw new Error('習得済み防御奇跡は1つまで');
       command=learned.length
@@ -2579,6 +2661,10 @@ function renderV2LabMarkup(data,{resetArmed=false}={}){
  const actionText=data.phase==='defense'?(data.selection.length?'防御を確定':'防御しない')
    :data.canPray&&data.selection.length===0?'祈る（神器を1枚引く）':'攻撃を確定';
  const notice='<p class="status" role="status">'+esc(data.notice)+'</p>';
+ const discardOption=data.phase==='turn' && data.canDiscardSelection
+   ?'<button type="button" class="quiet wide discard-option" data-action="discard">選んだ'+
+     data.selection.length+'枚を捨てる（補充なし・ターン終了）</button>'
+   :'';
  return header+'<main class="stage">'+
    '<div class="stage-heading"><h1>'+esc(seatLabel(data.actorId))+'：'+title+'</h1><p>'+caption+'</p></div>'+
    targets+'<section class="cards-panel"><h2>手札 <small>'+data.hand.length+'枚</small></h2>'+
@@ -2589,7 +2675,7 @@ function renderV2LabMarkup(data,{resetArmed=false}={}){
        '<p class="empty">まだ習得していません</p>')+'</div></section>'+
    '<section class="selection"><h2>選択順 <small>再タップで解除</small></h2><div class="picks">'+
    (picked||'<span class="muted">まだ選択されていません</span>')+'</div></section>'+
-   notice+'<button type="button" class="primary wide confirm" data-action="submit">'+
+   notice+discardOption+'<button type="button" class="primary wide confirm" data-action="submit">'+
    actionText+'</button></main>'+footer;
 }
 function mountV2Lab(root,controller=createV2LabController()){
@@ -2610,9 +2696,9 @@ function mountV2Lab(root,controller=createV2LabController()){
        else{controller.reset();resetArmed=false;handoff=true;}
      }else if(action==='reveal'){
        resetArmed=false;controller.reveal();
-     }else if(action==='submit'){
+     }else if(action==='submit'||action==='discard'){
        resetArmed=false;
-       const outcome=controller.submit();
+       const outcome=controller.submit({discard:action==='discard'});
        // A successful command conceals the cards or ends the match.
        // Scroll back to the top inside the embed frame so the next player
        // sees the pass screen rather than an empty bottom viewport.
