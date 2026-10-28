@@ -106,7 +106,7 @@ export function compileOrderedWeaponAttack(state,catalog){
         fail('Invalid miracle MP');
       if(mult.length===1 && mult[0].when==='onDeclare' && mult[0].params.factor===2 &&
          mult[0].params.scope==='weapon' && def.playModes.includes('cast')){
-        if(aura||plusCount||hasArmorBonus||itemBonus)fail('Aura stacked with other miracles or non-weapon bonus unverified');
+        if(aura||plusCount||hasArmorBonus||itemBonus)fail('Aura stacked with other miracles or armor bonus unverified; non-weapon bonus unverified');
         if(def.effects.length!==1)fail('Unrecognized Aura effects');
         aura=def.id;
         auraPosition=position;
@@ -114,6 +114,7 @@ export function compileOrderedWeaponAttack(state,catalog){
          plus[0].when==='onDeclare' && plus[0].params.scope==='weapon' &&
          def.playModes.includes('addAttack') && def.stats.attack>0){
         if(aura)fail('Aura stacked with other miracles unverified');
+        if(itemBonus)fail('Non-weapon item bonus plus miracle damage precedence unverified');
         plusCount++;
         if(plusCount>2)fail('More than two plus miracles not verified');
         if(plusCount===2 && (def.id!==miracles[0]?.id ||
