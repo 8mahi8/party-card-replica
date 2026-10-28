@@ -22,6 +22,8 @@ function safeMessage(error){
   // A lab-only limitation, not a definitive rule of the original game.
   if(msg==='Weapon or armor after plus miracle unverified')
     return 'この選択順は原作で未確認です。＋攻の追加武器を奇跡より前に選ぶか、解除してください';
+  if(msg==='Attack must start with a weapon or offensive miracle')
+    return 'ちからの粉などの雑貨は単独で攻撃できません。最初に武器を選んでください';
   return typeof msg==='string' && msg.length<=230 ? msg : 'この操作は現在の実験版では使えません';
 }
 function otherSeat(state,actor){
