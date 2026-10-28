@@ -11,9 +11,9 @@ function setup(a,b){
 }
 const combo=(s,handIndices,plusHandIndex)=>playPlusMiracleAttack(s,{playerId:'A',targetId:'B',handIndices,plusHandIndex},draw);
 test('Fireball and Meteor retain verified values in expanded partial research data',()=>{
- assert.equal(VERIFIED_BASIC_CARDS.length,86);
+ assert.equal(VERIFIED_BASIC_CARDS.length,90);
  const audit=auditCatalog(VERIFIED_BASIC_CARDS);
- assert.equal(audit.slots,205);assert.equal(audit.complete,false);
+ assert.equal(audit.slots,209);assert.equal(audit.complete,false);
  assert.deepEqual([card('m005').attack,card('m005').mpCost,card('m005').element,card('m005').weight],[2,2,'fire',1]);
  assert.deepEqual([card('m006').attack,card('m006').mpCost,card('m006').element,card('m006').weight],[10,7,'light',1]);
 });
