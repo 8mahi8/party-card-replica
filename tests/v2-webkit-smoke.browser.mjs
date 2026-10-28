@@ -765,8 +765,12 @@ async function testDiscardTouch(base){
    await frame.locator('[data-action=reveal]').tap();
    passed(await frame.locator('[data-action=discard]').count()===0,
       'discard button is unavailable before selecting hand cards');
-   await frame.locator('[data-card=hand]').nth(0).tap();
-   await frame.locator('[data-card=hand]').nth(2).tap();
+   await frame.locator('[data-card=hand]').nth(0).tap(); // physical weapon
+   passed(await frame.locator('[data-action=discard]').count()===0,
+     'weapon cannot reveal discard command');
+   await frame.locator('[data-card=hand]').nth(0).tap(); // cancel weapon
+   await frame.locator('[data-card=hand]').nth(1).tap(); // ordinary armor
+   await frame.locator('[data-card=hand]').nth(2).tap(); // miracle
    const discard=frame.locator('[data-action=discard]');
    passed(await discard.count()===1,'discard action appears after selected cards');
    passed((await discard.textContent()).includes('補充なし・ターン終了'),
