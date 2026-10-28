@@ -118,7 +118,7 @@ function sumLegalArmor(attackElement, shields, {selfTarget=false,rainbowCurtain=
     nonnegativeInt(shield.guard,'shield.guard');
     if (!Number.isSafeInteger(shield.guard)) throw new RangeError('shield.guard must be a safe integer');
     if (!canBlock(attackElement,shield.element,{rainbowCurtain})) {
-      throw new Error(`incompatible shield: ${shield.element} against ${attackElement}`);
+      throw new Error(`Illegal shield for attack element: incompatible shield: ${shield.element} against ${attackElement}`);
     }
     if (total > Number.MAX_SAFE_INTEGER - shield.guard)
       throw new RangeError('Total shield guard overflow');
