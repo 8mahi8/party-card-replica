@@ -112,7 +112,7 @@ export function convertLegacyCard(card,{ruleset=PARTIAL_CARD_SOURCE}={}) {
   return defineCard({
     id:card.id,family,element:card.element,drawWeight:card.weight,
     stats:{attack,guard,mpCost,price:card.price},playModes:modes,effects,
-    discardPolicy:card.discardPolicy??'ordinary',
+    discardPolicy:card.discardPolicy??(card.kind==='weapon'?'forbidden':'ordinary'),
     source:{ruleset,confidence:'secondary'}
   });
 }
