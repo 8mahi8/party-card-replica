@@ -1,5 +1,15 @@
 # ゴッドフィールドV2 G3｜「捨てる」基本行動（2026-10-29）
 
+## 2026-10-29 訂正：武器を捨てられるのは誤実装だった
+
+初回の実装では全カードを通常破棄可能としていたが、[2025年にブラウザ版を1000試合プレイした人の実践記録](https://note.com/md_stardustman/n/nfc5dfb559f95)は **「武器と一部の雑貨は捨てられない」** と明記している。これは本書の「好きな枚数捨てられる」という大まかな説明より具体的であるため、**全ての通常武器（main/add-on）を `forbidden` に変更**した。失敗した操作はカードを失わず、ターンも進まない。
+
+実装：`v2/foundation.mjs` の武器初期値を `forbidden`、武器への `ordinary` 上書きを拒否。`v2/legacy-adapter.mjs` で変換時も保存。`v2/staging-room.mjs`、`v2/effect-runner.mjs`、`v2/room-transition.mjs` で防御を重ねた。`v2/lab-ui.mjs` は「武器は『捨てる』対象外」と説明し捨てボタンを非表示にする。
+
+追加テストは全武器のタグ、メイン・追加武器の個別／混合選択の拒否、元状態不変、UIのタップ時表示を検証。`tests/v2-webkit-smoke.browser.mjs` は武器選択で捨てボタンが現れず、防具＋奇跡なら捨てられることを確認する。
+
+**例外的に破棄不可／捨てたときHPを失うような雑貨**は、現行版の直接のカード挙動が揃うまで固有実装せず、データの `discardPolicy` と効果カテゴリで区別する。
+
 ## 調査した原作資料
 
 - [1000試合プレイヤーによる実践的な仕様解説（note）](https://note.com/md_stardustman/n/nfc5dfb559f95)：**捨てるは1ターンを使う／好きな枚数捨てられる／捨てた分は手札補充されない**と明記。武器や一部雑貨への特殊扱いにも言及。
@@ -15,7 +25,7 @@
 - `v2/staging-room.mjs`：`discard`コマンド（actorId / commandId / expectedRevision / orderedInstanceIds）を追加。使用できるのは生存中の**自分の攻撃手番のみ**。手札の**個体ID**で1〜18枚選び、重複・未所持・余計なフィールド・古いrevision・成り済ましを拒否。
 - `v2/effect-runner.mjs`：`discard`効果を追加。`spend`と異なり**補充クレジットを作らない**。手札のみ取り除き、イベントに`discard`と枚数を記録。攻撃・奇跡・防御時の`spend`/MPや乱数には変更なし。
 - `v2/room-transition.mjs`：`resolveDiscardFixture()`追加。研究用labOnly以外から実行不可。`discard → advance`だけを共通効果キューに送り、次の生存プレイヤーへ手番を進める。手札補充やRNG消費はなし。
-- `v2/foundation.mjs`と`v2/legacy-adapter.mjs`：各カード定義に`discardPolicy`（`ordinary` / `requiresSpecialResolution`）を導入。現行90カードは通常扱い。後で邪神の大剣などが台帳に入ったとき、未実装の特殊動作を**普通の破棄として誤処理しない**。特殊なときは明示的エラー。
+- `v2/foundation.mjs`と`v2/legacy-adapter.mjs`：各カード定義に`discardPolicy`（`ordinary` / `forbidden` / `requiresSpecialResolution`）を導入。現行90カードのうち**武器は `forbidden`**、他の通常カードは `ordinary`。後で邪神の大剣などが台帳に入ったとき、未実装の特殊動作を**普通の破棄として誤処理しない**。特殊なときは明示的エラー。
 - `v2/lab-controller.mjs`：`submit({discard:true})`で選択済みの物理カードを破棄。習得済み奇跡は対象にしない。成功後は必ず相手の手札を隠して渡す。
 - `v2/lab-ui.mjs`：自分の攻撃手番に**物理カードを選んだ場合のみ**、「N枚捨てる／補充なし・ターン終了」ボタンを表示。通常の攻撃確定ボタンと分離。
 - `v2/demo/template.html`：最初のスクリーンショットでは**捨てるボタンが固定攻撃ボタンに隠れる**問題が見つかった。両ボタンをひとつの`.action-bar`に統合し横並び固定へ修正。WebKitでは1024×460、390×430の両方で2つのボタンが44px以上・重なりなし・同じ列にあることを確認。
@@ -23,9 +33,9 @@
 
 ## テスト
 
-- `tests/discard-v2.test.mjs` **11ケース**：
+- `tests/discard-v2.test.mjs` **14ケース**：
   1. 1枚の破棄で2revision／1ターン進行／HP・MP・お金・RNG維持／補充0枚。
-  2. 任意の複数枚の破棄（武器・奇跡・防具・雑貨）、手札ID保持、補充なし。
+  2. 任意の複数枚の破棄（奇跡・防具・通常雑貨）。**武器は破棄禁止**、手札ID保持、補充なし。
   3. 手札18枚全破棄、0枚まで減るが補充・新ID生成なし。
   4. 3人対戦、死んだプレイヤーを飛ばして次の生存者へ。
   5. 空選択・重複・偽ID・期限切れ・偽装・不要な入力で状態不変。
