@@ -119,14 +119,19 @@ test('invalid seats, bogus trade item, forged ownership and self-target are reje
 test('forged queue price cannot be specified and a sell must use real catalog price',()=>{
  const s=room(),offer=selection(s);
  const staged={...s,phase:'resolving',pending:{type:'uncontestedSale'},activePlayerId:null};
- const result=runEffectQueueFixture(staged,catalog,[
+ const forged=[
   {type:'spend',playerId:'A',instanceIds:[offer.saleInstanceId]},
   {type:'uncontestedSale',sellerId:'A',buyerId:'B',
    soldInstanceId:offer.soldInstanceId,price:0},
   {type:'refill'},{type:'advance',afterId:'A'}
- ],options);
- assert.equal(result.state.players[0].money,45,
-  'queue derives gold club price from definition instead of arbitrary price');
+ ];
+ assert.throws(()=>runEffectQueueFixture(staged,catalog,forged,options),
+  /Unexpected sale effect property/);
+ assert.throws(()=>runEffectQueueFixture(staged,catalog,[
+  {type:'uncontestedSale',sellerId:'A',buyerId:'B',
+   soldInstanceId:offer.soldInstanceId},
+  {type:'advance',afterId:'A'}
+ ],options),/requires spending a valid Sell trade card/);
  assert.equal(s.players[0].money,20);
 });
 test('sale transaction fails atomically when seller money would overflow',()=>{
