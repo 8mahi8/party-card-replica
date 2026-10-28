@@ -175,9 +175,12 @@ function sumLegalArmor(attackElement, shields, {selfTarget=false,rainbowCurtain=
   return shields.reduce((total, shield) => {
     if (!shield || typeof shield !== 'object') throw new TypeError('shield must be object');
     nonnegativeInt(shield.guard,'shield.guard');
+    if (!Number.isSafeInteger(shield.guard)) throw new RangeError('shield.guard must be a safe integer');
     if (!canBlock(attackElement,shield.element,{rainbowCurtain})) {
       throw new Error(`incompatible shield: ${shield.element} against ${attackElement}`);
     }
+    if (total > Number.MAX_SAFE_INTEGER - shield.guard)
+      throw new RangeError('Total shield guard overflow');
     return total + shield.guard;
   }, 0);
 }
@@ -1304,7 +1307,7 @@ return {compileOrderedWeaponAttack,queuedAttackCosts};
 
 const __v2_module_7 = (() => {
 "use strict";
-const {canBlock, combineElements, calculateHit, MAX_HAND_SIZE} = __v2_module_0;
+const {sumLegalArmor, calculateHit, MAX_HAND_SIZE} = __v2_module_0;
 const {runEffectQueueFixture} = __v2_module_5;
 const {compileOrderedWeaponAttack,queuedAttackCosts} = __v2_module_6;
 
@@ -1322,7 +1325,6 @@ const {compileOrderedWeaponAttack,queuedAttackCosts} = __v2_module_6;
 
 
 
-const MAX_ATTACK=Number.MAX_SAFE_INTEGER;
 function fail(message) { throw new Error(message); }
 function catalogDef(catalog,instance) {
   if(!instance || typeof instance.instanceId!=='string')
@@ -1339,11 +1341,6 @@ function locateHandCards(player,orderedIds,catalog) {
     if(!instance)fail('Card not present in hand');
     return {instance,def:catalogDef(catalog,instance)};
   });
-}
-function safeAdd(a,b) {
-  if(!Number.isSafeInteger(a)||!Number.isSafeInteger(b)||a<0||b<0||
-     a>MAX_ATTACK-b)fail('Invalid accumulated attack or defense');
-  return a+b;
 }
 function getPlayer(state,id) {
   const player=state.players.find(p=>p.id===id);
@@ -1408,7 +1405,8 @@ function compileBasicResolution(state,catalog) {
     if(p.defense.learnedDefinitionId!==undefined)fail('Learned defensive miracle requires dedicated resolver');
     defending=locateHandCards(defender,p.defense.instanceIds,catalog);
   }
-  let armor=0,stripElement=false;
+  let stripElement=false;
+  const physicalShields=[];
   for(let i=0;i<defending.length;i++) {
     const {def}=defending[i];
     if(!def.playModes.includes('defend'))fail('Unsupported defense selection');
@@ -1418,15 +1416,11 @@ function compileBasicResolution(state,catalog) {
     if(strip){stripElement=true;continue;}
     if(!['weapon','armor'].includes(def.family))
       fail('Unsupported defense item without guard');
-    // Defensive item's stop-against-miracle effect is inert vs ordinary weapon.
-    // Element shields are computed below, after any attribute removal.
-    armor=safeAdd(armor,def.stats.guard);
+    physicalShields.push({guard:def.stats.guard,element:def.element});
   }
-  for(const {def} of defending) {
-    if(def.effects.some(e=>e.type==='stripElement'))continue;
-    if(!canBlock(element,def.element,{rainbowCurtain:stripElement}))
-      fail('Illegal shield for attack element');
-  }
+  // All ordinary shield arithmetic and element legality lives in ONE
+  // source-backed pure rules helper (also used for solo miracles).
+  const armor=sumLegalArmor(element,physicalShields,{rainbowCurtain:stripElement});
   const hit=calculateHit({attack,element,armor,hp:defender.hp,rainbowCurtain:stripElement});
   const queue=Object.freeze([
     ...(p.attackContext?[]:queuedAttackCosts(attackContext,attacker.id)),
@@ -1742,14 +1736,14 @@ return {resolveRedirectFixture};
 
 const __v2_module_10 = (() => {
 "use strict";
-const {calculateHit,canBlock,reflectTarget} = __v2_module_0;
+const {calculateHit,sumLegalArmor,reflectTarget} = __v2_module_0;
 const {drawRandom32} = __v2_module_2;
 const {runEffectQueueFixture} = __v2_module_5;
 
 /**
  * V2 G3: narrow solo attack miracles with ordered defensive reactions.
  * Includes initial/learned casts, reflection, deflection and plain armor
- * stacking. This is still a 77-card PARTIAL test catalog, not full rules.
+ * stacking. This is still a PARTIAL test catalog, not full rules.
  * Unsupported mixed special effects are rejected, never guessed.
  */
 
@@ -1849,7 +1843,7 @@ function compileSoloMiracleResolution(state,catalog) {
  const angel=defense.some(c=>c.def.effects.some(e=>e.type==='stopAttack'&&e.params.scope==='miracle'));
  if(angel&&defense.length!==1)fail('Angel stop armor must be selected alone');
  const stripElement=defense.some((c,i)=>c.def.effects.some(e=>e.type==='stripElement'&&i===0));
- let guard=0;
+ const physicalShields=[];
  for(const [index,{def}] of defense.entries()) {
    if(!def.playModes.includes('defend'))fail('Not a defensive card');
    checkShieldEffects(def,{angel});
@@ -1860,11 +1854,14 @@ function compileSoloMiracleResolution(state,catalog) {
    }
    if(def.family!=='weapon'&&def.family!=='armor')
      fail('Unsupported item in miracle defense');
-   if(!angel&&!canBlock(miracle.element,def.element,{rainbowCurtain:stripElement}))
-     fail('Illegal shield for attack element');
-   guard+=def.stats.guard;
-   if(!Number.isSafeInteger(guard))fail('Guard overflow');
+   physicalShields.push({guard:def.stats.guard,element:def.element});
  }
+ // Angel armor stops a miracle outright; its printed guard does not need
+ // to match the stopped miracle's original attribute. 'none' is all-blockable.
+ // Non-angel defenses share the SAME numeric and elemental calculation used
+ // for ordinary weapons, including Rainbow Curtain's attribute removal.
+ const guard=sumLegalArmor(angel?'none':miracle.element,physicalShields,
+   {rainbowCurtain:stripElement});
  const stopped=angel;
  const hit=stopped?Object.freeze({damage:0,hpAfter:target.hp,instantDefeat:false,effectiveElement:miracle.element})
   :calculateHit({attack:miracle.stats.attack,element:miracle.element,armor:guard,hp:target.hp,rainbowCurtain:stripElement});
