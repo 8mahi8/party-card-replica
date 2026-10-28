@@ -13,7 +13,7 @@ const setup=(a,b)=>{
 const attack=(a,b)=>playAttack(setup(a,b),{playerId:'A',targetId:'B',handIndices:[0]},draw);
 const cast=(a,b,handIndex=0)=>playMiracleAttack(setup(a,b),{playerId:'A',targetId:'B',handIndex},draw);
 
-test('research-backed stopper and miracle cards persist in current current-card subset, not full deck',()=>{
+test('research-backed stopper and miracle cards stay in the partial catalog',()=>{
  assert.equal(VERIFIED_BASIC_CARDS.length,RESEARCH_CATALOG_CONTRACT.unique);
  const audit=auditCatalog(VERIFIED_BASIC_CARDS);
  assert.equal(audit.slots,RESEARCH_CATALOG_CONTRACT.slots);assert.equal(audit.complete,false);
