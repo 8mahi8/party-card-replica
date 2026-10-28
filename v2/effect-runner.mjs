@@ -162,7 +162,7 @@ export function runEffectQueueFixture(state,catalog,queue,{
      const allowed=['type','originalSellerId','mirrorOwnerId','soldInstanceId'];
      if(Object.keys(effect).some(k=>!allowed.includes(k)))
        fail('Unexpected reflected sale property');
-     if(s.pending?.type!=='singleMirrorSale')
+     if(state.pending?.type!=='singleMirrorSale')
        fail('Reflected sale requires researched mirror staging');
      if(effect.originalSellerId===effect.mirrorOwnerId)
        fail('Cannot reflect a sale to self');
