@@ -4,7 +4,7 @@
  * https://note.com/md_stardustman/n/nfc5dfb559f95
  * https://w.atwiki.jp/aniwotawiki/pages/47010.html
  *
- * Discard spends the whole turn, removes arbitrary selected physical cards,
+ * Discard spends the whole turn, removes chosen NON-WEAPON hand cards,
  * and NEVER draws replacements. Rare returning/HP-penalty artifacts are
  * not yet in the incomplete catalog; their explicit policy is fail-closed.
  */
@@ -39,7 +39,7 @@ function run(state,indices=[0],args={}){
 
 test('single discard consumes one full turn without refill, MP, damage or RNG',()=>{
  const s=room(),before=JSON.stringify(s),serial=s.nextInstanceSerial;
- const result=run(s,[1]),after=result.state;
+ const result=run(s,[0]),after=result.state;
  assert.equal(result.autoResolved,true);
  assert.equal(result.plan.type,'discard');
  assert.equal(result.plan.count,1);
@@ -47,7 +47,7 @@ test('single discard consumes one full turn without refill, MP, damage or RNG',(
  assert.equal(after.turnCount,1);
  assert.equal(after.phase,'turn');
  assert.equal(after.activePlayerId,'B');
- assert.deepEqual(after.players[0].hand.map(c=>c.definitionId),['d001','i004']);
+ assert.deepEqual(after.players[0].hand.map(c=>c.definitionId),['w016','i004']);
  assert.equal(after.players[1].hand.length,1);
  assert.equal(after.nextInstanceSerial,serial);
  assert.equal(after.rngSeed,s.rngSeed);
@@ -56,14 +56,14 @@ test('single discard consumes one full turn without refill, MP, damage or RNG',(
  assert.equal(JSON.stringify(s),before);
 });
 
-test('discard any number of ordinary cards including weapons and miracles, no replacement',()=>{
+test('discard ordinary armor, miracles and accessories but preserve both main and addon weapons',()=>{
  const s=room(['w016','d001','m002','i004','a003','i003']);
- const leftover=s.players[0].hand[4];
- const result=run(s,[0,1,2,3,5]);
- assert.deepEqual(result.state.players[0].hand,[leftover]);
+ const leftover=[s.players[0].hand[0],s.players[0].hand[4]];
+ const result=run(s,[1,2,3,5]);
+ assert.deepEqual(result.state.players[0].hand,leftover);
  assert.equal(result.state.players[0].learned.length,0);
  assert.equal(result.state.players[0].mp,10);
- assert.equal(result.events[0].count,5);
+ assert.equal(result.events[0].count,4);
  assert.equal(result.state.nextInstanceSerial,s.nextInstanceSerial);
 });
 
@@ -80,7 +80,7 @@ test('discarding one card in 3-seat room skips dead seat, leaves other hands unc
  const s=room(['d001','w016'],['w016'],['d009']);
  s.players[1].hp=0;
  const b=JSON.stringify(s.players[1].hand),c=JSON.stringify(s.players[2].hand);
- const r=run(s,[1]);
+ const r=run(s,[0]);
  assert.equal(r.state.activePlayerId,'C');
  assert.equal(r.state.turnCount,1);
  assert.equal(JSON.stringify(r.state.players[1].hand),b);
@@ -122,7 +122,7 @@ test('special source-gated discard policy blocks unverified return-with-damage c
  const alternative=new Map(catalog);
  alternative.set('d001',defineCard({...catalog.get('d001'),
   discardPolicy:'requiresSpecialResolution'}));
- const s=room(['d001','w016'],[],null,alternative),snapshot=JSON.stringify(s);
+ const s=room(['d001','d005'],[],null,alternative),snapshot=JSON.stringify(s);
  assert.throws(()=>run(s,[0],{catalog:alternative}),/Special discard effect/);
  assert.equal(JSON.stringify(s),snapshot);
  const normal=run(s,[1],{catalog:alternative});
@@ -159,7 +159,7 @@ test('hotseat discard is clearly labeled, conceals next hand, and never refills'
  let view=lab.reveal();
  assert.equal(view.canDiscardSelection,false);
  assert.doesNotMatch(renderV2LabMarkup(view),/data-action="discard"/);
- const selected=view.hand[0].instanceId;
+ const selected=view.hand[1].instanceId;
  lab.toggle({instanceId:selected});
  view=lab.view();
  assert.equal(view.canDiscardSelection,true);
@@ -172,7 +172,7 @@ test('hotseat discard is clearly labeled, conceals next hand, and never refills'
  assert.equal(sent.view.revealed,false);
  assert.equal(sent.view.hand.length,0);
  const after=lab.labSnapshot();
- assert.deepEqual(after.players[0].hand.map(c=>c.definitionId),['d005','m002']);
+ assert.deepEqual(after.players[0].hand.map(c=>c.definitionId),['w016','m002']);
  assert.equal(after.nextInstanceSerial,before.nextInstanceSerial);
 });
 
@@ -181,4 +181,50 @@ test('hotseat reject discard with no hand selection, or a learned-only choice',(
  lab.reveal();
  assert.throws(()=>lab.submit({discard:true}),/手札から選んでください/);
  assert.equal(lab.labSnapshot().turnCount,0);
+});
+
+test('all catalog weapons are explicitly forbidden from discard, and failed mixed selection is atomic',()=>{
+ const weapons=[...catalog.values()].filter(d=>d.family==='weapon');
+ assert.ok(weapons.length>=40);
+ for(const def of weapons)assert.equal(def.discardPolicy,'forbidden',def.id);
+ for(const cardId of ['w016','a003','w018','w027']){
+  const s=room(['d001',cardId,'m002']),snapshot=JSON.stringify(s);
+  assert.throws(()=>run(s,[1]),/cannot be discarded/,cardId);
+  assert.throws(()=>run(s,[0,1]),/cannot be discarded/,cardId);
+  assert.equal(JSON.stringify(s),snapshot);
+ }
+ const x=room(['d001','w016']);
+ const r=run(x,[0]);
+ assert.deepEqual(r.state.players[0].hand.map(c=>c.definitionId),['w016'],
+   'ordinary armor may be discarded while physical weapon is retained');
+});
+
+test('even a direct forged effect cannot discard a forbidden weapon',()=>{
+ const s=room(['w016','d001']);
+ assert.throws(()=>applyStagingCommand(s,cmd(s,[0]),catalog,{authorizedSeatId:'A'}),
+  /cannot be discarded/);
+ assert.throws(()=>defineCard({...catalog.get('w016'),discardPolicy:'ordinary'}),
+  /Weapons cannot have ordinary discard policy/);
+});
+
+test('discard UI hides action for weapon-only or mixed selection; can discard only eligible cards',()=>{
+ const lab=createV2LabController({hands:{A:['w016','d001','i003'],B:['w016']}});
+ const initial=lab.reveal();
+ lab.toggle({instanceId:initial.hand[0].instanceId});
+ assert.equal(lab.view().canDiscardSelection,false);
+ assert.doesNotMatch(renderV2LabMarkup(lab.view()),/data-action="discard"/);
+ lab.toggle({instanceId:initial.hand[1].instanceId});
+ assert.equal(lab.view().canDiscardSelection,false);
+ const s=JSON.stringify(lab.labSnapshot());
+ const invalid=lab.submit({discard:true});
+ assert.equal(invalid.ok,false);
+ assert.match(invalid.error,/cannot be discarded/);
+ assert.equal(JSON.stringify(lab.labSnapshot()),s);
+ // Untoggle weapon and discard the armor and ordinary support item.
+ lab.toggle({instanceId:initial.hand[0].instanceId});
+ assert.equal(lab.view().canDiscardSelection,true);
+ lab.toggle({instanceId:initial.hand[2].instanceId});
+ assert.equal(lab.view().canDiscardSelection,true);
+ assert.equal(lab.submit({discard:true}).ok,true);
+ assert.deepEqual(lab.labSnapshot().players[0].hand.map(c=>c.definitionId),['w016']);
 });
