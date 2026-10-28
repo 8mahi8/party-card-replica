@@ -223,6 +223,8 @@ export function applyStagingCommand(state,command,catalog,{authorizedSeatId}={})
     if(cards.length>MAX_HAND)throw new Error('Too many discarded cards');
     for(const card of cards){
       const def=catalog.get(card.definitionId);
+      if(def?.discardPolicy==='forbidden')
+        throw new Error('This card cannot be discarded');
       if(!def||def.discardPolicy!=='ordinary')
         throw new Error('Special discard effect is not yet implemented');
     }
