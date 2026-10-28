@@ -131,6 +131,10 @@ export function createV2LabController({
       actorId:actor?.id??null,notice,targetId,
       winnerId:state.winnerId??null,
       selection:[...selected],
+      canDiscardSelection:state.phase==='turn' && selected.length>0 &&
+        selected.every(x=>x.instanceId &&
+          catalog.get(actor?.hand.find(c=>c.instanceId===x.instanceId)?.definitionId)
+            ?.discardPolicy==='ordinary'),
       cardSetComplete:summary.complete,
       cardSetCount:summary.unique
     };
@@ -215,13 +219,19 @@ export function createV2LabController({
       throw new Error('攻撃先が無効です');
     targetId=id;return view();
   }
-  function submit(){
+  function submit({discard=false}={}){
     if(!visible)throw new Error('手札表示後に操作してください');
     const actor=own();
     if(!actor)throw new Error('試合は終了しました');
     const n='lab-'+(++commandSerial);
     let command;
-    if(state.phase==='defense'){
+    if(discard){
+      if(state.phase!=='turn')throw new Error('捨てるは自分の手番だけ使えます');
+      if(!selected.length||selected.some(x=>!x.instanceId))
+        throw new Error('捨てる神器を手札から選んでください');
+      command={commandId:n,expectedRevision:state.revision,actorId:actor.id,
+        type:'discard',orderedInstanceIds:selected.map(x=>x.instanceId)};
+    }else if(state.phase==='defense'){
       const learned=selected.filter(x=>x.learnedDefinitionId);
       if(learned.length>1)throw new Error('習得済み防御奇跡は1つまで');
       command=learned.length
