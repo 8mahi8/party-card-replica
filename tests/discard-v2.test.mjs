@@ -213,6 +213,7 @@ test('discard UI hides action for weapon-only or mixed selection; can discard on
  lab.toggle({instanceId:initial.hand[0].instanceId});
  assert.equal(lab.view().canDiscardSelection,false);
  assert.doesNotMatch(renderV2LabMarkup(lab.view()),/data-action="discard"/);
+ assert.match(renderV2LabMarkup(lab.view()),/武器は「捨てる」対象外/);
  lab.toggle({instanceId:initial.hand[1].instanceId});
  assert.equal(lab.view().canDiscardSelection,false);
  const s=JSON.stringify(lab.labSnapshot());
