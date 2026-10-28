@@ -118,6 +118,17 @@ export function runEffectQueueFixture(state,catalog,queue,{
    } else if(effect.type==='uncontestedSale'){
      // Source-verified transfer and debit only. A real live trade must first
      // implement Super Mirror counterplay; this effect is lab-fixture ONLY.
+     if(Object.keys(effect).some(k=>!['type','sellerId','buyerId','soldInstanceId'].includes(k)))
+       fail('Unexpected sale effect property');
+     const sellerOriginal=who(state,effect.sellerId);
+     const paidTradeCard=queue.some(q=>q?.type==='spend'&&
+       q.playerId===effect.sellerId&&Array.isArray(q.instanceIds)&&
+       q.instanceIds.some(id=>{
+         const card=sellerOriginal.hand.find(c=>c.instanceId===id);
+         const def=catalog.get(card?.definitionId);
+         return def?.family==='trade'&&def.effects.some(e=>e.type==='forceSale'&&e.params.kind==='sell');
+       }));
+     if(!paidTradeCard)fail('Sale effect requires spending a valid Sell trade card');
      if(effect.sellerId===effect.buyerId)fail('Cannot sell to self');
      const seller=who(s,effect.sellerId),buyer=who(s,effect.buyerId);
      if(seller.hp<=0||buyer.hp<=0)fail('Trade seat eliminated');
