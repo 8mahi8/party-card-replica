@@ -16,6 +16,7 @@ const ID=/^[a-zA-Z0-9._:-]{1,80}$/;
 const MAX_PLAYERS=9;
 const MAX_HAND=18;
 const ALLOWED_KEYS={
+  pray:new Set(['commandId','expectedRevision','actorId','type']),
   playCards:new Set(['commandId','expectedRevision','actorId','type','targetId','orderedInstanceIds']),
   playSequence:new Set(['commandId','expectedRevision','actorId','type','targetId','orderedPlays']),
   castLearned:new Set(['commandId','expectedRevision','actorId','type','targetId','learnedDefinitionId']),
@@ -211,7 +212,15 @@ export function applyStagingCommand(state,command,catalog,{authorizedSeatId}={})
   let pending;
   let phase;
   let activePlayerId;
-  if(['playCards','playSequence','castLearned'].includes(command.type)) {
+  if(command.type==='pray'){
+    if(state.phase!=='turn'||actor.hp<=0)throw new Error('Cannot pray outside a living turn');
+    // The source game permits prayer only when NO physical weapon is held.
+    // This includes +ATK addon weapons; an offensive miracle is not a weapon.
+    if(actor.hand.some(card=>catalog.get(card.definitionId)?.family==='weapon'))
+      throw new Error('Cannot pray while holding a weapon');
+    pending={type:'pray',originalAttackerId:actor.id};
+    phase='resolving';activePlayerId=null;
+  } else if(['playCards','playSequence','castLearned'].includes(command.type)) {
     if(state.phase!=='turn')throw new Error('Not an attacking turn');
     id(command.targetId,'target ID');
     const target=seat(state,command.targetId);
