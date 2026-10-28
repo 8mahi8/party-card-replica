@@ -62,7 +62,11 @@ h2 small{font-weight:400;color:#8fa7c7;margin-left:5px;font-size:12px}
 .primary{background:linear-gradient(100deg,#88e2e4,#9deac3);color:#062939;border:0;border-radius:14px;font-size:17px;font-weight:900;min-height:54px;padding:14px 20px}
 .primary:active{filter:brightness(.85)}
 .wide{display:block;width:100%;max-width:600px;margin:auto}
-.confirm{position:fixed;bottom:max(12px,env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);z-index:20;width:min(calc(100% - 32px),600px);max-width:600px;margin:0;box-shadow:0 8px 28px #060e1cdd;border:2px solid #16394a}
+.action-bar{position:fixed;bottom:max(12px,env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);z-index:20;width:min(calc(100% - 32px),600px);max-width:600px;display:flex;align-items:stretch;gap:7px}
+.action-bar .confirm{position:static;flex:1;min-width:0;width:auto;max-width:none;margin:0;box-shadow:0 8px 28px #060e1cdd;border:2px solid #16394a}
+.action-bar .discard-option{flex:0 1 43%;min-width:0;padding:6px 8px;min-height:58px;line-height:1.25;border:2px solid #59728c;background:#24354b;color:#e7f4ff;box-shadow:0 8px 28px #060e1c99}
+.discard-option strong{font-size:15px;display:block}
+.discard-option small{display:block;font-size:10px;margin-top:2px;color:#c9d9ec}
 .stage{padding-bottom:105px}
 footer{margin-top:18px;display:flex;align-items:center;gap:12px;justify-content:space-between;flex-wrap:wrap;color:#89a0bc;font-size:11px}
 /* Reserve space beneath footer actions when the fixed confirm bar is shown. */
@@ -2662,8 +2666,9 @@ function renderV2LabMarkup(data,{resetArmed=false}={}){
    :data.canPray&&data.selection.length===0?'祈る（神器を1枚引く）':'攻撃を確定';
  const notice='<p class="status" role="status">'+esc(data.notice)+'</p>';
  const discardOption=data.phase==='turn' && data.canDiscardSelection
-   ?'<button type="button" class="quiet wide discard-option" data-action="discard">選んだ'+
-     data.selection.length+'枚を捨てる（補充なし・ターン終了）</button>'
+   ?'<button type="button" class="quiet discard-option" data-action="discard">'+
+     '<strong>'+data.selection.length+'枚捨てる</strong><small>補充なし・ターン終了</small>'+
+     '</button>'
    :'';
  return header+'<main class="stage">'+
    '<div class="stage-heading"><h1>'+esc(seatLabel(data.actorId))+'：'+title+'</h1><p>'+caption+'</p></div>'+
@@ -2675,8 +2680,9 @@ function renderV2LabMarkup(data,{resetArmed=false}={}){
        '<p class="empty">まだ習得していません</p>')+'</div></section>'+
    '<section class="selection"><h2>選択順 <small>再タップで解除</small></h2><div class="picks">'+
    (picked||'<span class="muted">まだ選択されていません</span>')+'</div></section>'+
-   notice+discardOption+'<button type="button" class="primary wide confirm" data-action="submit">'+
-   actionText+'</button></main>'+footer;
+   notice+'<div class="action-bar">'+discardOption+
+   '<button type="button" class="primary wide confirm" data-action="submit">'+
+   actionText+'</button></div></main>'+footer;
 }
 function mountV2Lab(root,controller=createV2LabController()){
  if(!root||typeof root.addEventListener!=='function')throw new Error('Root element required');
