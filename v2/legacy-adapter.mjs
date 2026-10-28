@@ -9,7 +9,7 @@ import {VERIFIED_BASIC_CARDS,PARTIAL_CARD_SOURCE} from '../src/verified-basic-ca
 const KNOWN_KEYS=new Set([
   'id','referenceName','kind','category','slot','element','attack','guard',
   'attackBonus','price','weight','reaction','reactionScope','stopScope',
-  'role','boost','plusAttack','mpCost','effect','attackElementOverride'
+  'role','boost','plusAttack','mpCost','effect','attackElementOverride','discardPolicy'
 ]);
 const CATEGORY_BY_KIND=Object.freeze({weapon:'weapon_single',armor:'armor_normal',miracle:'miracle',defense_item:'item',support_item:'item'});
 const mk=(when,type,params={})=>({when,type,params});
@@ -112,6 +112,7 @@ export function convertLegacyCard(card,{ruleset=PARTIAL_CARD_SOURCE}={}) {
   return defineCard({
     id:card.id,family,element:card.element,drawWeight:card.weight,
     stats:{attack,guard,mpCost,price:card.price},playModes:modes,effects,
+    discardPolicy:card.discardPolicy??'ordinary',
     source:{ruleset,confidence:'secondary'}
   });
 }
