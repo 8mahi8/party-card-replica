@@ -9,7 +9,7 @@ const ELEMENTS = new Set(['none','fire','water','wood','earth','light','dark']);
 const MODES = new Set(['mainAttack','addAttack','defend','cast','support','trade']);
 // Some original artifacts return to the hand and cost HP when discarded.
 // Until sourced effects are implemented, explicitly gate those definitions.
-const DISCARD_POLICIES = new Set(['ordinary','requiresSpecialResolution']);
+const DISCARD_POLICIES = new Set(['ordinary','forbidden','requiresSpecialResolution']);
 const EFFECT_TRIGGERS = new Set(['onDeclare','onCost','beforeHit','onDefense','afterHit','onTurnEnd']);
 const EFFECT_TYPES = new Set(['redirectAttack','stripElement','multiplyAttack','addAttack','stopAttack','waivePreviousMp','setAttackElement']);
 
@@ -63,8 +63,12 @@ export function defineCard(spec) {
     throw new Error('Versioned evidence required');
   const effects=(spec.effects??[]);
   if(!Array.isArray(effects))throw new TypeError('Effects must be array');
-  const discardPolicy=spec.discardPolicy??'ordinary';
+  // Hands-on 2025 original-game report: physical weapons cannot be discarded.
+  // Special items can also be forbidden or require a sourced resolution.
+  const discardPolicy=spec.discardPolicy??(spec.family==='weapon'?'forbidden':'ordinary');
   assertAllowed(discardPolicy,DISCARD_POLICIES,'discard policy');
+  if(spec.family==='weapon' && discardPolicy==='ordinary')
+    throw new Error('Weapons cannot have ordinary discard policy');
   const normalized={
     id, family:spec.family, element:spec.element, drawWeight:spec.drawWeight,
     discardPolicy,
