@@ -108,7 +108,7 @@ test('Spirit immediately after waterfall waives all MP12; remote target still ta
 test('standalone attack miracle is not silently combined with Strength Powder',()=>{
  const state=room(['m008','i004'],[]),before=JSON.stringify(state);
  assert.throws(()=>send(state,'A','playCards',{indices:[0,1]}),
-  /Only one miracle and optional spirit|Not a structural attack selection/);
+  /Only one miracle and optional spirit|Not a structural attack selection|Only spirit directly after miracle is supported/);
  assert.equal(JSON.stringify(state),before);
 });
 test('hotseat touch UI exposes Flame and can attack without selecting a weapon',()=>{
