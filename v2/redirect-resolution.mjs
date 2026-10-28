@@ -6,8 +6,7 @@
  * NOTE: This module is fixture-only, with deterministic non-secret RNG.
  * Do not publish its biased test draws as original game probabilities.
  */
-import {reflectTarget} from '../src/rules.mjs';
-import {createInstance, drawRandom32} from './foundation.mjs';
+import {planRedirectRoute} from './redirect-route.mjs';
 import {compileBasicWeaponAttack,resolveBasicFixture} from './basic-resolution.mjs';
 import {isWallDefense,resolveWallFixture} from './wall-resolution.mjs';
 import {queuedAttackCosts} from './ordered-attack.mjs';
@@ -80,24 +79,8 @@ export function resolveRedirectFixture(state,catalog,{
  if(!['any','neutralWeapon'].includes(effect.params.scope))
    bad('Unmapped redirect scope');
  const sourceId=p.sourceId??p.originalAttackerId;
- const living=state.players.filter(x=>x.hp>0).map(x=>x.id);
- if(!living.includes(sourceId)||!living.includes(p.targetId))
-   bad('Redirect parties must be alive');
- let nextSeed=state.rngSeed;
- let rng=()=>0;
- if(effect.params.mode==='deflect'){
-   if(deflectRng!==null) {
-     if(typeof deflectRng!=='function')bad('Invalid deterministic deflect RNG');
-     rng=deflectRng;
-   } else {
-     const outcome=drawRandom32(state.rngSeed);
-     nextSeed=outcome.nextSeed;
-     rng=()=>outcome.value;
-   }
- }
- const route=reflectTarget({
-   source:sourceId,target:p.targetId,actor:p.targetId,
-   mode:effect.params.mode,living,rng
+ const {route,nextSeed,immediate}=planRedirectRoute(state,{
+   sourceId,targetId:p.targetId,mode:effect.params.mode,deflectRng
  });
  // Reuse the central queue for every cost, including learned spell draws.
  // In the paused mode the runner retains the pending attack and its refill
@@ -118,7 +101,7 @@ export function resolveRedirectFixture(state,catalog,{
    ...result.pending,sourceId:route.source,targetId:route.target,
    attackContext,defense:null
  };
- if(route.target===p.targetId) {
+ if(immediate) {
    // Self-deflection is an immediate hit, not an extra defense opportunity.
    result.phase='resolving';result.activePlayerId=null;
    const settled=resolveBasicFixture(result,catalog,{labOnly:true,fixtureDrawDefinitionId});
