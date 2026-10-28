@@ -67,6 +67,23 @@ export function runEffectQueueFixture(state,catalog,queue,{
      if(before-p.hand.length!==ids.size)fail('Card disappeared during resolution');
      spent[p.id]=(spent[p.id]??0)+ids.size;
      events.push({type:'spend',playerId:p.id,count:ids.size});
+   } else if(effect.type==='discard'){
+     // Unlike a played card, a discarded artifact gets NO replacement.
+     // Only G3's strict discard command may compile this action. Keep
+     // ordinary spend/refill credits and previous pending effects distinct.
+     if(!Array.isArray(effect.instanceIds)||!effect.instanceIds.length)
+       fail('Invalid discarded IDs');
+     const ids=new Set(effect.instanceIds),p=who(s,effect.playerId);
+     if(ids.size!==effect.instanceIds.length)fail('Repeated discarded card');
+     for(const instance of p.hand){
+       if(ids.has(instance.instanceId) &&
+          catalog.get(instance.definitionId)?.discardPolicy!=='ordinary')
+         fail('Special discard effect is not yet implemented');
+     }
+     const before=p.hand.length;
+     p.hand=p.hand.filter(x=>!ids.has(x.instanceId));
+     if(before-p.hand.length!==ids.size)fail('Discarded card not in hand');
+     events.push({type:'discard',playerId:p.id,count:ids.size});
    } else if(effect.type==='grantDraw'){
      const p=who(s,effect.playerId);
      if(!positiveCount(effect.count)||effect.count<1||effect.count>18)
