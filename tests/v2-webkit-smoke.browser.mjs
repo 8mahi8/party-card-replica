@@ -771,6 +771,12 @@ async function testDiscardTouch(base){
    passed(await discard.count()===1,'discard action appears after selected cards');
    passed((await discard.textContent()).includes('補充なし・ターン終了'),
       'discard action clearly states its turn cost and no draw');
+   const discardBox=await discard.boundingBox();
+   const attackBox=await frame.locator('.confirm').boundingBox();
+   passed(Boolean(discardBox&&attackBox&&discardBox.height>=44&&
+      discardBox.x+discardBox.width<=attackBox.x+2&&
+      Math.abs(discardBox.y-attackBox.y)<=12),
+      'discard and attack must remain side by side as visible touch controls');
    await screenshot('webkit-discard-'+scenario.tag+'-selected');
    await discard.tap();
    await frame.locator('.compact-pass').waitFor();
