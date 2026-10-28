@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import {RESEARCH_CATALOG_CONTRACT} from './helpers/research-catalog-contract.mjs';
 import {migrateLegacyCatalog} from '../v2/legacy-adapter.mjs';
 import {createStagingRoom,applyStagingCommand} from '../v2/staging-room.mjs';
 import {resolveStagedFixture,submitAndResolveFixture} from '../v2/room-transition.mjs';
@@ -35,7 +36,7 @@ const resolve=(s,deflectRng=null)=>resolveStagedFixture(s,catalog,{...fixture,de
 
 test('all five Sky and three Moonlight armors have cited guard, price and miracle-only effect',()=>{
  const {summary}=migrateLegacyCatalog();
- assert.equal(summary.unique,90);assert.equal(summary.slots,209);assert.equal(summary.complete,false);
+ assert.equal(summary.unique,RESEARCH_CATALOG_CONTRACT.unique);assert.equal(summary.slots,RESEARCH_CATALOG_CONTRACT.slots);assert.equal(summary.complete,false);
  for(const [id,guard] of SKY){
   const d=catalog.get(id);
   assert.equal(d.stats.guard,guard,id);assert.equal(d.stats.price,5,id);
