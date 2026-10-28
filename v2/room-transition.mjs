@@ -13,6 +13,9 @@ import {applyStagingCommand} from './staging-room.mjs';
 import {resolveRedirectFixture} from './redirect-resolution.mjs';
 import {resolveSoloMiracleFixture,compileSoloMiracleResolution} from './miracle-resolution.mjs';
 import {compileOrderedWeaponAttack} from './ordered-attack.mjs';
+import {runEffectQueueFixture} from './effect-runner.mjs';
+import {drawRandom32} from './foundation.mjs';
+import {MAX_HAND_SIZE} from '../src/rules.mjs';
 
 function fail(message){throw new Error(message);}
 function attackFamily(state,catalog) {
@@ -49,6 +52,38 @@ function attackFamily(state,catalog) {
   return def.family;
 }
 /**
+ * A complete, independent turn: draw one fixture card and advance.
+ * With eighteen cards, the original game's prayer replaces one randomly
+ * discarded existing card. RNG is advanced by the authoritative room only.
+ * This uses the lab's fixed draw: NOT original drop odds or online behavior.
+ */
+export function resolvePrayFixture(state,catalog,options={}){
+  if(options.labOnly!==true)fail('Only available in lab fixture mode');
+  if(state?.schemaVersion!==2||state.phase!=='resolving'||state.pending?.type!=='pray')
+    fail('No prayer waiting for resolution');
+  const actorId=state.pending.originalAttackerId;
+  const actor=state.players.find(p=>p.id===actorId);
+  if(!actor||actor.hp<=0)fail('Invalid praying actor');
+  if(actor.hand.some(c=>catalog.get(c.definitionId)?.family==='weapon'))
+    fail('Cannot pray while holding a weapon');
+  if(actor.hand.length>MAX_HAND_SIZE)fail('Hand exceeds cap');
+  let staged=state;
+  const full=actor.hand.length===MAX_HAND_SIZE;
+  let drawInstruction;
+  if(full){
+    const random=drawRandom32(state.rngSeed);
+    staged={...state,rngSeed:random.nextSeed};
+    const index=Math.floor(random.value*actor.hand.length);
+    drawInstruction={type:'spend',playerId:actorId,instanceIds:[actor.hand[index].instanceId]};
+  }else{
+    drawInstruction={type:'grantDraw',playerId:actorId,count:1};
+  }
+  const result=runEffectQueueFixture(staged,catalog,[
+    drawInstruction,{type:'refill'},{type:'advance',afterId:actorId}
+  ],options);
+  return {...result,plan:Object.freeze({type:'pray',wasFull:full})};
+}
+/**
  * Resolve a complete defense response OR a direct self-targeting attack.
  * If the defender redirects, the output returns to the "defense" phase.
  */
@@ -60,6 +95,8 @@ export function resolveStagedFixture(state,catalog,{
     fail('Unknown fixture draw card');
   if(state?.schemaVersion!==2||state.phase!=='resolving')
     fail('No attack waiting for resolution');
+  if(state.pending?.type==='pray')
+    return resolvePrayFixture(state,catalog,{labOnly,fixtureDrawDefinitionId});
   const family=attackFamily(state,catalog);
   if(family==='miracle')
     return resolveSoloMiracleFixture(state,catalog,{labOnly:true,fixtureDrawDefinitionId,deflectRng});
