@@ -483,8 +483,8 @@ async function testPrayerTouch(base){
      const fresh=document.createElement('div');
      fresh.id='v2-root';
      old.replaceWith(fresh); // remove original controller's event listeners
-     __v2_module_14.mountV2Lab(fresh,
-       __v2_module_13.createV2LabController({hands:{A:['d014'],B:['w016']}}));
+     __v2_lab_test_ui.mountV2Lab(fresh,
+       __v2_lab_test_controller.createV2LabController({hands:{A:['d014'],B:['w016']}}));
    });
    await frame.locator('[data-action=reveal]').tap();
    passed((await frame.locator('.stage-heading').textContent()).includes('武器がないとき'),
@@ -530,8 +530,8 @@ async function testStrengthPowderTouch(base){
      const old=document.getElementById('v2-root');
      const fresh=document.createElement('div');fresh.id='v2-root';
      old.replaceWith(fresh);
-     __v2_module_14.mountV2Lab(fresh,
-       __v2_module_13.createV2LabController({hands:{A:['w016','i004'],B:[]}}));
+     __v2_lab_test_ui.mountV2Lab(fresh,
+       __v2_lab_test_controller.createV2LabController({hands:{A:['w016','i004'],B:[]}}));
    });
    await frame.locator('[data-action=reveal]').tap();
    const weapon=frame.locator('[data-card=hand]').filter({hasText:'ワンダーソード'});
@@ -591,8 +591,8 @@ async function testAuraNeutralTouch(base){
    await frameRef.evaluate(({cards,guard})=>{
      const old=document.getElementById('v2-root'),fresh=document.createElement('div');
      fresh.id='v2-root';old.replaceWith(fresh);
-     __v2_module_14.mountV2Lab(fresh,
-       __v2_module_13.createV2LabController({hands:{A:cards,B:guard}}));
+     __v2_lab_test_ui.mountV2Lab(fresh,
+       __v2_lab_test_controller.createV2LabController({hands:{A:cards,B:guard}}));
    },{cards:scenario.cards,guard:scenario.guard});
    await frame.locator('[data-action=reveal]').tap();
    await frame.locator('[data-card=hand]').nth(0).tap();
@@ -644,8 +644,8 @@ async function testNewSoloMiraclesTouch(base){
    await embedded.evaluate(({A,B})=>{
      const original=document.getElementById('v2-root'),fresh=document.createElement('div');
      fresh.id='v2-root';original.replaceWith(fresh);
-     __v2_module_14.mountV2Lab(fresh,
-       __v2_module_13.createV2LabController({hands:{A,B}}));
+     __v2_lab_test_ui.mountV2Lab(fresh,
+       __v2_lab_test_controller.createV2LabController({hands:{A,B}}));
    },{A:scenario.A,B:scenario.B});
    await frame.locator('[data-action=reveal]').tap();
    passed(await frame.locator('[data-card=hand]').count()===scenario.A.length,
@@ -702,8 +702,8 @@ async function testRainbowDefenseTouch(base){
     const previous=document.getElementById('v2-root');
     const fresh=document.createElement('div');fresh.id='v2-root';
     previous.replaceWith(fresh);
-    __v2_module_14.mountV2Lab(fresh,
-      __v2_module_13.createV2LabController({hands:{A,B}}));
+    __v2_lab_test_ui.mountV2Lab(fresh,
+      __v2_lab_test_controller.createV2LabController({hands:{A,B}}));
    },{A:scenario.handA,B:scenario.handB});
    await frame.locator('[data-action=reveal]').tap();
    await frame.locator('[data-card=hand]').first().tap();
@@ -757,8 +757,8 @@ async function testDiscardTouch(base){
    await embedded.evaluate(()=>{
     const old=document.getElementById('v2-root'),fresh=document.createElement('div');
     fresh.id='v2-root';old.replaceWith(fresh);
-    __v2_module_14.mountV2Lab(fresh,
-      __v2_module_13.createV2LabController({
+    __v2_lab_test_ui.mountV2Lab(fresh,
+      __v2_lab_test_controller.createV2LabController({
        hands:{A:['w016','d005','m002'],B:['d001']}
       }));
    });
