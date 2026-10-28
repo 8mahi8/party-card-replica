@@ -408,9 +408,20 @@ async function testPlusMiracleMiddleTouch(base){
    await addon.tap();
    passed(await frame.locator('.battle-card.picked').count()===3,
      'All three cards display their selection before validation');
+   const parentScrollBefore=await page.evaluate(()=>window.scrollY);
    await frame.locator('[data-action=submit]').tap();
    passed((await frame.locator('[role=status]').textContent()).includes('Weapon or armor after plus miracle unverified'),
      'Unverified later additive card is reported as unsupported, not submitted to defender');
+   const feedbackBounds=await frame.locator('[role=status]').evaluate(el=>{
+     const note=el.getBoundingClientRect();
+     const confirm=document.querySelector('.confirm').getBoundingClientRect();
+     return {top:note.top,bottom:note.bottom,confirmTop:confirm.top,
+       viewportHeight:window.innerHeight,frameScrollY:window.scrollY};
+   });
+   passed(feedbackBounds.top>=0 && feedbackBounds.bottom<=feedbackBounds.confirmTop-8,
+     'Rejected selection feedback must be visible above sticky submit: '+JSON.stringify(feedbackBounds));
+   passed(await page.evaluate(()=>window.scrollY)===parentScrollBefore,
+     'Rejected selection must scroll only iframe and never the parent page');
    passed((await frame.locator('.stage-heading h1').textContent()).includes('P1'),
      'Unverified sequence must not advance the original attacker');
    await screenshot('webkit-plus-miracle-middle-unverified');
