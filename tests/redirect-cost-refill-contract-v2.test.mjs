@@ -187,7 +187,7 @@ test('Aura weapon self-deflection hits immediately: receiver gets no second defe
  assert.equal(final.events.filter(e=>e.type==='refill').map(e=>e.added).join(','),'2,1');
 });
 test('invalid final defense after redirect is atomic; pause credits are not spent twice on retry',()=>{
- const initial=room({A:['m002'],B:['d029'],C:['d001']});
+ const initial=room({A:['m002'],B:['d029']});
  const first=send(initial,'A','playCards',{indices:[0]});
  const bounced=send(first.state,'B','defend',{indices:[0]});
  assertNoEarlyRefill(bounced,'A');
@@ -196,7 +196,10 @@ test('invalid final defense after redirect is atomic; pause credits are not spen
  assert.equal(guard.length,0,'attacker already spent hand miracle');
  // Cannot choose an invented instance after the reflect. The valid empty
  // defense still resolves and only once applies stored spend and MP cost.
- assert.throws(()=>send(pending,'A','defend',{indices:[0]}),TypeError);
+ assert.throws(()=>submitAndResolveFixture(pending,{
+  actorId:'A',type:'defend',commandId:'forged-defense-after-redirect',
+  expectedRevision:pending.revision,orderedInstanceIds:['ci-forged']
+ },catalog,{...lab,authorizedSeatId:'A'}),/hand|instance|selected|card/i);
  assert.equal(JSON.stringify(pending),snapshot);
  const final=send(pending,'A','defend',{indices:[]});
  assertNormalFinish(final);
