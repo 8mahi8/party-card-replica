@@ -17,7 +17,8 @@
 - `v2/room-transition.mjs`：`resolveDiscardFixture()`追加。研究用labOnly以外から実行不可。`discard → advance`だけを共通効果キューに送り、次の生存プレイヤーへ手番を進める。手札補充やRNG消費はなし。
 - `v2/foundation.mjs`と`v2/legacy-adapter.mjs`：各カード定義に`discardPolicy`（`ordinary` / `requiresSpecialResolution`）を導入。現行90カードは通常扱い。後で邪神の大剣などが台帳に入ったとき、未実装の特殊動作を**普通の破棄として誤処理しない**。特殊なときは明示的エラー。
 - `v2/lab-controller.mjs`：`submit({discard:true})`で選択済みの物理カードを破棄。習得済み奇跡は対象にしない。成功後は必ず相手の手札を隠して渡す。
-- `v2/lab-ui.mjs`：自分の攻撃手番に**物理カードを選んだ場合のみ**、「選んだN枚を捨てる（補充なし・ターン終了）」ボタンを表示。通常の攻撃確定ボタンと分離。学校iPadの固定高さiframeでも押せるかWebKitで検証。
+- `v2/lab-ui.mjs`：自分の攻撃手番に**物理カードを選んだ場合のみ**、「N枚捨てる／補充なし・ターン終了」ボタンを表示。通常の攻撃確定ボタンと分離。
+- `v2/demo/template.html`：最初のスクリーンショットでは**捨てるボタンが固定攻撃ボタンに隠れる**問題が見つかった。両ボタンをひとつの`.action-bar`に統合し横並び固定へ修正。WebKitでは1024×460、390×430の両方で2つのボタンが44px以上・重なりなし・同じ列にあることを確認。
 - `v2/demo/standalone.html`は独立モジュールを再ビルドして同期。旧`demo/standalone.html`と学校Google Sites公開版は変更しない。
 
 ## テスト
@@ -35,7 +36,8 @@
   10. UI上の日本語説明・2ボタン分離・次プレイヤーへの秘匿を確認。
   11. カード未選択の捨てる操作を拒否。
 - `tests/v2-webkit-smoke.browser.mjs` に**2つの実タップ試験**を追加。iPad想定1024×460と狭い390×430の埋め込み画面で、3枚から2枚選択→捨てる→P2に秘匿手番譲渡→P1手札残り1枚とP2手札不変を確認しスクリーンショット保存。
-- 最終Node、Chromium、WebKitの件数・Run ID・SHAはDraft PR #1に記録する。
+- 最終コードHEAD `83dab43a145b1f6974df6cbf09e5074a4bd98424`：Node **528/528** success (run `40722072283`)、Chromium **28/28** success (run `40722072622`)、WebKit **159/159** success (run `40722072273`)。
+- WebKit証拠artifact：`v2-webkit-touch-evidence` ID `12830179647`。固定高さiframeで2つの操作ボタンが両方見えることを**実際のスクリーンショットで目視確認済み**。
 
 ## 研究版に限定する理由
 
