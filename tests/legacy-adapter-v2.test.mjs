@@ -6,7 +6,7 @@ import {VERIFIED_BASIC_CARDS} from '../src/verified-basic-cards.mjs';
 import {createInstance} from '../v2/foundation.mjs';
 
 const get=(id)=>VERIFIED_BASIC_CARDS.find(c=>c.id===id);
-test('entire current current-card partial catalog migrates with exact reference-slot total and no duplicate IDs',()=>{
+test('current partial catalog migrates with independently reviewed card and slot totals',()=>{
  const out=migrateLegacyCatalog();
  assert.equal(out.summary.unique,RESEARCH_CATALOG_CONTRACT.unique);assert.equal(out.summary.slots,RESEARCH_CATALOG_CONTRACT.slots);assert.equal(out.summary.complete,false);
  assert.equal(out.byId.size,RESEARCH_CATALOG_CONTRACT.unique);assert.equal(out.definitions.length,RESEARCH_CATALOG_CONTRACT.unique);
