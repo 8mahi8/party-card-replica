@@ -541,7 +541,7 @@ async function testStrengthPowderTouch(base){
      'Strength Powder presents the sourced +10 attack value');
    await powder.tap();
    await frame.locator('[data-action=submit]').tap();
-   passed((await frame.locator('[role=status]').textContent()).includes('Attack must start with a weapon'),
+   passed((await frame.locator('[role=status]').textContent()).includes('雑貨は単独で攻撃できません'),
      'Powder alone cannot be played as a weapon');
    passed((await frame.locator('.stage-heading').textContent()).includes('P1'),
      'Rejected Powder-alone action cannot advance a turn');
