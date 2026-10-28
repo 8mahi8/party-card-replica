@@ -9,11 +9,10 @@
  * ignored: miracles, reflection/deflection, angel-stoppers vs miracles,
  * statuses, currencies, wider attack, and any unreviewed effect combos.
  */
-import {canBlock, combineElements, calculateHit, MAX_HAND_SIZE} from '../src/rules.mjs';
+import {sumLegalArmor, calculateHit, MAX_HAND_SIZE} from '../src/rules.mjs';
 import {runEffectQueueFixture} from './effect-runner.mjs';
 import {compileOrderedWeaponAttack,queuedAttackCosts} from './ordered-attack.mjs';
 
-const MAX_ATTACK=Number.MAX_SAFE_INTEGER;
 function fail(message) { throw new Error(message); }
 function catalogDef(catalog,instance) {
   if(!instance || typeof instance.instanceId!=='string')
@@ -30,11 +29,6 @@ function locateHandCards(player,orderedIds,catalog) {
     if(!instance)fail('Card not present in hand');
     return {instance,def:catalogDef(catalog,instance)};
   });
-}
-function safeAdd(a,b) {
-  if(!Number.isSafeInteger(a)||!Number.isSafeInteger(b)||a<0||b<0||
-     a>MAX_ATTACK-b)fail('Invalid accumulated attack or defense');
-  return a+b;
 }
 function getPlayer(state,id) {
   const player=state.players.find(p=>p.id===id);
@@ -99,7 +93,8 @@ export function compileBasicResolution(state,catalog) {
     if(p.defense.learnedDefinitionId!==undefined)fail('Learned defensive miracle requires dedicated resolver');
     defending=locateHandCards(defender,p.defense.instanceIds,catalog);
   }
-  let armor=0,stripElement=false;
+  let stripElement=false;
+  const physicalShields=[];
   for(let i=0;i<defending.length;i++) {
     const {def}=defending[i];
     if(!def.playModes.includes('defend'))fail('Unsupported defense selection');
@@ -109,15 +104,11 @@ export function compileBasicResolution(state,catalog) {
     if(strip){stripElement=true;continue;}
     if(!['weapon','armor'].includes(def.family))
       fail('Unsupported defense item without guard');
-    // Defensive item's stop-against-miracle effect is inert vs ordinary weapon.
-    // Element shields are computed below, after any attribute removal.
-    armor=safeAdd(armor,def.stats.guard);
+    physicalShields.push({guard:def.stats.guard,element:def.element});
   }
-  for(const {def} of defending) {
-    if(def.effects.some(e=>e.type==='stripElement'))continue;
-    if(!canBlock(element,def.element,{rainbowCurtain:stripElement}))
-      fail('Illegal shield for attack element');
-  }
+  // All ordinary shield arithmetic and element legality lives in ONE
+  // source-backed pure rules helper (also used for solo miracles).
+  const armor=sumLegalArmor(element,physicalShields,{rainbowCurtain:stripElement});
   const hit=calculateHit({attack,element,armor,hp:defender.hp,rainbowCurtain:stripElement});
   const queue=Object.freeze([
     ...(p.attackContext?[]:queuedAttackCosts(attackContext,attacker.id)),
