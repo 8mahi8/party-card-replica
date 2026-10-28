@@ -49,7 +49,11 @@ function makeOutput(){
    built.set(name,id);
  }
  const entry=built.get('v2/lab-ui.mjs');
- parts.push(entry+'.mountV2Lab(document.getElementById("v2-root"));');
+ // Stable test fixture hooks: adding engine modules must never shift the
+ // browser tap tests onto another numbered closure.
+ parts.push('const __v2_lab_test_controller = '+built.get('v2/lab-controller.mjs')+';');
+ parts.push('const __v2_lab_test_ui = '+entry+';');
+ parts.push('__v2_lab_test_ui.mountV2Lab(document.getElementById("v2-root"));');
  const javascript=parts.join('\n\n');
  if(javascript.toLowerCase().includes('</script'))throw new Error('Script delimiter in generated JS');
  const template=fs.readFileSync(path.join(root,'v2/demo/template.html'),'utf8');
