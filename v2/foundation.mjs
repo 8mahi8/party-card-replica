@@ -35,6 +35,10 @@ function freezeEffect(effect) {
      (effect.when!=='onDeclare'||Object.keys(params).length!==1||
       !['fire','water'].includes(params.element)))
     throw new Error('Invalid setAttackElement data');
+  if(effect.type==='forceSale'&&
+     (effect.when!=='onDeclare'||Object.keys(params).length!==1||
+      params.kind!=='sell'))
+    throw new Error('Invalid forceSale effect data');
   const json = JSON.stringify(params);
   if(json===undefined || json.length>4000)throw new Error('Effect parameters not serializable');
   const copy = JSON.parse(json);
