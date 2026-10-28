@@ -97,6 +97,7 @@ export function mountV2Lab(root,controller=createV2LabController()){
    const kind=node.getAttribute('data-card');
    let localError=null;
    let handoff=false;
+   let submitRejected=false;
    try{
      if(action==='reset'){
        if(!resetArmed)resetArmed=true;
@@ -110,6 +111,7 @@ export function mountV2Lab(root,controller=createV2LabController()){
        // Scroll back to the top inside the embed frame so the next player
        // sees the pass screen rather than an empty bottom viewport.
        handoff=outcome.ok && !outcome.view.revealed;
+       submitRejected=!outcome.ok;
      }else if(kind==='hand'){
        resetArmed=false;controller.toggle({instanceId:decodeURIComponent(node.getAttribute('data-id'))});
      }else if(kind==='learned'){
@@ -128,6 +130,21 @@ export function mountV2Lab(root,controller=createV2LabController()){
    if(localError){
      const feedback=root.querySelector?.('[role="status"]');
      if(feedback)feedback.textContent=localError;
+   }
+   // A rejected submission keeps the turn editable. In short embed frames,
+   // bring the explanation above the fixed confirm bar by scrolling only
+   // THIS iframe window, never the parent Google Sites page.
+   if(submitRejected||localError){
+     const feedback=root.querySelector?.('[role="status"]');
+     const win=root.ownerDocument?.defaultView;
+     if(feedback&&win){
+       const note=feedback.getBoundingClientRect();
+       const confirmTop=root.querySelector?.('.confirm')?.getBoundingClientRect().top
+         ??win.innerHeight;
+       const delta=note.bottom>confirmTop-12 ? note.bottom-(confirmTop-12)
+         :note.top<12 ? note.top-12 : 0;
+       if(delta)win.scrollTo(0,Math.max(0,win.scrollY+delta));
+     }
    }
  });
  render();
