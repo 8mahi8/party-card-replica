@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import {RESEARCH_CATALOG_CONTRACT} from './helpers/research-catalog-contract.mjs';
 import {migrateLegacyCatalog} from '../v2/legacy-adapter.mjs';
 import {findVerifiedBasicCard} from '../src/verified-basic-cards.mjs';
 import {createStagingRoom} from '../v2/staging-room.mjs';
@@ -40,8 +41,8 @@ function send(s,actorId,type,{indices=[],learnedDefinitionId}={}){
 }
 
 test('the four new cards are exact, distinct 0.2%-weight miracle definitions',()=>{
- assert.equal(summary.unique,90);
- assert.equal(summary.slots,209);
+ assert.equal(summary.unique,RESEARCH_CATALOG_CONTRACT.unique);
+ assert.equal(summary.slots,RESEARCH_CATALOG_CONTRACT.slots);
  assert.equal(summary.complete,false,'this is not an audited full deck');
  for(const m of spells){
   const raw=findVerifiedBasicCard(m.id),def=catalog.get(m.id);
