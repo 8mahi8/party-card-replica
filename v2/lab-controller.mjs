@@ -153,7 +153,10 @@ export function createV2LabController({
         family:def?.family??'unknown',
         selectedOrder:selected.findIndex(x=>x.learnedDefinitionId===id)+1};
     });
-    return {...status,publicPlayers:projected.players.map(p=>({
+    return {...status,
+      // Includes addon weapons; only an entirely weaponless hand may pray.
+      canPray:!self.hand.some(card=>catalog.get(card.definitionId)?.family==='weapon'),
+      publicPlayers:projected.players.map(p=>({
       id:p.id,hp:p.hp,mp:p.mp,money:p.money,handCount:p.handCount
     })),
       pending:projected.pending,
@@ -225,8 +228,12 @@ export function createV2LabController({
         :{commandId:n,expectedRevision:state.revision,actorId:actor.id,type:'defend',
           orderedInstanceIds:selected.filter(x=>x.instanceId).map(x=>x.instanceId)};
     } else if(state.phase==='turn'){
-      if(!selected.length)throw new Error('使用するカードを選んでください');
-      if(selected.length===1&&selected[0].learnedDefinitionId){
+      if(!selected.length &&
+         actor.hand.some(card=>catalog.get(card.definitionId)?.family==='weapon'))
+        throw new Error('使用するカードを選んでください');
+      if(!selected.length){
+        command={commandId:n,expectedRevision:state.revision,actorId:actor.id,type:'pray'};
+      }else if(selected.length===1&&selected[0].learnedDefinitionId){
         command={commandId:n,expectedRevision:state.revision,actorId:actor.id,
           type:'castLearned',learnedDefinitionId:selected[0].learnedDefinitionId,targetId};
       } else if(selected.some(x=>x.learnedDefinitionId)){
