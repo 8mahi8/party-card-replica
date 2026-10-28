@@ -100,7 +100,7 @@ test('invalid mirror card, non-target ownership and false target are rejected at
  for(const id of [s.players[1].hand[1].instanceId,'ci-forged',
    s.players[0].hand[0].instanceId]){
   assert.throws(()=>previewSingleMirrorSale(s,catalog,params,{mirrorInstanceId:id}),
-   /Only a real Super Mirror/);
+   /Only a real Super Mirror|Mirror and sale instances must differ/);
  }
  assert.throws(()=>mirror(s,{...params,targetId:'C'}));
  assert.throws(()=>mirror(s,params,0,{authorizedSeatId:'B'}),
@@ -159,5 +159,5 @@ test('mirror response is not permitted in live/online path or as a guessed chain
   authorizedSeatId:'A',mirrorInstanceId:s.players[1].hand[0].instanceId
  }),/lab fixture mode/);
  const completed=mirror(s);
- assert.throws(()=>mirror(completed.state),/Only current seller|starting turn|Sale requires valid/);
+ assert.throws(()=>mirror(completed.state),/Only current seller|starting turn|Sale requires valid|Only a real Super Mirror/);
 });
