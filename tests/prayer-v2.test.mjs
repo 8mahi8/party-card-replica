@@ -145,6 +145,6 @@ test('hotseat with addon weapons keeps attack confirmation and rejects empty sel
  assert.equal(v.canPray,false);
  assert.doesNotMatch(renderV2LabMarkup(v),/祈る（神器を1枚引く）/);
  const before=JSON.stringify(lab.labSnapshot());
- assert.equal(lab.submit().ok,false);
+ assert.throws(()=>lab.submit(),/使用するカードを選んでください/);
  assert.equal(JSON.stringify(lab.labSnapshot()),before);
 });
