@@ -525,6 +525,63 @@ return {defineCard,buildCatalog,createInstance,selectInstances,projectPlayerView
 
 const __v2_module_3 = (() => {
 "use strict";
+const {reflectTarget} = __v2_module_0;
+const {drawRandom32} = __v2_module_2;
+
+/**
+ * G3 shared, source-backed redirect target + RNG planner.
+ *
+ * Both physical weapons and standalone miracles use the same original rules:
+ * reflect -> previous attacking prophet; deflect -> any living prophet,
+ * including self. If deflect lands on its owner, there is NO second defense.
+ *
+ * This is a PURE routing plan. It does not pay costs, spend cards, refill,
+ * change room revision or commit a state. The hosting resolver is responsible
+ * for those actions and must use a transaction/CAS for live multiplayer.
+ *
+ * Source: https://w.atwiki.jp/piong/pages/17.html
+ */
+
+
+function planRedirectRoute(state,{
+  mode,sourceId,targetId,deflectRng=null
+}={}){
+  if(!state||!Array.isArray(state.players)||!state.players.length||
+     typeof sourceId!=='string'||typeof targetId!=='string')
+    throw new Error('Invalid redirect room or parties');
+  const living=state.players.filter(x=>x.hp>0).map(x=>x.id);
+  if(!living.includes(sourceId)||!living.includes(targetId))
+    throw new Error('Redirect parties must be alive');
+  if(!['reflect','deflect'].includes(mode))
+    throw new Error('Unsupported redirect mode');
+  let nextSeed=state.rngSeed;
+  let rng=()=>0;
+  if(mode==='deflect'){
+    if(deflectRng!==null){
+      if(typeof deflectRng!=='function')
+        throw new Error('Invalid deflect RNG');
+      rng=deflectRng;
+    } else {
+      const roll=drawRandom32(state.rngSeed);
+      nextSeed=roll.nextSeed;
+      rng=()=>roll.value;
+    }
+  }
+  const route=reflectTarget({
+    source:sourceId,target:targetId,actor:targetId,mode,living,rng
+  });
+  return Object.freeze({
+    route:Object.freeze({...route}),
+    nextSeed,
+    immediate:route.target===targetId
+  });
+}
+
+return {planRedirectRoute};
+})();
+
+const __v2_module_4 = (() => {
+"use strict";
 const {defineCard,buildCatalog} = __v2_module_2;
 const {VERIFIED_BASIC_CARDS,PARTIAL_CARD_SOURCE} = __v2_module_1;
 
@@ -656,7 +713,7 @@ function migrateLegacyCatalog(cards=VERIFIED_BASIC_CARDS) {
 return {convertLegacyCard,migrateLegacyCatalog};
 })();
 
-const __v2_module_4 = (() => {
+const __v2_module_5 = (() => {
 "use strict";
 const {createInstance, selectInstances} = __v2_module_2;
 
@@ -964,7 +1021,7 @@ function viewStagingRoom(state,viewerId) {
 return {createStagingRoom,applyStagingCommand,viewStagingRoom};
 })();
 
-const __v2_module_5 = (() => {
+const __v2_module_6 = (() => {
 "use strict";
 const {createInstance} = __v2_module_2;
 const {MAX_HAND_SIZE,MAX_LEARNED_MIRACLES} = __v2_module_0;
@@ -1098,7 +1155,7 @@ function runEffectQueueFixture(state,catalog,queue,{
 return {runEffectQueueFixture};
 })();
 
-const __v2_module_6 = (() => {
+const __v2_module_7 = (() => {
 "use strict";
 const {combineElements} = __v2_module_0;
 
@@ -1305,11 +1362,11 @@ function queuedAttackCosts(attackContext,actorId) {
 return {compileOrderedWeaponAttack,queuedAttackCosts};
 })();
 
-const __v2_module_7 = (() => {
+const __v2_module_8 = (() => {
 "use strict";
 const {sumLegalArmor, calculateHit, MAX_HAND_SIZE} = __v2_module_0;
-const {runEffectQueueFixture} = __v2_module_5;
-const {compileOrderedWeaponAttack,queuedAttackCosts} = __v2_module_6;
+const {runEffectQueueFixture} = __v2_module_6;
+const {compileOrderedWeaponAttack,queuedAttackCosts} = __v2_module_7;
 
 /**
  * V2 G3, PART 1: pure compile/resolve for reference-backed BASIC weapon combat.
@@ -1450,11 +1507,11 @@ function resolveBasicFixture(state,catalog,options={}) {
 return {compileBasicWeaponAttack,compileBasicResolution,resolveBasicFixture};
 })();
 
-const __v2_module_8 = (() => {
+const __v2_module_9 = (() => {
 "use strict";
-const {compileBasicWeaponAttack} = __v2_module_7;
-const {queuedAttackCosts} = __v2_module_6;
-const {runEffectQueueFixture} = __v2_module_5;
+const {compileBasicWeaponAttack} = __v2_module_8;
+const {queuedAttackCosts} = __v2_module_7;
+const {runEffectQueueFixture} = __v2_module_6;
 
 /**
  * G3 weapon-stop resolver: the defensive miracle Wall stops any neutral
@@ -1592,14 +1649,13 @@ function resolveWallFixture(state,catalog,opts={}) {
 return {isWallDefense,compileWallResolution,resolveWallFixture};
 })();
 
-const __v2_module_9 = (() => {
+const __v2_module_10 = (() => {
 "use strict";
-const {reflectTarget} = __v2_module_0;
-const {createInstance, drawRandom32} = __v2_module_2;
-const {compileBasicWeaponAttack,resolveBasicFixture} = __v2_module_7;
-const {isWallDefense,resolveWallFixture} = __v2_module_8;
-const {queuedAttackCosts} = __v2_module_6;
-const {runEffectQueueFixture} = __v2_module_5;
+const {planRedirectRoute} = __v2_module_3;
+const {compileBasicWeaponAttack,resolveBasicFixture} = __v2_module_8;
+const {isWallDefense,resolveWallFixture} = __v2_module_9;
+const {queuedAttackCosts} = __v2_module_7;
+const {runEffectQueueFixture} = __v2_module_6;
 
 /**
  * V2 G3 Part 2: source-backed basic redirect / deflect resolver.
@@ -1609,7 +1665,6 @@ const {runEffectQueueFixture} = __v2_module_5;
  * NOTE: This module is fixture-only, with deterministic non-secret RNG.
  * Do not publish its biased test draws as original game probabilities.
  */
-
 
 
 
@@ -1682,24 +1737,8 @@ function resolveRedirectFixture(state,catalog,{
  if(!['any','neutralWeapon'].includes(effect.params.scope))
    bad('Unmapped redirect scope');
  const sourceId=p.sourceId??p.originalAttackerId;
- const living=state.players.filter(x=>x.hp>0).map(x=>x.id);
- if(!living.includes(sourceId)||!living.includes(p.targetId))
-   bad('Redirect parties must be alive');
- let nextSeed=state.rngSeed;
- let rng=()=>0;
- if(effect.params.mode==='deflect'){
-   if(deflectRng!==null) {
-     if(typeof deflectRng!=='function')bad('Invalid deterministic deflect RNG');
-     rng=deflectRng;
-   } else {
-     const outcome=drawRandom32(state.rngSeed);
-     nextSeed=outcome.nextSeed;
-     rng=()=>outcome.value;
-   }
- }
- const route=reflectTarget({
-   source:sourceId,target:p.targetId,actor:p.targetId,
-   mode:effect.params.mode,living,rng
+ const {route,nextSeed,immediate}=planRedirectRoute(state,{
+   sourceId,targetId:p.targetId,mode:effect.params.mode,deflectRng
  });
  // Reuse the central queue for every cost, including learned spell draws.
  // In the paused mode the runner retains the pending attack and its refill
@@ -1720,7 +1759,7 @@ function resolveRedirectFixture(state,catalog,{
    ...result.pending,sourceId:route.source,targetId:route.target,
    attackContext,defense:null
  };
- if(route.target===p.targetId) {
+ if(immediate) {
    // Self-deflection is an immediate hit, not an extra defense opportunity.
    result.phase='resolving';result.activePlayerId=null;
    const settled=resolveBasicFixture(result,catalog,{labOnly:true,fixtureDrawDefinitionId});
@@ -1734,11 +1773,11 @@ function resolveRedirectFixture(state,catalog,{
 return {resolveRedirectFixture};
 })();
 
-const __v2_module_10 = (() => {
+const __v2_module_11 = (() => {
 "use strict";
-const {calculateHit,sumLegalArmor,reflectTarget} = __v2_module_0;
-const {drawRandom32} = __v2_module_2;
-const {runEffectQueueFixture} = __v2_module_5;
+const {calculateHit,sumLegalArmor} = __v2_module_0;
+const {planRedirectRoute} = __v2_module_3;
+const {runEffectQueueFixture} = __v2_module_6;
 
 /**
  * V2 G3: narrow solo attack miracles with ordered defensive reactions.
@@ -1949,21 +1988,10 @@ function resolveSoloMiracleFixture(state,catalog,options={}) {
      if(defender.mp<mpCost)fail('Not enough MP for defensive miracle');
      const previousSource=p.sourceId??p.originalAttackerId;
      if(previousSource===p.targetId)fail('Self-hit cannot be redirected');
-     const living=state.players.filter(x=>x.hp>0).map(x=>x.id);
-     let rngSeed=state.rngSeed;
-     let rng=()=>0;
-     if(e.params.mode==='deflect'){
-       if(options.deflectRng!==undefined&&options.deflectRng!==null){
-         if(typeof options.deflectRng!=='function')fail('Invalid deflect RNG');
-         rng=options.deflectRng;
-       }else{
-         const roll=drawRandom32(state.rngSeed);
-         rngSeed=roll.nextSeed;
-         rng=()=>roll.value;
-       }
-     }
-     const route=reflectTarget({source:previousSource,target:p.targetId,actor:p.targetId,
-       mode:e.params.mode,living,rng});
+     const {route,nextSeed:rngSeed,immediate}=planRedirectRoute(state,{
+       sourceId:previousSource,targetId:p.targetId,mode:e.params.mode,
+       deflectRng:options.deflectRng??null
+     });
      // Preview source spell cost without committing. Cached reflected attacks
      // have already paid their cast price, and never charge it again.
      const preview={...state,pending:{...p,defense:{playerId:p.targetId,instanceIds:[]}}};
@@ -1990,7 +2018,7 @@ function resolveSoloMiracleFixture(state,catalog,options={}) {
          attack:base.attack,element:base.element},defense:null};
      const events=[...paused.events,{type:'redirect',mode:e.params.mode,
        by:defender.id,from:previousSource,to:route.target,cardId:selectedRedirect.def.id}];
-     if(route.target===defender.id){
+     if(immediate){
        // A deflection that hits its own user resolves immediately: the
        // defender cannot stop, deflect, reflect or guard against this hit.
        next.phase='resolving';next.activePlayerId=null;
@@ -2013,13 +2041,13 @@ function resolveSoloMiracleFixture(state,catalog,options={}) {
 return {compileSoloMiracleResolution,resolveSoloMiracleFixture};
 })();
 
-const __v2_module_11 = (() => {
+const __v2_module_12 = (() => {
 "use strict";
-const {applyStagingCommand} = __v2_module_4;
-const {resolveRedirectFixture} = __v2_module_9;
-const {resolveSoloMiracleFixture,compileSoloMiracleResolution} = __v2_module_10;
-const {compileOrderedWeaponAttack} = __v2_module_6;
-const {runEffectQueueFixture} = __v2_module_5;
+const {applyStagingCommand} = __v2_module_5;
+const {resolveRedirectFixture} = __v2_module_10;
+const {resolveSoloMiracleFixture,compileSoloMiracleResolution} = __v2_module_11;
+const {compileOrderedWeaponAttack} = __v2_module_7;
+const {runEffectQueueFixture} = __v2_module_6;
 const {drawRandom32} = __v2_module_2;
 const {MAX_HAND_SIZE} = __v2_module_0;
 
@@ -2176,11 +2204,11 @@ function submitAndResolveFixture(state,command,catalog,{
 return {resolvePrayFixture,resolveStagedFixture,submitAndResolveFixture};
 })();
 
-const __v2_module_12 = (() => {
+const __v2_module_13 = (() => {
 "use strict";
-const {migrateLegacyCatalog} = __v2_module_3;
-const {createStagingRoom,viewStagingRoom} = __v2_module_4;
-const {submitAndResolveFixture} = __v2_module_11;
+const {migrateLegacyCatalog} = __v2_module_4;
+const {createStagingRoom,viewStagingRoom} = __v2_module_5;
+const {submitAndResolveFixture} = __v2_module_12;
 const {VERIFIED_BASIC_CARDS} = __v2_module_1;
 
 /**
@@ -2470,9 +2498,9 @@ function createV2LabController({
 return {createV2LabController};
 })();
 
-const __v2_module_13 = (() => {
+const __v2_module_14 = (() => {
 "use strict";
-const {createV2LabController} = __v2_module_12;
+const {createV2LabController} = __v2_module_13;
 
 /**
  * Minimal accessible and touch-friendly offline V2 hotseat UI.
@@ -2632,7 +2660,7 @@ function mountV2Lab(root,controller=createV2LabController()){
 return {renderV2LabMarkup,mountV2Lab};
 })();
 
-__v2_module_13.mountV2Lab(document.getElementById("v2-root"));
+__v2_module_14.mountV2Lab(document.getElementById("v2-root"));
 </script>
 </body>
 </html>
