@@ -17,6 +17,7 @@ const MAX_PLAYERS=9;
 const MAX_HAND=18;
 const ALLOWED_KEYS={
   pray:new Set(['commandId','expectedRevision','actorId','type']),
+  discard:new Set(['commandId','expectedRevision','actorId','type','orderedInstanceIds']),
   playCards:new Set(['commandId','expectedRevision','actorId','type','targetId','orderedInstanceIds']),
   playSequence:new Set(['commandId','expectedRevision','actorId','type','targetId','orderedPlays']),
   castLearned:new Set(['commandId','expectedRevision','actorId','type','targetId','learnedDefinitionId']),
@@ -212,7 +213,23 @@ export function applyStagingCommand(state,command,catalog,{authorizedSeatId}={})
   let pending;
   let phase;
   let activePlayerId;
-  if(command.type==='pray'){
+  if(command.type==='discard'){
+    if(state.phase!=='turn'||actor.hp<=0)
+      throw new Error('Cannot discard outside a living turn');
+    // Discard uses PHYSICAL card instances; learned spells cannot be thrown.
+    // Rare return-with-damage artifacts will require a separate researched
+    // resolution, never silently destroy those cards as ordinary discard.
+    const cards=selectInstances(actor.hand,command.orderedInstanceIds);
+    if(cards.length>MAX_HAND)throw new Error('Too many discarded cards');
+    for(const card of cards){
+      const def=catalog.get(card.definitionId);
+      if(!def||def.discardPolicy!=='ordinary')
+        throw new Error('Special discard effect is not yet implemented');
+    }
+    pending={type:'discard',originalAttackerId:actor.id,
+      discardInstanceIds:cards.map(x=>x.instanceId)};
+    phase='resolving';activePlayerId=null;
+  } else if(command.type==='pray'){
     if(state.phase!=='turn'||actor.hp<=0)throw new Error('Cannot pray outside a living turn');
     // The source game permits prayer only when NO physical weapon is held.
     // This includes +ATK addon weapons; an offensive miracle is not a weapon.
