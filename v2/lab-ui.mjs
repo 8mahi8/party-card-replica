@@ -76,6 +76,10 @@ export function renderV2LabMarkup(data,{resetArmed=false}={}){
  const actionText=data.phase==='defense'?(data.selection.length?'防御を確定':'防御しない')
    :data.canPray&&data.selection.length===0?'祈る（神器を1枚引く）':'攻撃を確定';
  const notice='<p class="status" role="status">'+esc(data.notice)+'</p>';
+ const discardOption=data.phase==='turn' && data.canDiscardSelection
+   ?'<button type="button" class="quiet wide discard-option" data-action="discard">選んだ'+
+     data.selection.length+'枚を捨てる（補充なし・ターン終了）</button>'
+   :'';
  return header+'<main class="stage">'+
    '<div class="stage-heading"><h1>'+esc(seatLabel(data.actorId))+'：'+title+'</h1><p>'+caption+'</p></div>'+
    targets+'<section class="cards-panel"><h2>手札 <small>'+data.hand.length+'枚</small></h2>'+
@@ -86,7 +90,7 @@ export function renderV2LabMarkup(data,{resetArmed=false}={}){
        '<p class="empty">まだ習得していません</p>')+'</div></section>'+
    '<section class="selection"><h2>選択順 <small>再タップで解除</small></h2><div class="picks">'+
    (picked||'<span class="muted">まだ選択されていません</span>')+'</div></section>'+
-   notice+'<button type="button" class="primary wide confirm" data-action="submit">'+
+   notice+discardOption+'<button type="button" class="primary wide confirm" data-action="submit">'+
    actionText+'</button></main>'+footer;
 }
 export function mountV2Lab(root,controller=createV2LabController()){
@@ -107,9 +111,9 @@ export function mountV2Lab(root,controller=createV2LabController()){
        else{controller.reset();resetArmed=false;handoff=true;}
      }else if(action==='reveal'){
        resetArmed=false;controller.reveal();
-     }else if(action==='submit'){
+     }else if(action==='submit'||action==='discard'){
        resetArmed=false;
-       const outcome=controller.submit();
+       const outcome=controller.submit({discard:action==='discard'});
        // A successful command conceals the cards or ends the match.
        // Scroll back to the top inside the embed frame so the next player
        // sees the pass screen rather than an empty bottom viewport.
