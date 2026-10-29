@@ -143,8 +143,8 @@ export function runEffectQueueFixture(state,catalog,queue,{
      const saleIndex=seller.hand.findIndex(x=>x.instanceId===effect.soldInstanceId);
      if(saleIndex<0)fail('Sold card is not held');
      const item=seller.hand[saleIndex],definition=catalog.get(item.definitionId);
-     if(!definition||definition.family==='trade')
-       fail('Unverified trade item cannot be sold');
+     if(!definition)
+       fail('Unknown offered card definition');
      if(buyer.learned.length>0 &&
         buyer.hand.length+buyer.learned.length>=MAX_HAND_SIZE)
        fail('Learned miracle overflow at hand cap needs original verification');
