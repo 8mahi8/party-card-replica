@@ -2215,7 +2215,13 @@ function viewStagingRoom(state,viewerId,catalog=null) {
     pending:state.pending?{
       type:state.pending.type,sourceId:state.pending.sourceId??state.pending.originalAttackerId,
       targetId:state.pending.targetId,
-      ...(state.pending.attackContext?.hitCount>1?{
+      ...(state.pending.mirageRoute?{
+        mirageRound:state.pending.mirageRoute.roundIndex+1,
+        mirageRounds:state.pending.mirageRoute.roundCount,
+        mirageTargetHit:state.pending.mirageRoute.subHitIndex+1,
+        mirageTargetHits:state.pending.mirageRoute.hitsPerTarget,
+        mirageHitsResolved:state.pending.mirageRoute.hitNumber
+      }:state.pending.attackContext?.hitCount>1?{
         strikeNumber:(state.pending.strikeIndex??0)+1,
         strikeCount:state.pending.attackContext?.hitCount??1
       }:{}),
@@ -4039,9 +4045,15 @@ function resolveRedirectFixture(state,catalog,{
    state.rulesetId==='mirage-multiplayer-research-fixture-v2';
  if(researchMulti){
    const compiled=p.attackContext??compileBasicWeaponAttack(state,catalog);
-   if(compiled.mirageCount>0&&selected.some(({def})=>
-     def.effects.some(e=>e.when==='onDefense'&&
-       (e.type==='redirectAttack'||e.type==='stopAttack'))))
+   if(compiled.mirageCount>0&&(
+     selected.some(({def})=>def.effects.some(e=>e.when==='onDefense'&&
+       ((e.type==='redirectAttack'&&e.params.scope!=='miracle')||
+        (e.type==='stopAttack'&&e.params.scope==='neutralWeapon'))))||
+     (p.defense.learnedDefinitionId!==undefined&&
+       catalog.get(p.defense.learnedDefinitionId)?.effects.some(e=>
+         e.when==='onDefense'&&
+         ((e.type==='redirectAttack'&&e.params.scope!=='miracle')||
+          (e.type==='stopAttack'&&e.params.scope==='neutralWeapon'))))))
      bad('Multiplayer Mirage redirect or Wall stopping needs original verification');
  }
  const redirected=selected.filter(x=>x.def.effects.some(e=>e.type==='redirectAttack'&&e.when==='onDefense'&&
