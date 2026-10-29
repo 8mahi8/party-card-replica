@@ -13,6 +13,7 @@
  * https://note.com/rich_echium152/n/n02fdc4949096 (creator 2022 quote)
  * https://ameblo.jp/godfield-tactics/entry-12100951333.html
  */
+import {dreamLabTimingSignatureFixture,dreamSourceExclusionFixture} from './dream-candidate-audit.mjs';
 function fail(message){throw new Error(message);}
 function cardDef(catalog,id){
  const def=catalog.get(id);
@@ -25,22 +26,14 @@ function cardDef(catalog,id){
  * the original and never an attempt to model the full disguise distribution.
  */
 export function dreamTimingSignatureFixture(def){
- if(!def||!Array.isArray(def.playModes)||!Array.isArray(def.effects))
-   fail('Invalid Dream timing definition');
- const effects=def.effects.filter(e=>e.when==='onDefense')
-   .map(e=>[e.type,e.params?.mode??null,e.params?.scope??null])
-   .sort((a,b)=>JSON.stringify(a).localeCompare(JSON.stringify(b)));
- return JSON.stringify({
-   family:def.family,
-   playModes:[...def.playModes].sort(),
-   guardUsable:def.stats.guard>0,
-   defenseEffects:effects,
-   discardPolicy:def.discardPolicy
- });
+ return dreamLabTimingSignatureFixture(def);
 }
+
 /** Shared safety rule for attachment, projection and ownership validation. */
 function allowableDreamPair(actual,visible){
  if(actual.id===visible.id)return false;
+ if(dreamSourceExclusionFixture(actual)||dreamSourceExclusionFixture(visible))
+   return false;
  if(['trade','miracle'].includes(actual.family)||
     ['trade','miracle'].includes(visible.family)||
     actual.playModes.includes('passive')||
