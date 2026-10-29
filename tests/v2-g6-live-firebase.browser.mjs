@@ -19,7 +19,7 @@ if(process.env.G6_LIVE_FIREBASE!=='1')
 const ROOT=path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const DB='https://mygame-df915-default-rtdb.firebaseio.com';
 const ROOT_KEY='godfieldV2LabRooms';
-let code=null,contextA=null,contextB=null,browser=null,server=null;
+let code=null,contextA=null,contextB=null,browser=null,server=null,a=null,b=null;
 const time=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 async function dbRead(code){
  const r=await fetch(DB+'/'+ROOT_KEY+'/'+code+'.json',{signal:AbortSignal.timeout(15000),cache:'no-store'});
@@ -63,7 +63,7 @@ try{
   screen:{width:390,height:844},isMobile:true,hasTouch:true});
  contextB=await browser.newContext({viewport:{width:390,height:430},
   screen:{width:390,height:844},isMobile:true,hasTouch:true});
- const a=await contextA.newPage(),b=await contextB.newPage();
+ a=await contextA.newPage();b=await contextB.newPage();
  const errors=[];
  for(const page of [a,b])page.on('pageerror',e=>errors.push(e.message));
  const url='http://127.0.0.1:'+server.address().port+
@@ -103,6 +103,39 @@ try{
  console.log('G6_LIVE_TWO_BROWSER_SUCCESS: room, join, attack, defend, revision3, HP30');
 }catch(error){
  console.error('G6_LIVE_TEST_FAILURE',String(error?.stack||error));
+ const snapshots=[];
+ for(const [seat,p] of [['A',a],['B',b]]){
+  try{
+   if(!p)continue;
+   const state=await p.evaluate(()=>({
+    room:document.querySelector('#roomLabel')?.textContent,
+    status:document.querySelector('#status')?.textContent,
+    phase:document.querySelector('#phase')?.textContent,
+    scores:[...document.querySelectorAll('.score')].map(x=>x.textContent),
+    handCount:document.querySelectorAll('#hand button').length,
+    defendDisabled:document.querySelector('#defend')?.disabled,
+    lobbyHidden:document.querySelector('#lobby')?.hidden
+   }));
+   snapshots.push({seat,...state});
+  }catch(x){snapshots.push({seat,error:String(x)})}
+ }
+ console.error('G6_LIVE_PAGE_DIAGNOSTICS',JSON.stringify({snapshots,errors}));
+ try{
+  if(code){
+   const room=await dbRead(code);
+   console.error('G6_LIVE_DB_DIAGNOSTICS',JSON.stringify({
+    joined:!!room?.meta?.guestId,
+    views:Object.fromEntries(Object.entries(room?.views||{}).map(
+     ([k,v])=>[k,{revision:v.revision,phase:v.phase,
+      activePlayerId:v.activePlayerId,hp:v.players?.map(p=>p.hp)}])),
+    command:{senderMatch:!!room?.commands?.B?.senderId,
+      actorId:room?.commands?.B?.command?.actorId,
+      expectedRevision:room?.commands?.B?.command?.expectedRevision,
+      type:room?.commands?.B?.command?.type},
+    ack:room?.acks?.B
+   }));
+  }
+ }catch(x){console.error('G6_LIVE_DB_DIAGNOSTIC_ERROR',String(x))}
  process.exitCode=1;
 }finally{
  try{await contextA?.close()}catch{}
