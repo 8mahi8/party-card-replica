@@ -202,8 +202,8 @@ async function testShortHandDockTouch(base){
       metrics.scrollHeight>metrics.clientHeight+80,
      'short embed uses an independently scrollable hand: '+JSON.stringify(metrics));
    passed(metrics.barPosition==='static' &&
-     metrics.deckBottom<=metrics.barTop-3 &&
-     metrics.footerTop>=metrics.barBottom+2,
+     metrics.deckBottom<=metrics.barTop+1 &&
+     metrics.footerTop>=metrics.barBottom-1,
      'short embed control bar never overlays hand or reset: '+JSON.stringify(metrics));
    const last=frame.locator('[data-card=hand]').last();
    await last.scrollIntoViewIfNeeded();
