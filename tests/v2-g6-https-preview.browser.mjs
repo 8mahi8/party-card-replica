@@ -6,7 +6,7 @@
 import assert from 'node:assert/strict';
 import {webkit} from 'playwright';
 
-const URL='https://raw.githack.com/8mahi8/party-card-replica/refactor/v2-foundation-review-20261027/v2/demo/firebase-online-lab.html';
+const URL='https://raw.githack.com/8mahi8/party-card-replica/refactor/v2-foundation-review-20261027/v2/demo/firebase-online-standalone.html';
 let browser;
 try{
  browser=await webkit.launch({headless:true});
@@ -23,14 +23,20 @@ try{
  assert.equal(errors.length,0,'JS errors: '+errors.join(' | '));
  assert.equal(await page.locator('#create').isEnabled(),true);
  assert.equal(await page.locator('#join').isEnabled(),true);
- assert.equal(await page.locator('script[type="module"]').count(),1);
+ assert.equal(await page.locator('script[type="module"]').count(),0);
  assert(await page.evaluate(()=>document.documentElement.scrollWidth<=
   document.documentElement.clientWidth+2));
  // Do not press Create or Join. This proof does not touch RTDB data.
- console.log('G6_EXTERNAL_HTTPS_PREVIEW_SUCCESS source=raw.githack.com module-imports=ok width=390');
+ console.log('G6_EXTERNAL_HTTPS_PREVIEW_SUCCESS source=raw.githack.com inline-bundle=ok width=390');
  await context.close();
 }catch(error){
  console.error('G6_EXTERNAL_HTTPS_PREVIEW_FAILURE',String(error?.stack||error));
+ try{
+  console.error('G6_EXTERNAL_HTTPS_PREVIEW_DIAGNOSTICS',JSON.stringify({
+   url:await page?.url(),status:await page?.locator('#status').textContent(),
+   errors:globalThis.__previewErrors??[],
+  }));
+ }catch(e){console.error('G6_EXTERNAL_DIAGNOSTICS_UNAVAILABLE',String(e))}
  process.exitCode=1;
 }finally{
  await browser?.close();
