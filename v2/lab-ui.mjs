@@ -50,11 +50,13 @@ export function renderV2LabMarkup(data,{resetArmed=false}={}){
      '<p>'+esc(data.notice)+'</p><p class="hint">端末を'+esc(seatLabel(data.actorId))+
      'へ渡してから手札を表示してください</p>'+
      '<button type="button" class="primary wide" data-action="reveal">自分の手札を見る</button>'+
-     (data.phase==='turn'&&data.actorId==='A'&&!data.tradeTrial&&!data.buyTrial?
+     (data.phase==='turn'&&data.actorId==='A'&&!data.tradeTrial&&!data.buyTrial&&!data.exchangeTrial?
       '<button type="button" class="quiet wide scenario-launch" data-action="trade-demo">'+
       '売るの研究配置で始める</button>'+
       '<button type="button" class="quiet wide scenario-launch" data-action="buy-demo">'+
-      '買うの研究配置で始める</button>':'')+
+      '買うの研究配置で始める</button>'+
+      '<button type="button" class="quiet wide scenario-launch" data-action="exchange-demo">'+
+      '両替の研究配置で始める</button>':'')+
      '</section>'+footer;
  }
  if(data.phase==='buyDecision'){
@@ -109,10 +111,12 @@ export function renderV2LabMarkup(data,{resetArmed=false}={}){
      '<div class="action-bar"><button type="button" class="primary wide confirm" data-action="submit">'+
      responseText+'</button></div></main>'+footer;
  }
- const title=data.phase==='turn'?'攻撃するカードを順番に選択':
-   data.phase==='tradeDefense'?'取引への応答を選択':'防御カードを順番に選択';
  const firstPicked=data.selection[0]?.instanceId
    ?data.hand.find(c=>c.instanceId===data.selection[0].instanceId):null;
+ const isExchange=data.phase==='turn' && firstPicked?.tradeAction==='exchange';
+ const title=isExchange?'両替：配分を入力':
+   data.phase==='turn'?'攻撃するカードを順番に選択':
+   data.phase==='tradeDefense'?'取引への応答を選択':'防御カードを順番に選択';
  const soloPlusMiracle=data.phase==='turn' && firstPicked?.family==='miracle' &&
    firstPicked.playModes.includes('addAttack');
  const isSelling=data.phase==='turn' && firstPicked?.tradeAction==='sell';
@@ -122,7 +126,8 @@ export function renderV2LabMarkup(data,{resetArmed=false}={}){
  const caption=data.phase==='tradeDefense'?
    '取引への防御はスーパーミラーだけ。選ばなければ売買を受け入れます'
    :data.phase==='turn'
-   ?(isBuying?'「買う」だけを1枚選択。相手が許した後、商品を見て購入判断します'
+   ?(isExchange?'HP・MP・¥の合計を変えずに振り分けます。HP0は原作確認待ちです'
+   :isBuying?'「買う」だけを1枚選択。相手が許した後、商品を見て購入判断します'
    :isSelling?'「売る」→売り渡す神器の順に2枚選択。自己取引は未検証です'
    :selectedWeapon?'武器は「捨てる」対象外です。攻撃に使うか、他のカードを選んでください'
    :soloPlusMiracle
@@ -131,7 +136,7 @@ export function renderV2LabMarkup(data,{resetArmed=false}={}){
        ?'武器がないときは「祈る」で神器を1枚引いて手番を終える'
        :'＋攻の追加武器だけでも攻撃可。選んだ順に処理')
    :'何も選ばず確定すれば無防御';
- const targets=data.phase==='turn'?
+ const targets=data.phase==='turn'&&!isExchange?
     '<section class="targets"><h2>攻撃先</h2><div class="choice-row">'+
     data.targets.map(id=>'<button type="button" class="'+(id===data.targetId?'chosen':'')+
       '" data-target="'+attr(id)+'" aria-pressed="'+(id===data.targetId)+'">'+esc(seatLabel(id))+
@@ -143,21 +148,37 @@ export function renderV2LabMarkup(data,{resetArmed=false}={}){
    return '<span class="pick-index">'+(i+1)+'. '+esc(c?.label??'選択中')+'</span>';
  }).join('');
  const actionText=data.phase==='defense'?(data.selection.length?'防御を確定':'防御しない')
-   :isSelling||isBuying?'取引を申し込む':
+   :isExchange?'両替を確定':isSelling||isBuying?'取引を申し込む':
      data.canPray&&data.selection.length===0?'祈る（神器を1枚引く）':'攻撃を確定';
  const notice='<p class="status" role="status">'+esc(data.notice)+'</p>';
- const discardOption=data.phase==='turn' && data.canDiscardSelection && !isSelling && !isBuying
+ const discardOption=data.phase==='turn' && data.canDiscardSelection && !isSelling && !isBuying && !isExchange
    ?'<button type="button" class="quiet discard-option" data-action="discard">'+
      '<strong>'+data.selection.length+'枚捨てる</strong><small>補充なし・ターン終了</small>'+
      '</button>'
    :'';
+ const ownStats=data.publicPlayers.find(p=>p.id===data.actorId);
+ const pools=data.exchangeAllocation??{
+   hp:ownStats?.hp??40,mp:ownStats?.mp??10,money:ownStats?.money??20
+ };
+ const total=ownStats?.hp+ownStats?.mp+ownStats?.money;
+ const exchangePanel=isExchange?
+   '<section class="exchange-editor" aria-label="両替の配分">'+
+   '<h2>HP・MP・¥を振り分ける <small>合計：'+esc(total)+'</small></h2>'+
+   '<div class="exchange-controls">'+
+   [['hp','HP'],['mp','MP'],['money','¥']].map(([key,label])=>
+     '<label>'+label+'<input type="number" inputmode="numeric" pattern="[0-9]*" '+
+       'min="'+(key==='hp'?'1':'0')+'" step="1" data-exchange-field="'+key+
+       '" aria-label="両替 '+label+'" value="'+esc(pools[key])+'"></label>'
+   ).join('')+'</div>'+
+   '<p class="trade-hint">振り分け前の合計と一致する必要があります。負数・小数は不可。</p>'+
+   '</section>':'';
  const offer=data.phase==='tradeDefense'&&data.pending?.offer?
    '<section class="trade-offer" aria-label="取引の提示">'+
    '<strong>売り付けられた神器：'+esc(data.pending.offer.label)+'</strong>'+
    '<span>価格 ¥'+esc(data.pending.offer.price)+'</span></section>':'';
  return header+'<main class="stage">'+
    '<div class="stage-heading"><h1>'+esc(seatLabel(data.actorId))+'：'+title+'</h1><p>'+caption+'</p></div>'+
-   offer+targets+'<section class="cards-panel"><h2>手札 <small>'+data.hand.length+'枚</small></h2>'+
+   offer+targets+exchangePanel+'<section class="cards-panel"><h2>手札 <small>'+data.hand.length+'枚</small></h2>'+
    '<div class="hand-grid">'+(data.hand.length?data.hand.map(c=>cardButton(c,'hand')).join(''):
        '<p class="empty">手札がありません</p>')+'</div></section>'+
    '<section class="cards-panel"><h2>習得済み奇跡</h2><div class="hand-grid">'+
@@ -186,6 +207,8 @@ export function mountV2Lab(root,controller=createV2LabController()){
        controller.loadTradeTrial();resetArmed=false;handoff=true;
      }else if(action==='buy-demo'){
        controller.loadBuyTrial();resetArmed=false;handoff=true;
+     }else if(action==='exchange-demo'){
+       controller.loadExchangeTrial();resetArmed=false;handoff=true;
      }else if(action==='reset'){
        if(!resetArmed)resetArmed=true;
        else{controller.reset();resetArmed=false;handoff=true;}
@@ -193,9 +216,15 @@ export function mountV2Lab(root,controller=createV2LabController()){
        resetArmed=false;controller.reveal();
      }else if(['submit','discard','buy-accept','buy-decline'].includes(action)){
        resetArmed=false;
+       const poolInputs=[...root.querySelectorAll('[data-exchange-field]')];
+       const allocation=poolInputs.length===3?
+         Object.fromEntries(poolInputs.map(input=>[
+           input.getAttribute('data-exchange-field'),Number(input.value)
+         ])):null;
        const outcome=controller.submit({
          discard:action==='discard',
-         ...(action==='buy-accept'?{accept:true}:action==='buy-decline'?{accept:false}:{})
+         ...(action==='buy-accept'?{accept:true}:action==='buy-decline'?{accept:false}:{}),
+         ...(allocation?{allocation}:{})
        });
        // A successful command conceals the cards or ends the match.
        // Scroll back to the top inside the embed frame so the next player
