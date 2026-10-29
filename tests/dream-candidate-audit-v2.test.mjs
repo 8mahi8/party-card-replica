@@ -66,7 +66,7 @@ test('forged Dream reference to source-immune Homura is rejected on both view an
  assert.throws(()=>validateDreamOwnershipFixture(forged,catalog),/Dream appearance timing mismatch/);
  assert.equal(s.players[0].hand[0].definitionId,'w020');
 });
-test('catalog audit is deterministic, frozen and labels all 94 cards without claiming completion',()=>{
+test('catalog audit is deterministic, frozen and labels all 116 cards without claiming completion',()=>{
  const a=auditDreamResearchCatalogFixture(catalog),b=auditDreamResearchCatalogFixture(catalog);
  assert.deepEqual(a,b);
  assert.equal(a.complete,false);
@@ -74,11 +74,11 @@ test('catalog audit is deterministic, frozen and labels all 94 cards without cla
  assert.equal(a.kind,'partial-reference-audit-only');
  assert.equal(a.cardCount,summary.unique);
  assert.equal(a.partialWeight,summary.slots);
- assert.equal(a.cardCount,94);
- assert.equal(a.partialWeight,270);
+ assert.equal(a.cardCount,116);
+ assert.equal(a.partialWeight,305);
  assert.equal(a.sourceExcluded,19);
  assert.equal(a.needsRuleReview,1);
- assert.equal(a.sourceExcluded+a.needsRuleReview+a.pairedLabCards+a.unpairedLabCards,94);
+ assert.equal(a.sourceExcluded+a.needsRuleReview+a.pairedLabCards+a.unpairedLabCards,116);
  assert.equal(Object.isFrozen(a),true);
  assert.equal(Object.isFrozen(a.rows),true);
  assert.equal(Object.isFrozen(a.groups),true);
