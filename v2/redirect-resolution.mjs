@@ -58,8 +58,12 @@ export function resolveRedirectFixture(state,catalog,{
  const redirected=selected.filter(x=>x.def.effects.some(e=>e.type==='redirectAttack'&&e.when==='onDefense'&&
    e.params.scope!=='miracle'));
  if(!redirected.length) {
-   if(isWallDefense(state,catalog))
+   if(isWallDefense(state,catalog)){
+     const attack=p.attackContext??compileBasicWeaponAttack(state,catalog);
+     if(attack.hitCount===2)
+       bad('Wall versus repeated strikes needs original stop timing verification');
      return resolveWallFixture(state,catalog,{labOnly:true,fixtureDrawDefinitionId});
+   }
    if(p.defense.learnedDefinitionId!==undefined)
      bad('Unknown learned defensive miracle');
    return resolveBasicFixture(state,catalog,{labOnly:true,fixtureDrawDefinitionId});
