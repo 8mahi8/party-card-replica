@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import {RESEARCH_CATALOG_CONTRACT} from './helpers/research-catalog-contract.mjs';
 import {migrateLegacyCatalog} from '../v2/legacy-adapter.mjs';
 import {createStagingRoom,viewStagingRoom} from '../v2/staging-room.mjs';
 import {planZeroHpRecoveryFixture} from '../v2/zero-hp-recovery.mjs';
@@ -40,8 +41,8 @@ test('Sun Charm is a source-backed 0.2% 10-yen passive, non-discardable card',()
  assert.equal(item.discardPolicy,'forbidden');
  assert.deepEqual(item.effects.map(e=>[e.when,e.type,e.params.hp]),
   [['onZeroHp','reviveAtZeroHp',10]]);
- assert.equal(summary.unique,94);
- assert.equal(summary.slots,270);
+ assert.equal(summary.unique,RESEARCH_CATALOG_CONTRACT.unique);
+ assert.equal(summary.slots,RESEARCH_CATALOG_CONTRACT.slots);
 });
 test('strict schema rejects forged resurrection timing and recovery amount',()=>{
  const base={id:'custom',family:'item',element:'none',drawWeight:1,
