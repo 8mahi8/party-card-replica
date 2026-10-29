@@ -55,9 +55,15 @@ export async function createFirebaseTwoSeatHostFixture(options={}){
  // Atomic collision check: do not overwrite another room with the same code.
  const created=await room.transaction(current=>current===null?entry:undefined,undefined,false);
  if(!created.committed)throw new Error('ルーム番号が使用中です。別の番号を試してください');
- let closed=false,queue=Promise.resolve();
+ let closed=false,queue=Promise.resolve(),publishQueue=Promise.resolve();
  function publish(extra={}){
-  return room.update({...extra,'views/A':A.read(),'views/B':B.read()});
+  // Capture the matching views for this command, then publish in order.
+  // Overlapping SDK writes could otherwise let an older revision overwrite
+  // the next defender's completed turn.
+  const packet={...extra,'views/A':A.read(),'views/B':B.read()};
+  const write=publishQueue.catch(()=>{}).then(()=>room.update(packet));
+  publishQueue=write;
+  return write;
  }
  listen(room.child('views/A'),'value',snap=>{
   if(!closed)cb.onView(snap.val());
@@ -70,15 +76,24 @@ export async function createFirebaseTwoSeatHostFixture(options={}){
   const cmd=message.command;
   const occupant=(await room.child('meta/guestId').once('value')).val();
   if(!occupant||message.senderId!==occupant)return;
-  let receipt;
+  let out;
   try{
-   const out=B.submit(cmd);
-   receipt={id:cmd.commandId,ok:true,duplicate:out.duplicate,revision:out.revision};
-   await publish({'acks/B':receipt});
+   out=B.submit(cmd);
   }catch(error){
-   receipt={id:cmd.commandId,ok:false,error:summarizeError(error)};
-   await room.child('acks/B').set(receipt);
+   // This is a genuinely rejected game command: no state was committed.
+   await room.child('acks/B').set({id:cmd.commandId,
+     ok:false,error:summarizeError(error)});
+   return;
   }
+  // A publish failure is NOT a rejected attack/defense: the host has
+  // already committed the action. Keep the receipt pending for same-ID
+  // retransmission instead of falsely telling the player it failed.
+  const receipt={id:cmd.commandId,ok:true,
+    duplicate:out.duplicate,revision:out.revision};
+  try{
+   await publish({'acks/B':receipt});
+  }catch(error){cb.onError(error);}
+ 
  }
  listen(room.child('commands/B'),'value',snap=>{
   if(closed)return;
