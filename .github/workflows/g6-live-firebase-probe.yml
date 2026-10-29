@@ -22,7 +22,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      # Fourth diagnostic: fix browser diagnostic scoping, retain room cleanup.
+      # G6 protocol fix validation: preserve empty defender card arrays via commandJson.
       - name: Validate live smoke ESM
         run: node --check tests/v2-g6-live-firebase.browser.mjs
       - name: Install browser driver for G6 test (not shipped with game)
