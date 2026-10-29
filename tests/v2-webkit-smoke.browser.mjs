@@ -947,6 +947,97 @@ async function testSellingTradeCardTouch(base){
 }
 
 
+
+async function testBuyTrialTouch(base){
+ for(const item of [
+  {width:390,height:844,embedHeight:430,accept:true,tag:'purchase'},
+  {width:1024,height:768,embedHeight:460,accept:false,tag:'decline'}
+ ]){
+  const context=await browser.newContext({
+   viewport:{width:item.width,height:item.height},
+   screen:{width:item.width,height:item.height},
+   deviceScaleFactor:2,isMobile:true,hasTouch:true,locale:'ja-J'
+  });
+  try{
+   page=await context.newPage();
+   await page.goto(base+'/embed-harness.html',{waitUntil:'load'});
+   await page.locator('#game-embed').evaluate((el,h)=>{el.style.height=h+'px';},item.embedHeight);
+   const frame=page.frameLocator('#game-embed');
+   const embedded=page.frames().find(f=>f!==page.mainFrame());
+   if(!embedded)throw new Error('Missing Buy iframe');
+   await frame.locator('[data-action=buy-demo]').tap();
+   await frame.locator('.compact-pass').waitFor();
+   passed(await frame.locator('[data-card]').count()===0,
+      'buy trial launcher conceals the P1 hand');
+   await frame.locator('[data-action=reveal]').tap();
+   const hand=frame.locator('[data-card=hand]');
+   passed((await hand.first().textContent()).includes('買う'),
+      'P1 has the registered source-backed Buy card');
+   await hand.first().tap();
+   passed((await frame.locator('[data-action=submit]').textContent()).includes('取引を申し込む'),
+      'Buy selection changes the primary action from attack to trade');
+   await frame.locator('[data-action=submit]').tap();
+   await frame.locator('.compact-pass').waitFor();
+   passed((await frame.locator('.compact-pass h1').textContent()).includes('P2') &&
+      await frame.locator('[data-card]').count()===0,
+      'P2 takes a private handoff before deciding defense');
+   await frame.locator('[data-action=reveal]').tap();
+   passed((await frame.locator('.trade-reply h2').textContent()).includes('買うへの応答'),
+      'P2 sees Buy defense stage');
+   passed(await frame.locator('.trade-offer').count()===0,
+      'item and price remain hidden until P2 accepts the Buy');
+   passed(await frame.locator('[data-card=hand]:disabled').count()===1,
+      'only Super Mirror is an available defensive option');
+   await screenshot('webkit-buy-'+item.tag+'-defense');
+   await frame.locator('[data-action=submit]').tap();
+   await frame.locator('.compact-pass').waitFor();
+   passed((await frame.locator('.compact-pass h1').textContent()).includes('P1') &&
+      await frame.locator('[data-card]').count()===0,
+      'only P1 sees the pending random item after another private handoff');
+   await frame.locator('[data-action=reveal]').tap();
+   const offer=frame.locator('.buy-offer');
+   passed(await offer.count()===1 &&
+     (await offer.textContent()).includes('アイアンアーマー') &&
+     (await offer.textContent()).includes('¥5'),
+     'P1 sees researched item and correct catalog price');
+   passed(await frame.locator('[data-card=hand]').count()===0,
+     'purchase decision does not display another player hand');
+   const box=await offer.boundingBox();
+   const accept=await frame.locator('[data-action=buy-accept]').boundingBox();
+   const decline=await frame.locator('[data-action=buy-decline]').boundingBox();
+   passed(Boolean(box&&accept&&decline&&
+      box.y+box.height<=Math.min(accept.y,decline.y)-4 &&
+      accept.height>=44&&decline.height>=44 &&
+      accept.x>=decline.x+decline.width-3),
+      'offer and two large choice buttons fit without overlap in iframe');
+   await screenshot('webkit-buy-'+item.tag+'-choice');
+   await frame.locator('[data-action='+(item.accept?'buy-accept':'buy-decline')+']').tap();
+   await frame.locator('.compact-pass').waitFor();
+   passed((await frame.locator('.compact-pass h1').textContent()).includes('P2') &&
+      await frame.locator('[data-card]').count()===0,
+      'after Buy choice the next turn is handed to P2 in private');
+   const state=await embedded.evaluate(()=>{
+     const lab=window.__v2BuyTestLab;
+     return lab?.labSnapshot?.()??null;
+   });
+   // The default mounted controller is not stored globally: verify
+   // consequences from rendered public stats and the next owner's cards.
+   await frame.locator('[data-action=reveal]').tap();
+   const scores=await frame.locator('.seat').allTextContents();
+   passed(scores[0].includes('¥ '+(item.accept?'15':'20')) &&
+      scores[1].includes('¥ '+(item.accept?'25':'20')),
+      'Buy charges ¥5 on accept and charges nothing on decline: '+JSON.stringify(scores));
+   passed(scores[0].includes('手札'+(item.accept?'3':'2')+'枚') &&
+      scores[1].includes('手札'+(item.accept?'1':'2')+'枚'),
+      'Buy transfers only purchased artifact while refilling Buy action: '+JSON.stringify(scores));
+   await screenshot('webkit-buy-'+item.tag+'-settled');
+  }catch(error){
+   await screenshot('webkit-buy-'+item.tag+'-failure');
+   throw error;
+  }finally{page=null;await context.close();}
+ }
+}
+
 async function testFullHandSaleTouch(base){
  const context=await browser.newContext({
   viewport:{width:390,height:844},screen:{width:390,height:844},
@@ -1042,6 +1133,7 @@ try{
   await testTradeTrialTouch(base);
   await testSellingTradeCardTouch(base);
   await testFullHandSaleTouch(base);
+  await testBuyTrialTouch(base);
   console.log('WEBKIT_SMOKE_SUCCESS checks='+checks+' engine=Playwright WebKit'+
     ' fixed-height frames=1024x460,390x430');
 }catch(error){
