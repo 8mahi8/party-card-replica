@@ -5937,10 +5937,14 @@ $('join').addEventListener('click',async()=>{
  try{
   const database=ensureDb(),roomCode=$('joinCode').value.trim();
   const key='godfield-v2-guest-'+roomCode;
-  const guestId=sessionStorage.getItem(key)||randomId();
+  // Google Sites can use an isolated iframe origin with storage disabled.
+  // The ID only improves same-tab rejoin; a first join must not require storage.
+  let previousId=null;
+  try{previousId=sessionStorage.getItem(key)}catch{}
+  const guestId=previousId||randomId();
   seat='B';joined=true;
   session=await joinFirebaseTwoSeatGuestFixture({db:database,code:roomCode,guestId,...callbacks()});
-  sessionStorage.setItem(key,guestId);
+  try{sessionStorage.setItem(key,guestId)}catch{}
   render();feedback('接続しました。自分の順番を待ってください');
  }catch(e){onError(e);seat=null;}finally{$('join').disabled=!!session}
 });
