@@ -20,6 +20,12 @@ button:disabled{opacity:.45;cursor:not-allowed}
 .phase{display:block;flex:0 0 auto;padding:8px 17px;color:#0a2431;border-radius:999px;background:#81dbeb;font-weight:800;font-size:13px}
 .disclaimer{background:#251d2b;border:1px solid #6b526a;color:#ffdecb;padding:12px 15px;line-height:1.6;border-radius:13px;font-size:12px;margin-bottom:14px}
 .score{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.score.multi-seat{grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.score.multi-seat .seat{padding:8px;border-radius:11px;min-width:0}
+.score.multi-seat .seat strong{font-size:15px}
+.score.multi-seat .seat small{display:block;margin:2px 0 0;font-size:10px}
+.score.multi-seat .values{margin-top:5px;gap:3px 9px;font-size:10px}
+.score.multi-seat .values b{font-size:14px}
 .seat{background:#14243b;border:1px solid #344c6e;border-radius:17px;padding:16px}
 .seat strong{font-size:19px}
 .seat small{color:#a7bbd7;margin-left:7px}
