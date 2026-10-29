@@ -99,7 +99,9 @@ export function resolveRedirectFixture(state,catalog,{
  }];
  result.pending={
    ...result.pending,sourceId:route.source,targetId:route.target,
-   attackContext,defense:null
+   attackContext,defense:null,
+   ...(attackContext.hitCount===2&&(p.strikeIndex??0)===0?
+     {repeatTargetId:p.repeatTargetId??p.targetId}:{})
  };
  if(immediate) {
    // Self-deflection is an immediate hit, not an extra defense opportunity.
