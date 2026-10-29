@@ -72,8 +72,16 @@ export async function createFirebaseTwoSeatHostFixture(options={}){
   if(!closed)cb.onStatus({seat:'A',joined:!!snap.val(),roomCode:code});
  },cb.onError,stops);
  async function processGuest(message){
-  if(closed||!message?.command||typeof message.command.commandId!=='string')return;
-  const cmd=message.command;
+  if(closed||!message)return;
+  // RTDB does not preserve empty arrays when storing nested JSON objects.
+  // Deliver commands as JSON text, so "defend with no cards" remains [].
+  // Accept the original object form only for earlier lab test mailboxes.
+  let cmd;
+  try{
+   cmd=typeof message.commandJson==='string'?
+     JSON.parse(message.commandJson):message.command;
+  }catch{return;}
+  if(!cmd||typeof cmd!=='object'||typeof cmd.commandId!=='string')return;
   const occupant=(await room.child('meta/guestId').once('value')).val();
   if(!occupant||message.senderId!==occupant)return;
   let out;
@@ -147,7 +155,9 @@ export async function joinFirebaseTwoSeatGuestFixture(options={}){
    if(closed)throw new Error('接続は終了しています');
    if(command?.actorId!=='B')throw new Error('参加側の操作だけを送信できます');
    // One mailbox per guest: UI waits for the matching ack before sending again.
-   await room.child('commands/B').set({senderId:guestId,command});
+   await room.child('commands/B').set({
+    senderId:guestId,commandJson:JSON.stringify(command)
+   });
    return {sent:true,id:command.commandId};
   },
   close(){closed=true;clean(stops);}
