@@ -176,7 +176,10 @@ export function compileOrderedWeaponAttack(state,catalog){
   if(mirageCount){
     // A full all-living attack needs a separate target iteration and audit
     // before enabling 3+ seats. Research-limited 1v1 only.
-    if(state.players.length!==2)fail('Mirage all-target play needs multiplayer routing verification');
+    if(state.players.length!==2&&
+       (state.rulesetId!=='mirage-multiplayer-research-fixture-v2'||
+        state.pending.targetId===caster.id))
+      fail('Mirage all-target play needs multiplayer routing verification');
     if(mirageCount!==miracles.length||aura||plusCount||hasArmorBonus||itemBonus||
        forcedAttackElement!==null||absorbsHp)
       fail('Mirage combined with other special attack effects is unverified');
