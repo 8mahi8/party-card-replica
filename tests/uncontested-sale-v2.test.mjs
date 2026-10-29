@@ -82,10 +82,20 @@ test('sale works with 3 seats and skip-dead on next turn, without touching C',()
  assert.equal(n.players[0].money,24);
  assert.equal(JSON.stringify(s),snapshot);
 });
-test('a sale at hand limit fails closed, no dropped item or state mutation',()=>{
+test('a sale at 18-card limit randomly replaces one existing receiver card, preserving the incoming item',()=>{
  const s=room(['t001','w016'],Array(18).fill('d001'));
- const before=JSON.stringify(s);
- assert.throws(()=>settle(s),/Buyer hand cap/);
+ const before=JSON.stringify(s),originalIds=s.players[1].hand.map(c=>c.instanceId);
+ const soldId=s.players[0].hand[1].instanceId;
+ const result=settle(s),buyer=result.state.players[1];
+ const event=result.events.find(x=>x.type==='handOverflow');
+ assert.ok(event);
+ assert.equal(event.playerId,'B');
+ assert.equal(event.cause,'trade');
+ assert.ok(originalIds.includes(event.lostInstanceId));
+ assert.equal(buyer.hand.length,18);
+ assert.equal(buyer.hand.at(-1).instanceId,soldId);
+ assert.equal(buyer.hand.filter(x=>originalIds.includes(x.instanceId)).length,17);
+ assert.equal(result.state.players[0].money,24);
  assert.equal(JSON.stringify(s),before);
 });
 test('lethal underpayment is not settled until original payout/reflection observed',()=>{
