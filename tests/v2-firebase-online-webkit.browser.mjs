@@ -120,6 +120,14 @@ try{
  const target='http://127.0.0.1:'+server.address().port+
   '/v2/demo/firebase-online-standalone.html';
  const a=await context.newPage(),b=await context.newPage();
+ // Simulate an embedded Google Sites iframe denying sessionStorage access.
+ // Joining must still work using a new per-session random guest ID.
+ await b.addInitScript(()=>{
+  Object.defineProperty(window,'sessionStorage',{
+   configurable:true,
+   get(){throw new DOMException('Iframe storage unavailable','SecurityError');}
+  });
+ });
  const errors=[];
  for(const p of [a,b])p.on('pageerror',err=>errors.push(err.message));
  await a.goto(target);
