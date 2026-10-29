@@ -33,7 +33,7 @@ test('trade seller selects Sell then item; researched two-step view shows target
  assert.match(renderV2LabMarkup(lab.view()),/「売る」→売り渡す神器/);
  use(lab,a,1);
  const selected=renderV2LabMarkup(lab.view());
- assert.match(selected,/攻撃を確定/);
+ assert.match(selected,/取引を申し込む/);
  const result=lab.submit();
  assert.equal(result.ok,true,result.error);
  assert.equal(result.view.phase,'tradeDefense');
