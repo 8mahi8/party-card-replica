@@ -11,10 +11,10 @@
  * https://godfield-beginner.game-info.wiki/
  * https://toroccowars.jp/21551/
  *
- * NOT a command or settlement. No Buy card is registered in this partial
- * research deck. The original response timing / Super Mirror / empty hand /
- * learned-slot overflow need more evidence. No public view may expose the
- * opponent's full hand or this authoritative offer before it is revealed.
+ * Internal offer/choice primitives shared by a LAB-ONLY Buy card and staged
+ * command path. Original reflected-Buy outcome / empty target hand /
+ * learned-slot overflow need stronger evidence. No public view may expose the
+ * opponent's full hand or this authoritative offer before a pass response.
  * xorshift32 is an explicit deterministic test surrogate, NOT original RNG.
  */
 import {drawRandom32} from './foundation.mjs';
