@@ -32,7 +32,8 @@ function createFakeDb({beforeUpdate=async()=>{}}={}){
    async once(){return {val:()=>pathGet(path)};},
    on(event,fn){watchers.push({path,event,fn});if(event==='value')fn({val:()=>pathGet(path)});},
    off(event,fn){watchers=watchers.filter(w=>w.path!==path||w.event!==event||w.fn!==fn);},
-   async set(value){pathSet(path,value);notify([path]);},
+   async set(value){if(JSON.stringify(pathGet(path))===JSON.stringify(value))return;
+    pathSet(path,value);notify([path]);},
    async update(patch){
     await beforeUpdate(path,patch);
     for(const [key,value] of Object.entries(patch))pathSet(path+'/'+key,value);
@@ -222,8 +223,27 @@ test('guest no-card defense survives the Firebase wire as an explicit empty arra
  assert.equal(typeof mailbox.commandJson,'string');
  assert.equal(mailbox.command,undefined);
  assert.deepEqual(JSON.parse(mailbox.commandJson).orderedInstanceIds,[]);
+ assert.equal(typeof mailbox.deliveryId,'string');
  await until(()=>db.at(LAB_ROOT+'/'+code+'/acks/B')?.ok===true);
  assert.equal(db.at(LAB_ROOT+'/'+code+'/views/B').phase,'turn');
+ assert.equal(db.at(LAB_ROOT+'/'+code+'/views/B').players[1].hp,30);
+ guest.close();host.close();
+});
+
+test('same commandId retry updates mailbox even when RTDB ignores identical writes',async()=>{
+ const db=createFakeDb(),host=await makeHost(db),guest=await join(db);
+ const a=host.read();
+ await host.submit(command(a,'A','playCards',[a.players[0].hand[0].instanceId]));
+ const before=db.at(LAB_ROOT+'/'+code+'/views/B');
+ const defend=command(before,'B','defend');
+ await guest.submit(defend);
+ await until(()=>db.at(LAB_ROOT+'/'+code+'/acks/B')?.ok===true);
+ const first=db.at(LAB_ROOT+'/'+code+'/commands/B');
+ await guest.submit(defend);
+ await until(()=>db.at(LAB_ROOT+'/'+code+'/acks/B')?.duplicate===true);
+ const second=db.at(LAB_ROOT+'/'+code+'/commands/B');
+ assert.equal(second.commandJson,first.commandJson,'stable game command ID and payload');
+ assert.notEqual(second.deliveryId,first.deliveryId,'unique transport delivery on retry');
  assert.equal(db.at(LAB_ROOT+'/'+code+'/views/B').players[1].hp,30);
  guest.close();host.close();
 });
