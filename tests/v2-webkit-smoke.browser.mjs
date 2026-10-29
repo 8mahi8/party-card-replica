@@ -1557,6 +1557,75 @@ async function testRepeatedWeaponTouch(base){
 }
 
 
+async function testMultiplayerMirageHotseatTouch(base){
+ const context=await browser.newContext({
+  viewport:{width:390,height:844},screen:{width:390,height:844},
+  deviceScaleFactor:2,isMobile:true,hasTouch:true,locale:'ja-J'
+ });
+ try{
+  page=await context.newPage();
+  await page.goto(base+'/embed-harness.html',{waitUntil:'load'});
+  await page.locator('#game-embed').evaluate(el=>{el.style.height='430px';});
+  const frame=page.frameLocator('#game-embed');
+  const embedded=page.frames().find(f=>f!==page.mainFrame());
+  if(!embedded)throw new Error('3-seat Mirage research iframe missing');
+  const tap=sel=>frame.locator(sel).first().tap();
+  passed(await frame.locator('[data-action=mirage-demo]').count()===1,
+    'a dedicated 3-player experimental Mirage launch is visible from normal lab');
+  await tap('[data-action=mirage-demo]');
+  await frame.locator('.compact-pass').waitFor();
+  passed((await frame.locator('.compact-pass h1').textContent()).includes('P1'),
+    'research launcher conceals setup hands before P1 takes device');
+  passed(await frame.locator('[data-action=mirage-demo]').count()===0,
+    'research launcher is hidden while experimental 3-seat match is in progress');
+  await tap('[data-action=reveal]');
+  const score=frame.locator('.score .seat');
+  passed(await score.count()===3 &&
+    (await score.nth(2).textContent()).includes('P3'),
+    '390x430 iframe renders all three player status panels with P3 label');
+  passed((await frame.locator('.disclaimer').textContent()).includes('未確認の仮定'),
+    'Mirage first-target research assumption is explicit in playable UI');
+  passed(await frame.locator('[data-card=hand]').count()===4,
+    'P1 can tap one weapon and two physical Mirage miracles');
+  const cards=frame.locator('[data-card=hand]');
+  for(let i=0;i<3;i++)await cards.nth(i).tap();
+  await tap('[data-target=C]');
+  passed(await frame.locator('[data-target=C]').getAttribute('aria-pressed')==='true',
+    'first chosen opponent is P3, not a hidden random assignment');
+  await tap('[data-action=submit]');
+  const progress=[];
+  const targets=[];
+  for(let i=0;i<4;i++){
+   await frame.locator('.compact-pass').waitFor();
+   passed(await frame.locator('[data-card=hand]').count()===0,
+     'seat handoff '+(i+1)+' never reveals the next or previous players cards');
+   const state=await embedded.evaluate(()=>__v2_lab_test_controller?null:null);
+   void state;
+   targets.push((await frame.locator('.compact-pass h1').textContent()).includes('P3')?'C':'B');
+   await tap('[data-action=reveal]');
+   const title=await frame.locator('.stage-heading h1').textContent();
+   progress.push(title);
+   passed(title.includes('第'+(i<2?'1':'2')+'/2周'),
+     'research player '+(i+1)+' sees bounded sweep index in defense prompt');
+   const ownHand=frame.locator('[data-card=hand]');
+   if(await ownHand.count())await ownHand.first().tap();
+   await tap('[data-action=submit]');
+  }
+  passed(targets[0]==='C'&&targets[1]==='B'&&
+    targets.slice(2).sort().join(',')==='B,C',
+    'each research sweep visits B and C one time, starting at chosen C');
+  await frame.locator('.compact-pass').waitFor();
+  await tap('[data-action=reveal]');
+  const seats=await frame.locator('.score .seat').allTextContents();
+  passed(seats.length===3&&seats[1].includes('HP 23')&&seats[2].includes('HP 21'),
+    'B and C independently guarded first sweep and took unguarded second hits');
+  passed((await frame.locator('.stage-heading h1').textContent()).includes('P2'),
+    'after all four defenses original attack ends with P2 turn');
+  await screenshot('webkit-3-seat-mirage-research-complete');
+ }catch(err){await screenshot('webkit-3-seat-mirage-research-failure');throw err;}
+ finally{page=null;await context.close();}
+}
+
 async function testMirageFourHitTouch(base){
  const context=await browser.newContext({
   viewport:{width:390,height:844},screen:{width:390,height:844},
@@ -1736,6 +1805,7 @@ try{
   await testAbsorbingWeaponTouch(base);
   await testRepeatedWeaponTouch(base);
   await testMirageFourHitTouch(base);
+  await testMultiplayerMirageHotseatTouch(base);
   console.log('WEBKIT_SMOKE_SUCCESS checks='+checks+' engine=Playwright WebKit'+
     ' fixed-height frames=1024x460,390x430');
 }catch(error){
