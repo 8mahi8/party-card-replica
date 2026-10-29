@@ -70,7 +70,9 @@ export function runEffectQueueFixture(state,catalog,queue,{
  const continuation=queue.at(-1)?.type==='continueStrike';
  if(continuation&&(interruptionOnly||queue.filter(e=>e.type==='hit').length!==1||
     queue.some(e=>['refill','advance'].includes(e.type))||
-    state.pending?.type!=='attack'||(state.pending.strikeIndex??0)!==0))
+    state.pending?.type!=='attack'||
+    !Number.isSafeInteger(state.pending.strikeIndex??0)||
+    (state.pending.strikeIndex??0)<0))
    fail('Invalid first-strike continuation queue');
  const s=cloneRoom(state,{interruptionOnly:interruptionOnly||continuation});
  const spent=Object.assign(Object.create(null),state.pending.spentByPlayer??{});
@@ -445,12 +447,13 @@ export function runEffectQueueFixture(state,catalog,queue,{
      // A verified multi-hit attack opens a NEW defense window rather
      // than doubling damage or drawing new cards during its first strike.
      if(!continuation||effect!==queue.at(-1)||s.pending?.type!=='attack'||
-        s.pending.strikeIndex!==undefined||
         effect.attackContext?.attackKind!=='weapon'||
-        effect.attackContext.hitCount!==2||
+        ![2,3,4,6].includes(effect.attackContext.hitCount)||
+        !Number.isSafeInteger(s.pending.strikeIndex??0)||
+        (s.pending.strikeIndex??0)+1>=effect.attackContext.hitCount||
         effect.attackContext.absorbsHp===true||
         (state.pending.attackContext &&
-          (state.pending.attackContext.hitCount!==2||
+          (state.pending.attackContext.hitCount!==effect.attackContext.hitCount||
            JSON.stringify(state.pending.attackContext)!==JSON.stringify(effect.attackContext))))
        fail('Invalid repeated strike context');
      const origin=who(s,s.pending.originalAttackerId);
@@ -461,17 +464,26 @@ export function runEffectQueueFixture(state,catalog,queue,{
        // Validate against PRE-QUEUE ownership, because the real attack
        // cards were just spent above in this same atomic settlement.
        const originalOrigin=who(state,s.pending.originalAttackerId);
-       const real=state.pending.attackInstanceIds?.some(id=>
+       const selections=state.pending.attackInstanceIds??[];
+       const realRepeat=selections.some(id=>
          originalOrigin.hand.some(card=>card.instanceId===id&&
            catalog.get(card.definitionId)?.effects.some(e=>
              e.when==='onDeclare'&&e.type==='repeatAttack'&&e.params.count===2)));
-       if(!real)fail('A repeated attack needs the original physical weapon');
+       const mirages=selections.filter(id=>
+         originalOrigin.hand.some(card=>card.instanceId===id&&
+           catalog.get(card.definitionId)?.effects.some(e=>
+             e.when==='onDeclare'&&e.type==='widenAttack'&&e.params.mode==='allLiving'))).length;
+       const expectedHits=(realRepeat?2:1)*Math.max(1,mirages);
+       if((!realRepeat&&mirages<2)||expectedHits!==effect.attackContext.hitCount||
+          mirages>3|| (mirages>0&&state.players.length!==2))
+         fail('A repeated attack needs the original physical weapon or Mirage sequence');
      }
      s.pending={...s.pending,attackContext:effect.attackContext,
        repeatTargetId:target.id,sourceId:origin.id,targetId:target.id,
-       strikeIndex:1,defense:null};
+       strikeIndex:(s.pending.strikeIndex??0)+1,defense:null};
      s.phase='defense';s.activePlayerId=target.id;
-     events.push({type:'nextStrike',strikeIndex:1,hitCount:2,targetId:target.id});
+     events.push({type:'nextStrike',strikeIndex:s.pending.strikeIndex,
+       hitCount:effect.attackContext.hitCount,targetId:target.id});
    } else if(effect.type==='refill'){
      for(const p of s.players){
        const amount=spent[p.id]??0;
