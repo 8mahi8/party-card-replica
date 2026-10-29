@@ -160,6 +160,18 @@ try{
   throw e;
  }
  check(await a.locator('#hand button').count()===4,'host has own 4 cards');
+ check(await a.locator('#selectionPreview .picked').count()===1,
+  'selected artifact name appears in the field tray');
+ check(await a.locator('#hand button.selected').count()===1,
+  'selected hand artifact highlights independently');
+ check((await a.locator('.score').first().innerText()).includes('HP 40'),
+  'reference-style player panel shows HP');
+ check(await a.evaluate(()=>{
+  const hand=getComputedStyle(document.querySelector('#hand'));
+  const cards=getComputedStyle(document.querySelector('#hand button'));
+  return hand.display==='flex'&&hand.overflowX==='auto'&&
+    cards.flexBasis!=='auto';
+ }),'artifact row uses compact horizontal scrolling rather than full-width card list');
  check(await b.locator('#hand button').count()===4,'guest has own 4 cards');
  check(await a.evaluate(()=>document.documentElement.scrollWidth<=
    document.documentElement.clientWidth+2),'host fits narrow viewport');
@@ -168,6 +180,8 @@ try{
  await a.locator('#attack').tap();
  await b.waitForFunction(()=>document.querySelector('#phase')?.textContent
    .includes('防御待ち'));
+ check(await b.locator('#defend').textContent()==='許す（防御なし）',
+  'unselected defense reads 許す in reference-style interface');
  check((await b.locator('#phase').textContent()).includes('P2'),
   'guest sees its defense window');
  // Drop the initial acknowledgement while keeping the updated seat views.
