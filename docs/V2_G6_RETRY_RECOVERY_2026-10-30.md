@@ -21,3 +21,13 @@ Firebase公式[Webでの読み書き](https://firebase.google.com/docs/database/
 - 生成HTMLを`build-online.mjs`で更新し、`--check`とWebKitの生成物タッチ試験を実施。学校iPadの実機、実Firebaseで意図的な通知欠落、公開Pagesは別途未検証。
 
 **重要な範囲**：これは既存のG6実通信研究版と単体HTMLの操作性改善で、原作カードデータや戦闘ルールには触れていない。`main`、学校Google Sitesに埋め込んだHTML、Firebase Security Rules・認証設定は変更しない。
+
+## 実行済みテストと配布状況（最終確認）
+
+- **検証コード・テストHEAD**：`c11d2b340f7041bb58bc7be71090da3a680d7a56`。**Node 903/903 PASS**（GitHub Actions run [`40939172568`](https://github.com/8mahi8/party-card-replica/actions/runs/40939172568)）。追加テストで同一mailboxのno-op書き込みを再現し、異なる`deliveryId`で同じ`commandId`を再送できること、ホストの不正選択を訂正できること、保存済み配布HTMLとソース生成物のバイト一致を確認。
+- **WebKit**：run [`40939172511`](https://github.com/8mahi8/party-card-replica/actions/runs/40939172511)。**オンライン2画面14/14 PASS**（模擬Firebaseで成功`acks/B`通知を1回だけ落としてからBが再送ボタンをタップし、最新の同一HPを維持）。**既存のタッチUI回帰339/339 PASS**。
+- **Chromium**：run [`40939172489`](https://github.com/8mahi8/party-card-replica/actions/runs/40939172489)、**28/28 PASS**。WebKit/Chromiumの既存スタンドアロンチェックもPASS。
+- **新しい配布ZIP**：run `40939172511` の [`g6-online-standalone-html`](https://github.com/8mahi8/party-card-replica/actions/runs/40939172511/artifacts/12926102283)。ソースとしての`v2/demo/firebase-online-standalone.html`も開発ブランチに同期済み。従来のZIPよりこの最新版を優先。
+- **次回以降の再生成**：`.github/workflows/g6-commit-portable-html.yml`は`workflow_dispatch`から**開発ブランチを選んで手動起動できる**ように修正した（設定やRulesの変更ではない）。自動テストが古いHTMLを検知すると失敗するので、配布ファイルの更新忘れを把握できる。
+
+**留保**：今回の「通知が1回失われる」再現はMock RTDBとWebKitを使うテスト。以前の実Firebaseの2人対戦成功は維持されるが、実ネットワークを故意に断線したテスト・学校のiPad実機試験・Google Sites組み込み版の更新は**実施していない**。
