@@ -1599,8 +1599,6 @@ async function testMultiplayerMirageHotseatTouch(base){
    await frame.locator('.compact-pass').waitFor();
    passed(await frame.locator('[data-card=hand]').count()===0,
      'seat handoff '+(i+1)+' never reveals the next or previous players cards');
-   const state=await embedded.evaluate(()=>__v2_lab_test_controller?null:null);
-   void state;
    targets.push((await frame.locator('.compact-pass h1').textContent()).includes('P3')?'C':'B');
    await tap('[data-action=reveal]');
    const title=await frame.locator('.stage-heading h1').textContent();
