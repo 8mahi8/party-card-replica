@@ -13,6 +13,7 @@
 import {createInstance, selectInstances} from './foundation.mjs';
 import {previewBuyOfferFixture} from './trade-buy.mjs';
 import {previewExchangeFixture} from './trade-exchange.mjs';
+import {previewSelfSaleFixture} from './trade-self-sale.mjs';
 
 const ID=/^[a-zA-Z0-9._:-]{1,80}$/;
 const MAX_PLAYERS=9;
@@ -306,7 +307,7 @@ export function applyStagingCommand(state,command,catalog,{authorizedSeatId}={})
     if(state.phase!=='turn'||actor.hp<=0)throw new Error('Not a living trade turn');
     id(command.targetId,'target ID');
     const target=seat(state,command.targetId);
-    if(target.id===actor.id||target.hp<=0)throw new Error('Invalid sale target');
+    if(target.hp<=0)throw new Error('Invalid sale target');
     id(command.saleInstanceId,'Sell card ID');
     id(command.soldInstanceId,'offered item ID');
     if(command.saleInstanceId===command.soldInstanceId)
@@ -320,11 +321,21 @@ export function applyStagingCommand(state,command,catalog,{authorizedSeatId}={})
       throw new Error('Selected card cannot declare Sell');
     if(!offeredDef)
       throw new Error('Unknown offered card definition');
-    pending={type:'sale',originalAttackerId:actor.id,targetId:target.id,
+    if(target.id===actor.id){
+      // Self Sell does not require an opponent defense. Validate the
+      // source-backed nonlethal math before staging an instant resolution.
+      previewSelfSaleFixture(state,catalog,{
+        sellerId:actor.id,saleInstanceId:trade.instanceId,
+        soldInstanceId:offer.instanceId
+      });
+    }
+    pending={type:target.id===actor.id?'selfSale':'sale',
+      originalAttackerId:actor.id,targetId:target.id,
       saleInstanceId:trade.instanceId,soldInstanceId:offer.instanceId,
       offeredDefinitionId:offer.definitionId,price:offeredDef.stats.price,
       defense:null};
-    phase='tradeDefense';activePlayerId=target.id;
+    phase=target.id===actor.id?'resolving':'tradeDefense';
+    activePlayerId=target.id===actor.id?null:target.id;
   }else if(command.type==='respondSale'){
     if(state.phase!=='tradeDefense'||state.pending?.type!=='sale'||
        state.pending.targetId!==actor.id||actor.hp<=0)
