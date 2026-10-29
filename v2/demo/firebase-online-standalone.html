@@ -24,9 +24,12 @@ input{max-width:185px;min-height:42px;border:1px solid #637b92;background:#111e3
 .hand button.selected{background:#365d51;border-color:#9cddb8}
 .hand button small{color:#b7c8df;font-size:11px}
 #phase{color:#ffdfa2;font-weight:700;font-size:14px;margin:8px 0}
-#battle[hidden],#lobby[hidden],#actions[hidden]{display:none}
+#battle[hidden],#lobby[hidden],#actions[hidden],#retryPanel[hidden]{display:none}
 #actions{display:flex;flex-wrap:wrap;gap:8px}
 #actions button{flex:1;min-width:120px}
+#retryPanel{display:flex;align-items:center;flex-wrap:wrap;gap:8px}
+#retryPanel[hidden]{display:none}
+#retryPanel p{font-size:12px;color:#ffdfa2;margin:0;flex:1 1 160px}
 @media(max-width:480px){main{padding:7px}.panel{padding:9px;margin:7px 0}.hand{grid-template-columns:repeat(2,minmax(0,1fr))}.hand button{min-height:72px;font-size:12px}h1{font-size:17px}}
 </style>
 </head>
@@ -51,6 +54,10 @@ input{max-width:185px;min-height:42px;border:1px solid #637b92;background:#111e3
 <button id="pray">祈る（武器がない時）</button>
 <button id="discard">選んだカードを捨てる</button>
 </div>
+<section id="retryPanel" class="panel" hidden>
+<p>操作の応答待ち。反映が遅いときは同じ操作を再送できます。</p>
+<button id="retry" type="button">同じ操作を再送</button>
+</section>
 </section>
 </main>
 <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
@@ -5617,7 +5624,7 @@ const $=id=>document.getElementById(id);
 const {byId:catalog}=migrateLegacyCatalog();
 const names=new Map(VERIFIED_BASIC_CARDS.map(c=>[c.id,c.referenceName]));
 const url='https://mygame-df915-default-rtdb.firebaseio.com/';
-let db=null,session=null,view=null,seat=null,joined=false,waiting=false,selection=new Set(),lastRevision=-1,pendingId=null;
+let db=null,session=null,view=null,seat=null,joined=false,waiting=false,selection=new Set(),lastRevision=-1,pendingId=null,pendingCommand=null,retrying=false;
 const randomId=()=>{const a=new Uint32Array(2);crypto.getRandomValues(a);return Array.from(a,x=>x.toString(36)).join('-');};
 const code=()=>{const a=new Uint32Array(1);crypto.getRandomValues(a);return String(10000+a[0]%90000);};
 const feedback=s=>{$('status').textContent=String(s);};
@@ -5642,7 +5649,7 @@ function callbacks(){
   },
   onReceipt(ack){
    if(!ack||ack.id!==pendingId)return;
-   waiting=false;pendingId=null;
+   waiting=false;pendingId=null;pendingCommand=null;retrying=false;
    if(!ack.ok)onError(ack.error);
    else feedback('操作を反映しました');
    render();
@@ -5655,6 +5662,8 @@ function render(){
  $('roomLabel').textContent=session?'ルーム '+session.roomCode:'未接続';
  $('roleLabel').textContent=seat?showSeatLabel(seat):'接続前';
  $('lobby').hidden=!!session;$('battle').hidden=!view;
+ $('retryPanel').hidden=!waiting;
+ $('retry').disabled=!waiting||retrying||!pendingCommand;
  if(!session)return;
  if(!view){feedback('相手の画面情報を読み込んでいます');return}
  const active=view.activePlayerId===seat;
@@ -5705,8 +5714,25 @@ async function send(type){
  const command={commandId:randomId(),expectedRevision:view.revision,actorId:seat,type};
  if(type==='playCards'||type==='defend'||type==='discard')command.orderedInstanceIds=ids;
  if(type==='playCards')command.targetId=seat==='A'?'B':'A';
- waiting=true;pendingId=command.commandId;feedback('操作を送信しています…');render();
- try{await session.submit(command)}catch(error){waiting=false;pendingId=null;onError(error);render();}
+ waiting=true;pendingId=command.commandId;pendingCommand=command;
+ feedback('操作を送信しています…');render();
+ try{await session.submit(command)}catch(error){
+  // Preserve the ID even if the command was applied before publication failed.
+  // A new ID could turn a transient network error into a stuck match.
+  onError(error);render();
+ }
+}
+async function retryPending(){
+ if(!session||!waiting||!pendingCommand||retrying)return;
+ retrying=true;feedback('同じ操作IDで再送しています…');render();
+ try{
+  await session.submit(pendingCommand);
+  if(seat==='A'&&waiting){
+   // Host submit publishes the authoritative state and reports its receipt.
+   feedback('同期結果を確認しています…');
+  }
+ }catch(error){onError(error);}
+ finally{retrying=false;render();}
 }
 $('create').addEventListener('click',async()=>{
  $('create').disabled=true;
@@ -5740,6 +5766,7 @@ $('join').addEventListener('click',async()=>{
   render();feedback('接続しました。自分の順番を待ってください');
  }catch(e){onError(e);seat=null;}finally{$('join').disabled=!!session}
 });
+$('retry').addEventListener('click',retryPending);
 $('attack').addEventListener('click',()=>send('playCards'));
 $('defend').addEventListener('click',()=>send('defend'));
 $('pray').addEventListener('click',()=>send('pray'));
