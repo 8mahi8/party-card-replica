@@ -20,6 +20,7 @@ const ROOT=path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const DB='https://mygame-df915-default-rtdb.firebaseio.com';
 const ROOT_KEY='godfieldV2LabRooms';
 let code=null,contextA=null,contextB=null,browser=null,server=null,a=null,b=null;
+const errors=[];
 const time=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 async function dbRead(code){
  const r=await fetch(DB+'/'+ROOT_KEY+'/'+code+'.json',{signal:AbortSignal.timeout(15000),cache:'no-store'});
@@ -64,7 +65,6 @@ try{
  contextB=await browser.newContext({viewport:{width:390,height:430},
   screen:{width:390,height:844},isMobile:true,hasTouch:true});
  a=await contextA.newPage();b=await contextB.newPage();
- const errors=[];
  for(const page of [a,b])page.on('pageerror',e=>errors.push(e.message));
  const url='http://127.0.0.1:'+server.address().port+
   '/v2/demo/firebase-online-lab.html';
