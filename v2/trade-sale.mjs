@@ -44,8 +44,8 @@ export function previewUncontestedSale(state,catalog,{
     !saleDef.effects.some(e=>e.when==='onDeclare'&&
       e.type==='forceSale'&&e.params.kind==='sell'))
    fail('Selected source is not a Sell card');
- if(!itemDef||itemDef.family==='trade')
-   fail('Cannot sell an unverified trade artifact');
+ if(!itemDef)
+   fail('Unknown offered card definition');
  if(buyer.hand.length>MAX_HAND_SIZE)
    fail('Receiver hand is above original hand cap');
  // A player report says active/learned miracles may share the 18-card cap.
