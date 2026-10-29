@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - '.github/workflows/g6-external-preview-webkit.yml'
+      - 'tests/v2-g6-https-preview.browser.mjs'
   workflow_dispatch:
 
 permissions:
