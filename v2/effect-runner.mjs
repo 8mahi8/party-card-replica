@@ -196,7 +196,7 @@ export function runEffectQueueFixture(state,catalog,queue,{
      const mirrorOwner=who(state,effect.mirrorOwnerId);
      const originalItem=originalSeller.hand.find(c=>c.instanceId===effect.soldInstanceId);
      const itemDef=catalog.get(originalItem?.definitionId);
-     if(!originalItem||!itemDef||itemDef.family==='trade')
+     if(!originalItem||!itemDef)
        fail('Invalid item offered for reflected sale');
      if(!s.players.find(p=>p.id===originalSeller.id).hand.some(
        c=>c.instanceId===originalItem.instanceId))
