@@ -247,3 +247,20 @@ test('same commandId retry updates mailbox even when RTDB ignores identical writ
  assert.equal(db.at(LAB_ROOT+'/'+code+'/views/B').players[1].hp,30);
  guest.close();host.close();
 });
+
+test('host rejects an invalid card choice without trapping the UI in a network retry',async()=>{
+ const db=createFakeDb(),host=await makeHost(db);
+ const v=host.read();
+ const nonAttackId=v.players[0].hand[1].instanceId;
+ await assert.rejects(
+  ()=>host.submit(command(v,'A','playCards',[nonAttackId])),
+  error=>error.commandRejected===true
+ );
+ assert.equal(host.read().revision,0);
+ assert.equal(db.at(LAB_ROOT+'/'+code+'/views/A').revision,0);
+ const swordId=v.players[0].hand[0].instanceId;
+ const ok=await host.submit(command(v,'A','playCards',[swordId]));
+ assert.equal(ok.ok,true);
+ assert.equal(host.read().phase,'defense');
+ host.close();
+});
