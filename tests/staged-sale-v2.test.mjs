@@ -105,7 +105,7 @@ test('if no researched outcome is possible, declaration fails atomically before 
  const s=room(['t001','w003'],['d005']);
  Object.assign(who(s,'B'),{hp:1,mp:0,money:0});
  const snapshot=JSON.stringify(s);
- assert.throws(()=>send(s,sale(s)),/No source-verified sale response/);
+ assert.throws(()=>send(s,sale(s)),/Lethal forced sale requires original zero-HP settlement verification/);
  assert.equal(JSON.stringify(s),snapshot);
 });
 test('wrong type of defensive card, off-turn commands and forged response are rejected',()=>{
