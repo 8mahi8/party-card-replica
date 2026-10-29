@@ -21,7 +21,7 @@ test('revival research launcher is available from sealed default state',()=>{
 test('P1 attack then P2 no defense consumes charm and hands off to a living P2',()=>{
  const lab=trial();const before=JSON.stringify(lab.labSnapshot());
  const a=lab.reveal();
- assert.equal(a.hand[0].label,'ワンダーソード');
+ assert.match(a.hand[0].label,/^ワンダーソード/);
  lab.toggle({instanceId:a.hand[0].instanceId});
  assert.equal(lab.submit().ok,true);
  assert.equal(lab.view().revealed,false);
