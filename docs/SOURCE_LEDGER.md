@@ -190,3 +190,11 @@
 - `tests/multiplayer-mirage-staged-v2.test.mjs`21件とseed検証1件を追加。今の研究用カード台帳は従来通り**120種／309/500参考枠**、原作353/500を完成させたという主張ではない。学校本番・main・既存2席ラボの挙動は変更しない。
 
 - 共通命中後settlementの重複を`refillSettled`/`advanceSettled`に整理（独立した通常/多人数ルートで同一処理）。9席×3周×のこぶん2発の48防御遷移も研究ルールセットでテスト追加。最新のNode全体はCIで再確認する。
+
+
+## 2026-10-30 G3/G7｜3人〈蜃気楼〉のオフライン研究UI
+
+- [研究版3人ホットシートの設計・検証](V2_G3_G7_MIRAGE_3SEAT_HOTSEAT_2026-10-30.md) を追加。既存[多人数〈蜃気楼〉エンジン実配線](V2_G3_G7_MULTIPLAYER_MIRAGE_STAGED_2026-10-30.md)の上に**UI/操作経路だけを追加**し、本家の未確認ルールを通常対戦へ流用しない。
+- 一次出典未確認：[Piong「奇跡一覧」](https://w.atwiki.jp/piong/pages/20.html)、[God Fieldガイド＋α](https://w.atwiki.jp/gfplusa/pages/19.html)は対象の順次処理/複数周回を説明するが、「最初の相手を誰がどう決めるか」は直接裏付けられない。研究版での**初回手動指定は仮定**。この仮定をUIに常時表示する。
+- `v2/lab-controller.mjs`に3席研究配置、`v2/lab-ui.mjs`に3席起動ボタン/進捗、`v2/demo/template.html`に狭い埋込画面用3席ステータスレイアウト。`room-transition.mjs`が最初の防御前の`miragePreview`を保存し、`staging-room.mjs`が機微な実カードを隠しながら進捗を表示。**手札支払と本物の攻撃`attackContext`は最初の命中後にだけ確定**。
+- 新規8 Nodeテストと3人研究用ブラウザタップ試験を追加。学校公開版/main、オンライン同期、山札真正ドロー、原作の多人数〈壁〉と反射の処理はまだ実装していない。
