@@ -49,7 +49,14 @@
 - 習得済み奇跡を含む上限曖昧ケースは**fail-closed**、元状態不変。上限未満なら利用可能。
 - 致死的取引は従来どおり保留。前のテストで例外を隠すことはない。
 
-実装変更後の最新コミットに対し Node／Chromium／WebKit の各GitHub Actionsを実行し、最終結果をDraft PR #1へ記録する。
+さらに `tests/v2-webkit-smoke.browser.mjs` に**390×430の固定高さiframeの実タップテスト**を追加。P1「売る→金のこん棒」→P2の18枚手札を秘匿して受け渡し→提示価格25円→「受け入れる」→P2が18枚のままになること、元カードが17枚で商品カードが入ること、乱数シードが1回進むことを確認。Screenshot `webkit-trade-full-hand-offer.png`/`webkit-trade-full-hand-settled.png`はGitHub Actions artifact ID `12884445814` から**目視確認済み**。
+
+最新テスト対象コミット `a508f8b4ee0b36893069f0f5328b7ba201f92abd`：
+- Node **588/588**（run `40843195554`）
+- Chromium **28/28**（run `40843195559`）
+- Playwright WebKit **193/193**（run `40843195573`）
+
+3系統成功。Linux WebKitの検証であり、**学校iPad Safari実機検証ではない**。最終ドキュメントHEADもCIを確認してDraft PR #1へ記録する。
 
 ## 次の優先調査
 
