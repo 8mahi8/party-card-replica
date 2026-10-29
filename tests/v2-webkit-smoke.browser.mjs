@@ -883,6 +883,70 @@ async function testTradeTrialTouch(base){
 }
 
 
+async function testSellingTradeCardTouch(base){
+ const context=await browser.newContext({
+  viewport:{width:390,height:844},screen:{width:390,height:844},
+  deviceScaleFactor:2,isMobile:true,hasTouch:true,locale:'ja-J'
+ });
+ try{
+  page=await context.newPage();
+  await page.goto(base+'/embed-harness.html',{waitUntil:'load'});
+  await page.locator('#game-embed').evaluate(el=>{el.style.height='430px';});
+  const frame=page.frameLocator('#game-embed');
+  const embedded=page.frames().find(f=>f!==page.mainFrame());
+  if(!embedded)throw new Error('Missing Sell-of-Sell iframe');
+  await embedded.evaluate(()=>{
+   const old=document.getElementById('v2-root'),fresh=document.createElement('div');
+   fresh.id='v2-root';old.replaceWith(fresh);
+   __v2_lab_test_ui.mountV2Lab(fresh,
+     __v2_lab_test_controller.createV2LabController({
+      hands:{A:['t001','t001','d001'],B:['i002','d005']}
+     }));
+  });
+  await frame.locator('[data-action=reveal]').tap();
+  const cards=frame.locator('[data-card=hand]');
+  passed(await cards.count()===3,'seller starts with two separate Sell artifacts');
+  await cards.nth(0).tap();await cards.nth(1).tap();
+  await frame.locator('[data-action=submit]').tap();
+  await frame.locator('.compact-pass').waitFor();
+  passed((await frame.locator('.compact-pass h1').textContent()).includes('P2'),
+   'Sell-of-Sell prompts buyer on private handoff');
+  await frame.locator('[data-action=reveal]').tap();
+  const offer=await frame.locator('.trade-offer').textContent();
+  passed(offer.includes('売り付けられた神器：売る')&&offer.includes('¥5'),
+   'a second Sell can be offered for its sourced price of ¥5');
+  await screenshot('webkit-sell-of-sell-offer');
+  await frame.locator('[data-action=submit]').tap();
+  await frame.locator('.compact-pass').waitFor();
+  await frame.locator('[data-action=reveal]').tap();
+  const received=frame.locator('[data-card=hand]');
+  passed(await received.count()===3,'buyer gains the real Sell item');
+  passed((await received.nth(2).textContent()).includes('売る'),
+   'buyer has a newly transferable Sell in its hand');
+  await received.nth(2).tap();
+  await received.nth(1).tap();
+  await frame.locator('[data-action=submit]').tap();
+  await frame.locator('.compact-pass').waitFor();
+  passed((await frame.locator('.compact-pass h1').textContent()).includes('P1'),
+   'buyer may use purchased Sell on next turn');
+  await frame.locator('[data-action=reveal]').tap();
+  passed((await frame.locator('.trade-offer').textContent()).includes('革の帽子'),
+   'purchased Sell creates a fresh authenticated offer');
+  await frame.locator('[data-action=submit]').tap();
+  await frame.locator('.compact-pass').waitFor();
+  await frame.locator('[data-action=reveal]').tap();
+  const summary=await frame.locator('.seat').allTextContents();
+  passed(summary[0].includes('手札3枚')&&summary[1].includes('手札2枚'),
+   'two consecutive trades transfer items and refill only action cards: '+JSON.stringify(summary));
+  await screenshot('webkit-sell-of-sell-resold-complete');
+ }catch(error){
+  await screenshot('webkit-sell-of-sell-failure');throw error;
+ }finally{
+  page=null;await context.close();
+ }
+}
+
+
 async function testFullHandSaleTouch(base){
  const context=await browser.newContext({
   viewport:{width:390,height:844},screen:{width:390,height:844},
@@ -976,6 +1040,7 @@ try{
   await testRainbowDefenseTouch(base);
   await testDiscardTouch(base);
   await testTradeTrialTouch(base);
+  await testSellingTradeCardTouch(base);
   await testFullHandSaleTouch(base);
   console.log('WEBKIT_SMOKE_SUCCESS checks='+checks+' engine=Playwright WebKit'+
     ' fixed-height frames=1024x460,390x430');
