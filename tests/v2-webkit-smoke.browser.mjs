@@ -807,6 +807,77 @@ async function testDiscardTouch(base){
 }
 
 
+async function testTradeTrialTouch(base){
+ for(const item of [
+  {width:390,height:844,embedHeight:430,mirror:false,tag:'accept'},
+  {width:1024,height:768,embedHeight:460,mirror:true,tag:'mirror'}
+ ]){
+  const context=await browser.newContext({
+   viewport:{width:item.width,height:item.height},
+   screen:{width:item.width,height:item.height},
+   deviceScaleFactor:2,isMobile:true,hasTouch:true,locale:'ja-J'
+  });
+  try{
+   page=await context.newPage();
+   await page.goto(base+'/embed-harness.html',{waitUntil:'load'});
+   await page.locator('#game-embed').evaluate((el,h)=>{el.style.height=h+'px';},item.embedHeight);
+   const frame=page.frameLocator('#game-embed');
+   await frame.locator('[data-action=trade-demo]').tap();
+   await frame.locator('[data-action=reveal]').tap();
+   const firstHand=frame.locator('[data-card=hand]');
+   passed(await firstHand.count()===3,'trade lab seeds 3 seller cards');
+   passed((await firstHand.nth(0).textContent()).includes('売る'),
+    'trade starts with verified Sell card');
+   await firstHand.nth(0).tap();
+   await firstHand.nth(1).tap();
+   await screenshot('webkit-trade-'+item.tag+'-offer-selection');
+   await frame.locator('[data-action=submit]').tap();
+   await frame.locator('.compact-pass').waitFor();
+   passed((await frame.locator('.compact-pass h1').textContent()).includes('P2'),
+    'trade seller hands over a concealed screen');
+   passed(await frame.locator('[data-card=hand]').count()===0,
+    'no buyer hand visible during handoff');
+   await frame.locator('[data-action=reveal]').tap();
+   const offer=frame.locator('.trade-offer');
+   passed(await offer.count()===1 &&
+     (await offer.textContent()).includes('金のこん棒') &&
+     (await offer.textContent()).includes('¥25'),
+    'buyer sees source-backed offered item and price');
+   passed(await frame.locator('[data-card=hand]:disabled').count()===1,
+    'non-mirror armor is disabled for sale reaction');
+   if(item.mirror){
+    await frame.locator('[data-card=hand]').first().tap();
+    passed((await frame.locator('[data-action=submit]').textContent()).includes('スーパーミラー'),
+     'mirror choice is shown explicitly');
+   }else{
+    passed((await frame.locator('[data-action=submit]').textContent()).includes('売買を受け入れる'),
+     'trade can be accepted without a card');
+   }
+   await screenshot('webkit-trade-'+item.tag+'-response');
+   await frame.locator('[data-action=submit]').tap();
+   await frame.locator('.compact-pass').waitFor();
+   passed((await frame.locator('.compact-pass h1').textContent()).includes('P2'),
+    'trade settles and returns a concealed next turn');
+   await frame.locator('[data-action=reveal]').tap();
+   const stats=await frame.locator('.seat').allTextContents();
+   passed(stats[0].includes(item.mirror?'MP 5':'¥ 45') &&
+     stats[1].includes(item.mirror?'¥ 45':'MP 5'),
+    'mirror vs accept resource flow '+JSON.stringify(stats));
+   passed(stats[0].includes('手札'+(item.mirror?'3':'2')+'枚') &&
+     stats[1].includes('手札'+(item.mirror?'2':'3')+'枚'),
+    'spent card refills without duplicating item '+JSON.stringify(stats));
+   passed((await frame.locator('.stage-heading').textContent()).includes('P2'),
+    'trade completes exactly one turn');
+   await screenshot('webkit-trade-'+item.tag+'-settled');
+  }catch(error){
+   await screenshot('webkit-trade-'+item.tag+'-failure');throw error;
+  }finally{
+   page=null;await context.close();
+  }
+ }
+}
+
+
 try{
   if(!existsSync(path.join(ROOT,'v2/demo/standalone.html')))
     throw new Error('Missing checked-in standalone HTML');
@@ -826,6 +897,7 @@ try{
   await testNewSoloMiraclesTouch(base);
   await testRainbowDefenseTouch(base);
   await testDiscardTouch(base);
+  await testTradeTrialTouch(base);
   console.log('WEBKIT_SMOKE_SUCCESS checks='+checks+' engine=Playwright WebKit'+
     ' fixed-height frames=1024x460,390x430');
 }catch(error){
