@@ -41,6 +41,18 @@ button:disabled{opacity:.45;cursor:not-allowed}
 .compact-pass .primary{min-height:50px}
 .compact-pass .scenario-launch{margin-top:8px;font-size:12px;min-height:44px;padding:8px 12px}
 .trade-offer{margin:8px 0 15px;background:#1a3550;border:1px solid #65a8bd;border-radius:12px;padding:12px;display:flex;gap:10px;justify-content:space-between;align-items:center;flex-wrap:wrap;color:#e2f9ff}
+.trade-reply{margin-top:7px;background:#132137;border:1px solid #304766;border-radius:15px;padding:11px 12px 90px}
+.trade-research-note{font-size:10px;color:#fed5bd;margin:0 0 8px}
+.trade-mini-scores{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
+.trade-mini-seat{display:flex;gap:5px 10px;align-items:center;flex-wrap:wrap;background:#182e45;border:1px solid #31536a;border-radius:9px;padding:7px;font-size:12px}
+.trade-mini-seat strong{font-size:13px;color:#b5f4ff}
+.trade-mini-seat b{font-size:13px;color:#fff}
+.trade-reply .trade-offer{margin:8px 0;padding:8px 10px}
+.trade-reply h2{margin:7px 0 4px}
+.trade-hint{font-size:11px;color:#c4daef;line-height:1.4;margin:0 0 8px}
+.trade-hand{grid-template-columns:repeat(auto-fill,minmax(135px,1fr));gap:7px}
+.trade-hand .battle-card{min-height:75px;padding:8px}
+.trade-reply .status{margin:7px 0 0}
 .trade-offer strong{font-size:14px;line-height:1.4}
 .trade-offer span{font-size:13px;color:#ffdf97;font-weight:800}
 .battle-card:disabled{opacity:.48;border-style:dashed;cursor:not-allowed}
@@ -3221,6 +3233,33 @@ function renderV2LabMarkup(data,{resetArmed=false}={}){
       '取引の研究配置で始める</button>':'')+
      '</section>'+footer;
  }
+ if(data.phase==='tradeDefense'){
+   const tradeOffer=data.pending?.offer;
+   const stats=data.publicPlayers.map(p=>
+     '<div class="trade-mini-seat"><strong>'+esc(seatLabel(p.id))+'</strong>'+
+     '<span>HP <b>'+esc(p.hp)+'</b></span>'+
+     '<span>MP <b>'+esc(p.mp)+'</b></span>'+
+     '<span>¥ <b>'+esc(p.money)+'</b></span></div>'
+   ).join('');
+   const offered=tradeOffer?
+     '<section class="trade-offer" aria-label="取引の提示"><strong>売り付けられた神器：'+
+     esc(tradeOffer.label)+'</strong><span>価格 ¥'+esc(tradeOffer.price)+'</span></section>':
+     '<p class="status">取引の商品が見つかりません</p>';
+   const responseText=data.selection.length?
+     'スーパーミラーで跳ね返す':'売買を受け入れる';
+   return topLine+'<main class="trade-reply">'+
+     '<p class="trade-research-note">⚠ 取引の研究用・オフライン1台交代制／カード補充は固定</p>'+
+     '<div class="trade-mini-scores">'+stats+'</div>'+
+     offered+
+     '<h2>'+esc(seatLabel(data.actorId))+'：取引への応答</h2>'+
+     '<p class="trade-hint">スーパーミラーだけが有効。選ばなければ売買を受け入れます</p>'+
+     '<div class="hand-grid trade-hand">'+
+       (data.hand.length?data.hand.map(c=>cardButton(c,'hand')).join(''):
+         '<p class="empty">手札がありません</p>')+
+     '</div><p class="status" role="status">'+esc(data.notice)+'</p>'+
+     '<div class="action-bar"><button type="button" class="primary wide confirm" data-action="submit">'+
+     responseText+'</button></div></main>'+footer;
+ }
  const title=data.phase==='turn'?'攻撃するカードを順番に選択':
    data.phase==='tradeDefense'?'取引への応答を選択':'防御カードを順番に選択';
  const firstPicked=data.selection[0]?.instanceId
@@ -3252,10 +3291,9 @@ function renderV2LabMarkup(data,{resetArmed=false}={}){
      data.learned.find(q=>q.definitionId===x.learnedDefinitionId);
    return '<span class="pick-index">'+(i+1)+'. '+esc(c?.label??'選択中')+'</span>';
  }).join('');
- const actionText=data.phase==='tradeDefense'?
-     (data.selection.length?'スーパーミラーで跳ね返す':'売買を受け入れる'):
-     data.phase==='defense'?(data.selection.length?'防御を確定':'防御しない')
-   :data.canPray&&data.selection.length===0?'祈る（神器を1枚引く）':'攻撃を確定';
+ const actionText=data.phase==='defense'?(data.selection.length?'防御を確定':'防御しない')
+   :isSelling?'取引を申し込む':
+     data.canPray&&data.selection.length===0?'祈る（神器を1枚引く）':'攻撃を確定';
  const notice='<p class="status" role="status">'+esc(data.notice)+'</p>';
  const discardOption=data.phase==='turn' && data.canDiscardSelection && !isSelling
    ?'<button type="button" class="quiet discard-option" data-action="discard">'+
