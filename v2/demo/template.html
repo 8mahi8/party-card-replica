@@ -53,6 +53,11 @@ button:disabled{opacity:.45;cursor:not-allowed}
 .trade-hand{grid-template-columns:repeat(auto-fill,minmax(135px,1fr));gap:7px}
 .trade-hand .battle-card{min-height:75px;padding:8px}
 .trade-reply .status{margin:7px 0 0}
+/* Two deliberate decisions remain visible above Safari's safe-area inset. */
+.buy-decision .buy-offer{margin:10px 0;padding:12px 10px}
+.buy-choice-bar .buy-decline{flex:1;min-width:0;min-height:54px;background:#253b55;color:#eff9ff;border-color:#7796ba;font-weight:800}
+.buy-choice-bar .confirm{flex:1;min-width:0}
+.buy-decision{min-height:200px}
 .trade-offer strong{font-size:14px;line-height:1.4}
 .trade-offer span{font-size:13px;color:#ffdf97;font-weight:800}
 .battle-card:disabled{opacity:.48;border-style:dashed;cursor:not-allowed}
