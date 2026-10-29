@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import {RESEARCH_CATALOG_CONTRACT} from './helpers/research-catalog-contract.mjs';
 import {migrateLegacyCatalog} from '../v2/legacy-adapter.mjs';
 import {createStagingRoom,viewStagingRoom} from '../v2/staging-room.mjs';
 import {runEffectQueueFixture} from '../v2/effect-runner.mjs';
@@ -25,8 +26,8 @@ test('Buy definition has source-backed 20/500 weight, ¥5 price and strict reque
  assert.equal(card.drawWeight,20);
  assert.deepEqual(card.effects.map(e=>[e.when,e.type,e.params.kind]),
   [['onDeclare','requestBuy','buy']]);
- assert.equal(summary.unique,94);
- assert.equal(summary.slots,270);
+ assert.equal(summary.unique,RESEARCH_CATALOG_CONTRACT.unique);
+ assert.equal(summary.slots,RESEARCH_CATALOG_CONTRACT.slots);
  assert.equal(summary.complete,false);
 });
 test('uncontested Buy pays money and moves exact random item; action card alone refills',()=>{
