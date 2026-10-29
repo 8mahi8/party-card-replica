@@ -138,7 +138,7 @@ export function runEffectQueueFixture(state,catalog,queue,{
        spends[0].instanceIds?.length!==1||
        spends[0].instanceIds[0]!==trade.instanceId)
        fail('Exchange requires exactly one authentic spent Exchange card');
-     const plan=previewExchangeFixture(original,p.allocation);
+     const plan=previewExchangeFixture({hp:original.hp,mp:original.mp,money:original.money},p.allocation);
      const player=who(s,effect.playerId);
      player.hp=plan.after.hp;
      player.mp=plan.after.mp;
