@@ -258,3 +258,23 @@ test('an eliminated first target skips the remainder of its Nokobunbun subhits',
  assert.equal(out.r.state.players[1].hp,0);
  assert.equal(out.r.state.players[2].hp,34);
 });
+
+test('nine-seat integration resolves up to 48 separate defenses without double refill',()=>{
+ const hands={A:['w050','m012','m012','m012']};
+ for(const id of ['B','C','D','E','F','G','H','I'])hands[id]=[];
+ const s=init({hands,seed:337});
+ const result=run(s);
+ assert.equal(result.hops.length,48);
+ assert.equal(result.hops[0].target,'B');
+ for(const id of ['B','C','D','E','F','G','H','I']){
+  assert.equal(result.hops.filter(h=>h.target===id).length,6);
+  assert.equal(result.r.state.players.find(p=>p.id===id).hp,22);
+ }
+ assert.equal(result.r.state.players[0].mp,10);
+ assert.equal(result.r.state.players[0].hand.length,4);
+ assert.equal(result.r.state.phase,'turn');
+ assert.equal(result.r.state.activePlayerId,'B');
+ assert.equal(result.r.state.turnCount,1);
+ assert.equal(result.events.filter(e=>e.type==='turnAdvance').length,1);
+ assert.equal(result.events.filter(e=>e.type==='refill'&&e.playerId==='A').length,1);
+});
