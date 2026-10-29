@@ -55,6 +55,18 @@ export function resolveRedirectFixture(state,catalog,{
    return resolveBasicFixture(state,catalog,{labOnly:true,fixtureDrawDefinitionId});
  }
  const selected=locateDefense(state,catalog);
+ // Per-target redirected Mirage chains and Wall stopping one or all
+ // recipients remain unconfirmed in public source material.
+ // Do not spend a card and then guess how the all-target route proceeds.
+ const researchMulti=state.players.length>2&&
+   state.rulesetId==='mirage-multiplayer-research-fixture-v2';
+ if(researchMulti){
+   const compiled=p.attackContext??compileBasicWeaponAttack(state,catalog);
+   if(compiled.mirageCount>0&&selected.some(({def})=>
+     def.effects.some(e=>e.when==='onDefense'&&
+       (e.type==='redirectAttack'||e.type==='stopAttack'))))
+     bad('Multiplayer Mirage redirect or Wall stopping needs original verification');
+ }
  const redirected=selected.filter(x=>x.def.effects.some(e=>e.type==='redirectAttack'&&e.when==='onDefense'&&
    e.params.scope!=='miracle'));
  if(!redirected.length) {
