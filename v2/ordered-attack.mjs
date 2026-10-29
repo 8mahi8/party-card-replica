@@ -164,6 +164,8 @@ export function compileOrderedWeaponAttack(state,catalog){
     }
   }
   if(!weaponCount)fail('Attack requires a weapon');
+  if(hitCount===2&&(miracles.length>0||hasArmorBonus||itemBonus||absorbsHp))
+    fail('Repeat hits with miracles, armor attack bonus or other special effects are not verified');
   if(miracles.length&&state.pending.targetId===caster.id)
     fail('Boosted self-target attack has not been verified');
   if(aura&&plusCount)fail('Aura plus additive miracle ordering unverified');
