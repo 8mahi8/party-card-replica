@@ -5,6 +5,16 @@
 
 > **この文書は引き継ぎ入口であり、実装の真実は常に開発ブランチの最新コードとGitHub Actions。** コミットSHA・テスト件数・カード数は作業のたびに変わる。本文の日付や数値を確認せず永久に正しいと扱わないこと。
 
+## 2026-10-30 G6最新｜防御側へ宣言済み攻撃神器・攻撃値を表示【今回の最新】
+
+- **原作の防御画面との差を確認**：[原作ブラウザ画面の説明と画像](https://godfield-beginner.game-info.wiki/)・[攻撃/防御の原作操作](https://w.atwiki.jp/piong/pages/16.html)。G6は攻撃元→対象だけ分かり、相手の使用神器・攻撃値が見えず、判断材料が不足していた。原作では宣言済みの攻撃内容を見て防御を選べる。
+- **公開する情報を最小限に限定**：`v2/staging-room.mjs`に`declaredAttackFixture(state,catalog)`を追加。`partial-reference-v2-lab`・2人・`phase=defense`・`pending.type=attack`に限り、攻撃者の選択済み物理神器の`definitionId/printedAttack/element`と印字合計値を`viewStagingRoom(...).pending.declaredAttack`に収める。**未使用の攻撃者手札/物理instanceId/内部乱数は公開しない**。この情報の表示タイミングが未確認の夢・蜃気楼など他ルールセットには広げない。
+- **UI**：`v2/demo/firebase-online-lab.html`の中央防御エリアに「相手の攻撃：ワンダーソード ／ 攻10（記載値）」を表示。防御後は自動で消える。原作の属性や特殊効果を踏まえた確定ダメージを表示すると誤認しないよう「記載値」と明示。戦闘エンジンのカード解決やFirebase Rulesは変更していない。
+- **検証済み**：Node **907/907 PASS**（run [`40972751669`](https://github.com/8mahi8/party-card-replica/actions/runs/40972751669)）、新オンライン2画面WebKit **28/28 PASS**＋既存WebKit **339/339 PASS**（run [`40972751651`](https://github.com/8mahi8/party-card-replica/actions/runs/40972751651)）、Chromium既存 **28/28 PASS**（run [`40972751711`](https://github.com/8mahi8/party-card-replica/actions/runs/40972751711)）。Nodeは宣言済みw016を防御者に見せつつ、未使用w017と相手の手札が出ないことを確認。WebKitは攻撃カード名・攻10の出現、双方表示、防御後消去、従来の攻撃/許す/再送を確認。
+- **配布更新**：この変更は2つのバンドルに共通なので、`v2/demo/build.mjs`と`v2/demo/build-online.mjs`で`standalone.html`と`firebase-online-standalone.html`**両方**再生成・開発ブランチへ保存（bot commit `b0dd6f2a3f7e80092e892e65d3de2bc8145e14c2`）。生成前コミットのCIはバンドル整合性だけ失敗したが再生成後に合格。作業終了後のワークフローは手動起動専用へ戻した。
+- **資料**：[`docs/V2_G6_DECLARED_ATTACK_DEFENSE_HUD_2026-10-30.md`](docs/V2_G6_DECLARED_ATTACK_DEFENSE_HUD_2026-10-30.md)を参照。原作画像・効果は無断転載せず、この部分の原作操作を再現するためのUI試作。
+- **まだ未検証・次**：**本物のFirebaseで今回の攻撃内容表示**・学校のiPad Safari実機・GitHub Pagesの配信URLは未検証。既存の実Firebase基本対戦の検証はrun `40934112303`。次は学校iPadの試遊と表示面積/操作の確認、その後原作の正規山札・カード効果拡充。Google Sitesの学校公開HTML・GitHub`main`・Firebase Security Rules/認証設定は未変更。
+
 ## 2026-10-30 G6最新｜選択神器のタップ順と攻防確認の中央表示【この節が最新】
 
 - **原作資料照合**：[初心者向け原作ブラウザ画面](https://godfield-beginner.game-info.wiki/)、[ゴッドフィールドWiki・攻撃と防御](https://w.atwiki.jp/piong/pages/16.html)、[追加武器などの組み合わせ説明](https://w.atwiki.jp/gfplusa/pages/18.html)。原作は選択した神器を画面に並べて確定し、複数神器の攻防が重要。画像素材は転載せず情報配置を再現。
