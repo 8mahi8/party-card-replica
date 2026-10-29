@@ -2544,8 +2544,11 @@ function runEffectQueueFixture(state,catalog,queue,{
      if(origin.hp<=0||target.hp<=0)
        fail('Cannot continue a hit after a player is eliminated');
      if(state.pending.attackContext===undefined){
+       // Validate against PRE-QUEUE ownership, because the real attack
+       // cards were just spent above in this same atomic settlement.
+       const originalOrigin=who(state,s.pending.originalAttackerId);
        const real=state.pending.attackInstanceIds?.some(id=>
-         origin.hand.some(card=>card.instanceId===id&&
+         originalOrigin.hand.some(card=>card.instanceId===id&&
            catalog.get(card.definitionId)?.effects.some(e=>
              e.when==='onDeclare'&&e.type==='repeatAttack'&&e.params.count===2)));
        if(!real)fail('A repeated attack needs the original physical weapon');
