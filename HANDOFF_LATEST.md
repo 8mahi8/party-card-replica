@@ -9,7 +9,7 @@
 
 - **最新実コード・配布研究HTML同期コミット**：`c9e6bc89569d8a68eaad434a4fb04b284149fc0d`。開発ブランチのみ。旧節の`1e125f5e`は過去スナップショットであり現行HEADではない。
 - **改善内容**：`v2/mirage-target-route.mjs`で、攻撃対象履歴の末尾=現在の防御対象、訪問件数<=解決済み攻撃数+初回対象、攻撃終了時のseed正当性を検証。不正な履歴やseedは元状態を変えず拒否する。ルール・乱数順・ダメージ処理は一切追加しない。`tests/mirage-target-route-v2.test.mjs`に新規2ケースを加えた。
-- **CI実測（コードコミット`c9e6bc89`）**：Rules Lab Tests **Node 879/879 PASS** run `40926134294`、Chromium **28/28 PASS** run `40926134316`。Playwright WebKit run `40926134297`はこの段階では判定確認中。**成功を確認するまではWebKitを成功扱いしない。**
+- **CI実測（コードコミット`c9e6bc89`）**：Rules Lab Tests **Node 879/879 PASS** run `40926134294`、Chromium **28/28 PASS** run `40926134316`。Playwright WebKit **339/339 PASS** run `40926134297`。3系統ともコミット`c9e6bc89`で成功。スタンドアロンHTML整合性も確認。実学校iPad試験ではない。
 - **調査資料**：[`docs/V2_G3_G7_MIRAGE_ROUTE_INTEGRITY_REVIEW_2026-10-30.md`](docs/V2_G3_G7_MIRAGE_ROUTE_INTEGRITY_REVIEW_2026-10-30.md)。PiongとGFガイド＋αの説明は逐次全体攻撃/複数周回を支持するが、初回対象指定・〈壁〉/反射/弾きの全周回処理は未確定。研究専用ルールセット以外に適用しない。
 - **次**：CI（特にWebKit）の最終判定を実測し、3人UIで対象履歴の見せ方をレビュー。原作直接確認なしに仕様を確定しない。正規全カード/山札確率・G6オンライン・学校実機は未完成。**main・Google Sites公開版の更新は禁止。**
 
