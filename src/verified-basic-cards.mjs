@@ -19,7 +19,7 @@ const add=(id,referenceName,attack,price,weight=1,{element='none',reaction,react
 const shield=(id,referenceName,guard,price,weight,{element='none',attackBonus,stopScope,reaction,reactionScope}={})=>
   Object.freeze({id,referenceName,kind:'armor',category:'armor_normal',element,guard,price,weight,...(attackBonus===undefined?{}:{attackBonus}),...(stopScope===undefined?{}:{stopScope}),...(reaction===undefined?{}:{reaction,reactionScope})});
 
-/** Read-only 91-card subset. Do not normalize and sample as the full deck. */
+/** Read-only 92-card subset. Do not normalize and sample as the full deck. */
 export const VERIFIED_BASIC_CARDS = Object.freeze([
   main('w001','銅のこん棒',1,1,3),
   main('w002','銀のこん棒',1,10,1),
@@ -114,6 +114,9 @@ export const VERIFIED_BASIC_CARDS = Object.freeze([
   // Source-backed trade reference: 4% of the 500-slot reference pool.
   // This is *not* approval to use the incomplete pool for live draws.
   Object.freeze({id:'t001',referenceName:'売る',kind:'trade',category:'trade',element:'none',tradeAction:'sell',price:5,weight:20}),
+  // Godfield trade list: 買う is ¥5 and 20 / 500 source slots.
+  // The complete deck and mirror timing remain unverified.
+  Object.freeze({id:'t002',referenceName:'買う',kind:'trade',category:'trade',element:'none',tradeAction:'buy',price:5,weight:20}),
 ]);
 
 export function findVerifiedBasicCard(id) {
