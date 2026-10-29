@@ -134,6 +134,13 @@ try{
  await b.locator('#hand button').first().waitFor();
  // Wrong card selection should show a rule error and let the host reselect.
  await a.locator('#hand button').nth(1).tap();
+ await a.locator('#hand button').first().tap();
+ check((await a.locator('#selectionPreview .picked').allTextContents())[0].includes('革の帽子') &&
+  (await a.locator('#selectionPreview .picked').allTextContents())[1].includes('ワンダーソード'),
+  'selected preview respects tap order rather than the original hand order');
+ check((await a.locator('#selectionTotal').textContent()).includes('攻 10'),
+  'printed attack subtotal is visible but labeled as reference');
+ await a.locator('#hand button').first().tap();
  await a.waitForFunction(()=>document.querySelector('#attack')?.disabled===false);
  await a.locator('#attack').tap();
  await a.waitForFunction(()=>document.querySelector('#status')?.textContent
@@ -180,7 +187,16 @@ try{
  await a.locator('#attack').tap();
  await b.waitForFunction(()=>document.querySelector('#phase')?.textContent
    .includes('あなたの防御'));
- check(await b.locator('#defend').textContent()==='許す（防御なし）',
+ check((await b.locator('#combatRoute').textContent()).includes('P1') &&
+  (await b.locator('#combatRoute').textContent()).includes('P2'),
+  'defender sees the attacker-to-target context');
+ await b.locator('#hand button').nth(1).tap();
+ check((await b.locator('#selectionTotal').textContent()).includes('守 3'),
+  'defender can preview printed defense before choosing');
+ check(await b.locator('#defend').textContent()==='防御する',
+  'selected defense has an explicit confirmation label');
+ await b.locator('#hand button').nth(1).tap();
+  check(await b.locator('#defend').textContent()==='許す（防御なし）',
   'unselected defense reads 許す in reference-style interface');
  check((await b.locator('#phase').textContent()).includes('あなたの防御'),
   'guest sees its defense window');
