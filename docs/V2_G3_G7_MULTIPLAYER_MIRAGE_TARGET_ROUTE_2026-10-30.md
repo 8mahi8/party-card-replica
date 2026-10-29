@@ -45,7 +45,8 @@
 
 ## 現在の接続位置と次工程
 
-- 既存`v2/ordered-attack.mjs`は3人以上の`widenAttack`を引き続き**明示拒否**する。`v2/mirage-target-route.mjs`は研究・契約用の純関数で、`v2/room-transition.mjs`や`v2/effect-runner.mjs`にはまだ未配線。**学校サイト・現行1対1試遊・実ブラウザの動作変更はない**。
+- 開発版`v2/demo/build.mjs`に対象ルーターを追加して、**31モジュール**の単体HTMLを再生成。ルーターは研究用として**同梱しただけ**で、対戦画面の行動経路からはまだ呼ばない。
+- 既存`v2/ordered-attack.mjs`は3人以上の`widenAttack`を引き続き**明示拒否**する。`v2/mirage-target-route.mjs`は研究・契約用の純関数で、`v2/room-transition.mjs`や`v2/effect-runner.mjs`にはまだ未配線。**学校サイトと現行1対1試遊のゲーム挙動は変更しない**。
 - 次の実装で、まず〈蜃気楼〉の最初の対象選択を本家動画/実ゲームか信頼できる資料で確認。その後`room-transition`で正規のターゲット・進捗を保存、各ターゲットへ`phase='defense'`を開く。`effect-runner`内で各発のHP確定後にこの純関数を呼び、乱数と新しいターゲットを**同一トランザクション**で記録。途中の死亡・復活・反射・〈壁〉は個別に出典と回帰ケースを揃える。
 - 本家の実動作が未確認なら「研究仮定のルート」を本番仕様として昇格しない。
 - 原作全353種類・500枠山札、完全オンラインG6、iPad Safariの実機検証は未完成。**mainとGoogle Sites公開版は変更しない**。
