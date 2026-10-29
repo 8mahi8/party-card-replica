@@ -1176,10 +1176,107 @@ return {previewSelfSaleFixture};
 
 const __v2_module_11 = (() => {
 "use strict";
+
+/**
+ * V2 laboratory-only Dream (formerly hallucination) appearance boundary.
+ *
+ * Dream changes what a player SEES, never the definition of the physical
+ * artifact. Do not use the incomplete reference deck to roll 50% Dream
+ * appearance: original disguise candidates are weighted by the FULL deck,
+ * and must match usable timing. This module only accepts an explicit,
+ * already-chosen fixture disguise with strict same-timing validation.
+ *
+ * Sources:
+ * https://macarongamemo.com/entry/godfield-dream (2026-04-05)
+ * https://w.atwiki.jp/piong/pages/23.html
+ * https://note.com/rich_echium152/n/n02fdc4949096 (creator 2022 quote)
+ * https://ameblo.jp/godfield-tactics/entry-12100951333.html
+ */
+function fail(message){throw new Error(message);}
+function cardDef(catalog,id){
+ const def=catalog.get(id);
+ if(!def)fail('Dream appearance requires known card definitions');
+ return def;
+}
+/**
+ * Conservative equivalence: same playable-mode set, family, defense-effect
+ * trigger/target and discard handling. This is deliberately STRICTER than
+ * the original and never an attempt to model the full disguise distribution.
+ */
+function dreamTimingSignatureFixture(def){
+ if(!def||!Array.isArray(def.playModes)||!Array.isArray(def.effects))
+   fail('Invalid Dream timing definition');
+ const effects=def.effects.filter(e=>e.when==='onDefense')
+   .map(e=>[e.type,e.params?.mode??null,e.params?.scope??null])
+   .sort((a,b)=>JSON.stringify(a).localeCompare(JSON.stringify(b)));
+ return JSON.stringify({
+   family:def.family,
+   playModes:[...def.playModes].sort(),
+   guardUsable:def.stats.guard>0,
+   defenseEffects:effects,
+   discardPolicy:def.discardPolicy
+ });
+}
+/** Return immutable room with an explicitly fixture-verified appearance. */
+function attachDreamAppearanceFixture(state,catalog,{
+ seatId,instanceId,appearsAsDefinitionId
+}={}){
+ if(!state||state.schemaVersion!==2||!Array.isArray(state.players)||
+   !(catalog instanceof Map)||typeof seatId!=='string'||
+   typeof instanceId!=='string'||typeof appearsAsDefinitionId!=='string')
+   fail('Invalid Dream fixture request');
+ const owner=state.players.find(p=>p.id===seatId);
+ const held=owner?.hand.find(c=>c.instanceId===instanceId);
+ if(!held||owner.hp<=0||state.phase!=='turn')fail('Dream fixture requires held living card');
+ const trueDef=cardDef(catalog,held.definitionId);
+ const displayDef=cardDef(catalog,appearsAsDefinitionId);
+ if(trueDef.id===displayDef.id)fail('Dream fixture must have distinct appearance');
+ // 2026 documentation: trade, miracles, unique-timing artifacts unaffected.
+ if(['trade','miracle'].includes(trueDef.family)||trueDef.playModes.includes('passive')||
+    ['trade','miracle'].includes(displayDef.family)||
+    trueDef.playModes.some(x=>!['mainAttack','addAttack','defend','support'].includes(x))||
+    dreamTimingSignatureFixture(trueDef)!==dreamTimingSignatureFixture(displayDef))
+   fail('Dream appearance must share verified usable timing');
+ const already=owner.dreamDisguises??[];
+ if(!Array.isArray(already)||already.some(x=>x.instanceId===instanceId))
+   fail('Duplicate Dream appearance fixture');
+ return {
+   ...state,players:state.players.map(p=>p.id===seatId?{
+     ...p,dreamDisguises:[...already.map(x=>({...x})),
+       {instanceId,appearsAsDefinitionId}]
+   }:p)
+ };
+}
+/**
+ * Strict private presentation helper. The true identity is NEVER included
+ * in a self-facing projected card when a disguise is present.
+ * This deliberately does not disclose dreamDisguises to either seat.
+ */
+function dreamVisibleDefinitionIdFixture(player,card,catalog){
+ const entries=player.dreamDisguises;
+ if(entries===undefined)return card.definitionId;
+ if(!Array.isArray(entries))fail('Invalid Dream fixture state');
+ const matching=entries.filter(x=>x.instanceId===card.instanceId);
+ if(matching.length>1)fail('Duplicate Dream appearance state');
+ if(!matching.length)return card.definitionId;
+ if(!(catalog instanceof Map))fail('Dream presentation requires catalog');
+ const visual=cardDef(catalog,matching[0].appearsAsDefinitionId);
+ const actual=cardDef(catalog,card.definitionId);
+ if(dreamTimingSignatureFixture(visual)!==dreamTimingSignatureFixture(actual))
+   fail('Dream presentation timing mismatch');
+ return visual.id;
+}
+
+return {dreamTimingSignatureFixture,attachDreamAppearanceFixture,dreamVisibleDefinitionIdFixture};
+})();
+
+const __v2_module_12 = (() => {
+"use strict";
 const {createInstance, selectInstances} = __v2_module_2;
 const {previewBuyOfferFixture} = __v2_module_7;
 const {previewExchangeFixture} = __v2_module_8;
 const {previewSelfSaleFixture} = __v2_module_10;
+const {dreamVisibleDefinitionIdFixture} = __v2_module_11;
 
 /**
  * V2 G2: authoritatively *stage* a combat interaction.
@@ -1193,6 +1290,7 @@ const {previewSelfSaleFixture} = __v2_module_10;
  * Only a trusted transport should supply the authorizedSeatId context. A
  * client-controlled actorId alone never authenticates a sender.
  */
+
 
 
 
@@ -1623,14 +1721,15 @@ function applyStagingCommand(state,command,catalog,{authorizedSeatId}={}) {
  * Only a trustworthy server/host may call this for the authenticated seat.
  * Never transmit internal state or processed command payloads to opponents.
  */
-function viewStagingRoom(state,viewerId) {
+function viewStagingRoom(state,viewerId,catalog=null) {
   const p=seat(state,viewerId);
   return {
     schemaVersion:2,rulesetId:state.rulesetId,revision:state.revision,
     phase:state.phase,activePlayerId:state.activePlayerId,
     players:state.players.map(q=>({
       id:q.id,hp:q.hp,mp:q.mp,money:q.money,handCount:q.hand.length,
-      ...(q.id===p.id?{hand:q.hand.map(x=>({instanceId:x.instanceId,definitionId:x.definitionId})),learned:[...q.learned]}:{})
+      ...(q.id===p.id?{hand:q.hand.map(x=>({instanceId:x.instanceId,
+         definitionId:dreamVisibleDefinitionIdFixture(q,x,catalog)})),learned:[...q.learned]}:{})
     })),
     pending:state.pending?{
       type:state.pending.type,sourceId:state.pending.sourceId??state.pending.originalAttackerId,
@@ -1655,7 +1754,7 @@ function viewStagingRoom(state,viewerId) {
 return {createStagingRoom,applyStagingCommand,viewStagingRoom};
 })();
 
-const __v2_module_12 = (() => {
+const __v2_module_13 = (() => {
 "use strict";
 const {createInstance} = __v2_module_2;
 const {MAX_HAND_SIZE,MAX_LEARNED_MIRACLES} = __v2_module_0;
@@ -1703,7 +1802,8 @@ function cloneRoom(state,{interruptionOnly=false}={}){
    ...state,
    revision:state.revision+1,
    players:state.players.map(p=>({...p,
-     hand:p.hand.map(c=>({...c})),learned:[...p.learned]})),
+     hand:p.hand.map(c=>({...c})),learned:[...p.learned],
+     ...(p.dreamDisguises?{dreamDisguises:p.dreamDisguises.map(x=>({...x}))}:{})})),
    pending:interruptionOnly?{...state.pending,spentByPlayer:{...state.pending.spentByPlayer}}:null,
    processedCommands:[...state.processedCommands]
  };
@@ -1738,6 +1838,8 @@ function runEffectQueueFixture(state,catalog,queue,{
      const before=p.hand.length;
      p.hand=p.hand.filter(x=>!ids.has(x.instanceId));
      if(before-p.hand.length!==ids.size)fail('Card disappeared during resolution');
+     if(p.dreamDisguises)
+       p.dreamDisguises=p.dreamDisguises.filter(x=>!ids.has(x.instanceId));
      spent[p.id]=(spent[p.id]??0)+ids.size;
      events.push({type:'spend',playerId:p.id,count:ids.size});
    } else if(effect.type==='discard'){
@@ -1758,6 +1860,8 @@ function runEffectQueueFixture(state,catalog,queue,{
      const before=p.hand.length;
      p.hand=p.hand.filter(x=>!ids.has(x.instanceId));
      if(before-p.hand.length!==ids.size)fail('Discarded card not in hand');
+     if(p.dreamDisguises)
+       p.dreamDisguises=p.dreamDisguises.filter(x=>!ids.has(x.instanceId));
      events.push({type:'discard',playerId:p.id,count:ids.size});
    } else if(effect.type==='grantDraw'){
      const p=who(s,effect.playerId);
@@ -1850,6 +1954,12 @@ function runEffectQueueFixture(state,catalog,queue,{
      current.hp=plan.after.hp;
      current.mp=plan.after.mp;
      current.money=plan.after.money;
+     // A self-targeted Sell identifies the actual offered artifact without
+     // ending the entire Dream status for cards drawn in the future.
+     // Only the chosen physical instance loses its private fake appearance.
+     if(current.dreamDisguises)
+       current.dreamDisguises=current.dreamDisguises.filter(
+         x=>x.instanceId!==plan.soldInstanceId);
      events.push({type:'selfSale',playerId:effect.playerId,
        itemDefinitionId:plan.itemDefinitionId,
        price:plan.price,total:plan.total});
@@ -2060,10 +2170,10 @@ function runEffectQueueFixture(state,catalog,queue,{
 return {runEffectQueueFixture};
 })();
 
-const __v2_module_13 = (() => {
+const __v2_module_14 = (() => {
 "use strict";
 const {previewBuyOfferFixture,previewBuyChoiceFixture} = __v2_module_7;
-const {runEffectQueueFixture} = __v2_module_12;
+const {runEffectQueueFixture} = __v2_module_13;
 const {MAX_HAND_SIZE} = __v2_module_0;
 
 /**
@@ -2131,9 +2241,9 @@ function settleUncontestedBuyFixture(state,catalog,{
 return {settleUncontestedBuyFixture};
 })();
 
-const __v2_module_14 = (() => {
+const __v2_module_15 = (() => {
 "use strict";
-const {runEffectQueueFixture} = __v2_module_12;
+const {runEffectQueueFixture} = __v2_module_13;
 const {planForcedSalePayment} = __v2_module_5;
 const {MAX_HAND_SIZE} = __v2_module_0;
 
@@ -2228,10 +2338,10 @@ function settleUncontestedSaleFixture(state,catalog,selection,{
 return {previewUncontestedSale,settleUncontestedSaleFixture};
 })();
 
-const __v2_module_15 = (() => {
+const __v2_module_16 = (() => {
 "use strict";
 const {planForcedSalePayment} = __v2_module_5;
-const {runEffectQueueFixture} = __v2_module_12;
+const {runEffectQueueFixture} = __v2_module_13;
 
 /**
  * G4 source-backed SINGLE Super Mirror vs "Sell" research fixture.
@@ -2341,7 +2451,7 @@ function settleSingleMirrorSaleFixture(state,catalog,selection,{
 return {previewSingleMirrorSale,settleSingleMirrorSaleFixture};
 })();
 
-const __v2_module_16 = (() => {
+const __v2_module_17 = (() => {
 "use strict";
 const {planForcedSalePayment} = __v2_module_5;
 
@@ -2412,12 +2522,12 @@ function inspectForcedSaleLethalityFixture(state,catalog,{
 return {inspectForcedSaleLethalityFixture};
 })();
 
-const __v2_module_17 = (() => {
+const __v2_module_18 = (() => {
 "use strict";
-const {previewUncontestedSale} = __v2_module_14;
-const {previewSingleMirrorSale} = __v2_module_15;
-const {inspectForcedSaleLethalityFixture} = __v2_module_16;
-const {runEffectQueueFixture} = __v2_module_12;
+const {previewUncontestedSale} = __v2_module_15;
+const {previewSingleMirrorSale} = __v2_module_16;
+const {inspectForcedSaleLethalityFixture} = __v2_module_17;
+const {runEffectQueueFixture} = __v2_module_13;
 
 /**
  * LAB-ONLY G4: bridge authenticated two-step trade commands to the reusable
@@ -2514,10 +2624,10 @@ function resolveStagedSaleFixture(state,catalog,{
 return {validateSaleDeclarationFixture,resolveStagedSaleFixture};
 })();
 
-const __v2_module_18 = (() => {
+const __v2_module_19 = (() => {
 "use strict";
 const {previewBuyOfferFixture,previewBuyChoiceFixture} = __v2_module_7;
-const {runEffectQueueFixture} = __v2_module_12;
+const {runEffectQueueFixture} = __v2_module_13;
 const {MAX_HAND_SIZE} = __v2_module_0;
 
 /**
@@ -2582,7 +2692,7 @@ function resolveStagedBuyFixture(state,catalog,{
 return {resolveStagedBuyFixture};
 })();
 
-const __v2_module_19 = (() => {
+const __v2_module_20 = (() => {
 "use strict";
 const {combineElements} = __v2_module_0;
 
@@ -2789,11 +2899,11 @@ function queuedAttackCosts(attackContext,actorId) {
 return {compileOrderedWeaponAttack,queuedAttackCosts};
 })();
 
-const __v2_module_20 = (() => {
+const __v2_module_21 = (() => {
 "use strict";
 const {sumLegalArmor, calculateHit, MAX_HAND_SIZE} = __v2_module_0;
-const {runEffectQueueFixture} = __v2_module_12;
-const {compileOrderedWeaponAttack,queuedAttackCosts} = __v2_module_19;
+const {runEffectQueueFixture} = __v2_module_13;
+const {compileOrderedWeaponAttack,queuedAttackCosts} = __v2_module_20;
 
 /**
  * V2 G3, PART 1: pure compile/resolve for reference-backed BASIC weapon combat.
@@ -2934,11 +3044,11 @@ function resolveBasicFixture(state,catalog,options={}) {
 return {compileBasicWeaponAttack,compileBasicResolution,resolveBasicFixture};
 })();
 
-const __v2_module_21 = (() => {
+const __v2_module_22 = (() => {
 "use strict";
-const {compileBasicWeaponAttack} = __v2_module_20;
-const {queuedAttackCosts} = __v2_module_19;
-const {runEffectQueueFixture} = __v2_module_12;
+const {compileBasicWeaponAttack} = __v2_module_21;
+const {queuedAttackCosts} = __v2_module_20;
+const {runEffectQueueFixture} = __v2_module_13;
 
 /**
  * G3 weapon-stop resolver: the defensive miracle Wall stops any neutral
@@ -3076,13 +3186,13 @@ function resolveWallFixture(state,catalog,opts={}) {
 return {isWallDefense,compileWallResolution,resolveWallFixture};
 })();
 
-const __v2_module_22 = (() => {
+const __v2_module_23 = (() => {
 "use strict";
 const {planRedirectRoute} = __v2_module_3;
-const {compileBasicWeaponAttack,resolveBasicFixture} = __v2_module_20;
-const {isWallDefense,resolveWallFixture} = __v2_module_21;
-const {queuedAttackCosts} = __v2_module_19;
-const {runEffectQueueFixture} = __v2_module_12;
+const {compileBasicWeaponAttack,resolveBasicFixture} = __v2_module_21;
+const {isWallDefense,resolveWallFixture} = __v2_module_22;
+const {queuedAttackCosts} = __v2_module_20;
+const {runEffectQueueFixture} = __v2_module_13;
 
 /**
  * V2 G3 Part 2: source-backed basic redirect / deflect resolver.
@@ -3200,11 +3310,11 @@ function resolveRedirectFixture(state,catalog,{
 return {resolveRedirectFixture};
 })();
 
-const __v2_module_23 = (() => {
+const __v2_module_24 = (() => {
 "use strict";
 const {calculateHit,sumLegalArmor} = __v2_module_0;
 const {planRedirectRoute} = __v2_module_3;
-const {runEffectQueueFixture} = __v2_module_12;
+const {runEffectQueueFixture} = __v2_module_13;
 
 /**
  * V2 G3: narrow solo attack miracles with ordered defensive reactions.
@@ -3468,15 +3578,15 @@ function resolveSoloMiracleFixture(state,catalog,options={}) {
 return {compileSoloMiracleResolution,resolveSoloMiracleFixture};
 })();
 
-const __v2_module_24 = (() => {
+const __v2_module_25 = (() => {
 "use strict";
-const {applyStagingCommand} = __v2_module_11;
-const {validateSaleDeclarationFixture,resolveStagedSaleFixture} = __v2_module_17;
-const {resolveStagedBuyFixture} = __v2_module_18;
-const {resolveRedirectFixture} = __v2_module_22;
-const {resolveSoloMiracleFixture,compileSoloMiracleResolution} = __v2_module_23;
-const {compileOrderedWeaponAttack} = __v2_module_19;
-const {runEffectQueueFixture} = __v2_module_12;
+const {applyStagingCommand} = __v2_module_12;
+const {validateSaleDeclarationFixture,resolveStagedSaleFixture} = __v2_module_18;
+const {resolveStagedBuyFixture} = __v2_module_19;
+const {resolveRedirectFixture} = __v2_module_23;
+const {resolveSoloMiracleFixture,compileSoloMiracleResolution} = __v2_module_24;
+const {compileOrderedWeaponAttack} = __v2_module_20;
+const {runEffectQueueFixture} = __v2_module_13;
 const {drawRandom32} = __v2_module_2;
 const {MAX_HAND_SIZE} = __v2_module_0;
 
@@ -3694,12 +3804,13 @@ function submitAndResolveFixture(state,command,catalog,{
 return {resolvePrayFixture,resolveDiscardFixture,resolveStagedFixture,submitAndResolveFixture};
 })();
 
-const __v2_module_25 = (() => {
+const __v2_module_26 = (() => {
 "use strict";
 const {migrateLegacyCatalog} = __v2_module_4;
-const {createStagingRoom,viewStagingRoom} = __v2_module_11;
-const {submitAndResolveFixture} = __v2_module_24;
+const {createStagingRoom,viewStagingRoom} = __v2_module_12;
+const {submitAndResolveFixture} = __v2_module_25;
 const {VERIFIED_BASIC_CARDS} = __v2_module_1;
+const {attachDreamAppearanceFixture} = __v2_module_11;
 
 /**
  * Offline 2-seat V2 lab controller.
@@ -3708,6 +3819,7 @@ const {VERIFIED_BASIC_CARDS} = __v2_module_1;
  * Never expose this controller as an online endpoint: a real match needs a
  * trusted room owner, seat authentication, CAS, and audited card draws.
  */
+
 
 
 
@@ -3735,6 +3847,7 @@ const REVIVAL_TRIAL_HANDS=Object.freeze({
 const SELF_SALE_TRIAL_HANDS=Object.freeze({
  A:Object.freeze(['t001','w003','d001']),B:Object.freeze(['d005','i002'])
 });
+const DREAM_TRIAL_HANDS=SELF_SALE_TRIAL_HANDS;
 
 function safeMessage(error){
   const msg=error?.message;
@@ -3837,7 +3950,7 @@ function createV2LabController({
   let selected=[],visible=false,targetId=otherSeat(state,state.activePlayerId);
   let notice='手番プレイヤーだけが「手札を見る」を押してください';
   let commandSerial=0;
-  let tradeTrial=false,buyTrial=false,exchangeTrial=false,revivalTrial=false,selfSaleTrial=false,exchangeDraft=null;
+  let tradeTrial=false,buyTrial=false,exchangeTrial=false,revivalTrial=false,selfSaleTrial=false,dreamTrial=false,exchangeDraft=null;
 
   const active=()=>state.activePlayerId;
   function pendingActor(){
@@ -3860,7 +3973,7 @@ function createV2LabController({
           catalog.get(actor?.hand.find(c=>c.instanceId===x.instanceId)?.definitionId)
             ?.discardPolicy==='ordinary'),
       cardSetComplete:summary.complete,
-      cardSetCount:summary.unique,tradeTrial,buyTrial,exchangeTrial,revivalTrial,selfSaleTrial,
+      cardSetCount:summary.unique,tradeTrial,buyTrial,exchangeTrial,revivalTrial,selfSaleTrial,dreamTrial,
       exchangeAllocation:visible&&state.phase==='turn'&&exchangeDraft?
         {...exchangeDraft}:null
     };
@@ -3870,7 +3983,7 @@ function createV2LabController({
       })),pending:null,hand:[],learned:[],targets:[]};
     }
     // Never leak the opposing physical hand from this projection.
-    const projected=viewStagingRoom(state,actor.id);
+    const projected=viewStagingRoom(state,actor.id,catalog);
     const self=projected.players.find(p=>p.id===actor.id);
     const hand=self.hand.map(card=>{
       const def=catalog.get(card.definitionId);
@@ -4086,7 +4199,7 @@ function createV2LabController({
       seats:Object.entries(TRADE_TRIAL_HANDS).map(([id,handDefinitionIds])=>({id,handDefinitionIds:[...handDefinitionIds]})),
       firstSeatId:'A',rulesetId:'partial-reference-v2-lab'
     },catalog);
-    tradeTrial=true;buyTrial=false;exchangeTrial=false;revivalTrial=false;exchangeDraft=null;selected=[];visible=false;targetId='B';selfSaleTrial=false;commandSerial=0;
+    tradeTrial=true;buyTrial=false;exchangeTrial=false;revivalTrial=false;exchangeDraft=null;selected=[];visible=false;targetId='B';selfSaleTrial=false;dreamTrial=false;commandSerial=0;
     notice='取引研究モードです。P1が「売る」→商品を選び、P2が応答します';
     return view();
   }
@@ -4097,7 +4210,7 @@ function createV2LabController({
       })),
       firstSeatId:'A',rulesetId:'partial-reference-v2-lab'
     },catalog);
-    tradeTrial=false;buyTrial=true;exchangeTrial=false;revivalTrial=false;exchangeDraft=null;selected=[];visible=false;targetId='B';selfSaleTrial=false;commandSerial=0;
+    tradeTrial=false;buyTrial=true;exchangeTrial=false;revivalTrial=false;exchangeDraft=null;selected=[];visible=false;targetId='B';selfSaleTrial=false;dreamTrial=false;commandSerial=0;
     notice='買う研究モードです。P1が「買う」を選び、P2が応答します';
     return view();
   }
@@ -4109,7 +4222,7 @@ function createV2LabController({
       firstSeatId:'A',rulesetId:'partial-reference-v2-lab'
     },catalog);
     tradeTrial=false;buyTrial=false;exchangeTrial=true;revivalTrial=false;exchangeDraft=null;
-    selected=[];visible=false;targetId='B';selfSaleTrial=false;commandSerial=0;
+    selected=[];visible=false;targetId='B';selfSaleTrial=false;dreamTrial=false;commandSerial=0;
     notice='両替研究モードです。HP・MP・¥の合計を保って振り分けてください';
     return view();
   }
@@ -4123,7 +4236,7 @@ function createV2LabController({
     // This low-HP starting condition is only a laboratory demonstration.
     state.players.find(p=>p.id==='B').hp=5;
     tradeTrial=false;buyTrial=false;exchangeTrial=false;revivalTrial=true;
-    exchangeDraft=null;selected=[];visible=false;targetId='B';selfSaleTrial=false;commandSerial=0;
+    exchangeDraft=null;selected=[];visible=false;targetId='B';selfSaleTrial=false;dreamTrial=false;commandSerial=0;
     notice='太陽のお守り研究モードです。P1が攻撃し、P2は防御せず復活を確認します';
     return view();
   }
@@ -4135,8 +4248,24 @@ function createV2LabController({
     },catalog);
     tradeTrial=false;buyTrial=false;exchangeTrial=false;revivalTrial=false;
     selfSaleTrial=true;exchangeDraft=null;selected=[];visible=false;
-    targetId='A';commandSerial=0;
+    targetId='A';dreamTrial=false;commandSerial=0;
     notice='自己売却研究モード。P1が「売る」と商品を選び、対象を自分にして確定します';
+    return view();
+  }
+  function loadDreamTrial(){
+    state=createStagingRoom({
+      seats:Object.entries(DREAM_TRIAL_HANDS).map(([id,handDefinitionIds])=>({
+        id,handDefinitionIds:[...handDefinitionIds]
+      })),firstSeatId:'A',rulesetId:'partial-reference-v2-lab'
+    },catalog);
+    const real=state.players[0].hand[1];
+    state=attachDreamAppearanceFixture(state,catalog,{
+      seatId:'A',instanceId:real.instanceId,appearsAsDefinitionId:'w016'
+    });
+    tradeTrial=false;buyTrial=false;exchangeTrial=false;revivalTrial=false;
+    selfSaleTrial=false;dreamTrial=true;exchangeDraft=null;
+    selected=[];visible=false;targetId='A';commandSerial=0;
+    notice='夢の研究配置です。「売る」で自分に神器を売り、見た目と実体を照合します';
     return view();
   }
   function reset(){
@@ -4144,12 +4273,12 @@ function createV2LabController({
       seats:handEntries.map(p=>({id:p.id,handDefinitionIds:[...p.handDefinitionIds]})),
       firstSeatId,rulesetId:'partial-reference-v2-lab'
     },catalog);
-    tradeTrial=false;buyTrial=false;exchangeTrial=false;revivalTrial=false;selfSaleTrial=false;exchangeDraft=null;selected=[];visible=false;targetId=otherSeat(state,firstSeatId);
+    tradeTrial=false;buyTrial=false;exchangeTrial=false;revivalTrial=false;selfSaleTrial=false;dreamTrial=false;exchangeDraft=null;selected=[];visible=false;targetId=otherSeat(state,firstSeatId);
     notice='新しい検証試合。手番プレイヤーに渡してください';
     commandSerial=0;
     return view();
   }
-  return {view,reveal,toggle,setTarget,submit,reset,loadTradeTrial,loadBuyTrial,loadExchangeTrial,loadRevivalTrial,loadSelfSaleTrial,
+  return {view,reveal,toggle,setTarget,submit,reset,loadTradeTrial,loadBuyTrial,loadExchangeTrial,loadRevivalTrial,loadSelfSaleTrial,loadDreamTrial,
     // Test-only state snapshot: never send to another player or persist online.
     labSnapshot:()=>JSON.parse(JSON.stringify(state))};
 }
@@ -4157,9 +4286,9 @@ function createV2LabController({
 return {createV2LabController};
 })();
 
-const __v2_module_26 = (() => {
+const __v2_module_27 = (() => {
 "use strict";
-const {createV2LabController} = __v2_module_25;
+const {createV2LabController} = __v2_module_26;
 
 /**
  * Minimal accessible and touch-friendly offline V2 hotseat UI.
@@ -4212,7 +4341,7 @@ function renderV2LabMarkup(data,{resetArmed=false}={}){
      '<p>'+esc(data.notice)+'</p><p class="hint">端末を'+esc(seatLabel(data.actorId))+
      'へ渡してから手札を表示してください</p>'+
      '<button type="button" class="primary wide" data-action="reveal">自分の手札を見る</button>'+
-     (data.phase==='turn'&&data.actorId==='A'&&!data.tradeTrial&&!data.buyTrial&&!data.exchangeTrial&&!data.revivalTrial&&!data.selfSaleTrial?
+     (data.phase==='turn'&&data.actorId==='A'&&!data.tradeTrial&&!data.buyTrial&&!data.exchangeTrial&&!data.revivalTrial&&!data.selfSaleTrial&&!data.dreamTrial?
       '<button type="button" class="quiet wide scenario-launch" data-action="trade-demo">'+
       '売るの研究配置で始める</button>'+
       '<button type="button" class="quiet wide scenario-launch" data-action="buy-demo">'+
@@ -4222,7 +4351,9 @@ function renderV2LabMarkup(data,{resetArmed=false}={}){
       '<button type="button" class="quiet wide scenario-launch" data-action="revival-demo">'+
       '太陽のお守りの復活を試す</button>'+
       '<button type="button" class="quiet wide scenario-launch" data-action="self-sale-demo">'+
-      '自分に「売る」を試す</button>':'')+
+      '自分に「売る」を試す</button>'+
+      '<button type="button" class="quiet wide scenario-launch" data-action="dream-demo">'+
+      '夢の神器を自分に売って確かめる</button>':'')+
      '</section>'+footer;
  }
  if(data.revivalTrial&&data.phase==='defense'){
@@ -4402,6 +4533,8 @@ function mountV2Lab(root,controller=createV2LabController()){
        controller.loadRevivalTrial();resetArmed=false;handoff=true;
      }else if(action==='self-sale-demo'){
        controller.loadSelfSaleTrial();resetArmed=false;handoff=true;
+     }else if(action==='dream-demo'){
+       controller.loadDreamTrial();resetArmed=false;handoff=true;
      }else if(action==='reset'){
        if(!resetArmed)resetArmed=true;
        else{controller.reset();resetArmed=false;handoff=true;}
@@ -4466,9 +4599,9 @@ function mountV2Lab(root,controller=createV2LabController()){
 return {renderV2LabMarkup,mountV2Lab};
 })();
 
-const __v2_lab_test_controller = __v2_module_25;
+const __v2_lab_test_controller = __v2_module_26;
 
-const __v2_lab_test_ui = __v2_module_26;
+const __v2_lab_test_ui = __v2_module_27;
 
 __v2_lab_test_ui.mountV2Lab(document.getElementById("v2-root"));
 </script>
