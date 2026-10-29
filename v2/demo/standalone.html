@@ -352,8 +352,8 @@ const __v2_module_1 = (() => {
  * 調査用の参照名で、オリジナルUIの表示素材ではない。
  */
 const PARTIAL_CARD_SOURCE = 'piong-atwiki-and-macaron-2026-02-28';
-const main=(id,referenceName,attack,price,weight,{element='none',guard,reaction,reactionScope='neutral_weapon',stopScope}={})=>
-  Object.freeze({id,referenceName,kind:'weapon',slot:'main',category:'weapon_single',element,attack,price,weight,...(guard===undefined?{}:{guard}),...(reaction===undefined?{}:{reaction,reactionScope}),...(stopScope===undefined?{}:{stopScope})});
+const main=(id,referenceName,attack,price,weight,{element='none',guard,reaction,reactionScope='neutral_weapon',stopScope,hpAbsorb}={})=>
+  Object.freeze({id,referenceName,kind:'weapon',slot:'main',category:'weapon_single',element,attack,price,weight,...(guard===undefined?{}:{guard}),...(reaction===undefined?{}:{reaction,reactionScope}),...(stopScope===undefined?{}:{stopScope}),...(hpAbsorb===undefined?{}:{hpAbsorb})});
 const add=(id,referenceName,attack,price,weight=1,{element='none',reaction,reactionScope,stopScope,attackElementOverride}={})=>
   Object.freeze({id,referenceName,kind:'weapon',slot:'addon',category:'weapon_single',element,attack,price,weight,...(reaction===undefined?{}:{reaction,reactionScope}),...(stopScope===undefined?{}:{stopScope}),...(attackElementOverride===undefined?{}:{attackElementOverride})});
 const shield=(id,referenceName,guard,price,weight,{element='none',attackBonus,stopScope,reaction,reactionScope}={})=>
@@ -392,6 +392,10 @@ const VERIFIED_BASIC_CARDS = Object.freeze([
   main('w029','エンゼルナイフ',11,15,1,{stopScope:'miracle'}),
   main('w030','エンゼルソード',13,15,1,{stopScope:'miracle'}),
   main('w031','エンゼルアクス',15,15,1,{stopScope:'miracle'}),
+  // 2026 Piong and Macaron independently identify full-attack HP absorption.
+  // Special on-hit timing is handled by the common V2 effect runner.
+  main('w048','ゴーストソード',7,10,1,{hpAbsorb:true}),
+  main('w049','リアルゴーストソード',12,15,1,{hpAbsorb:true}),
   // Source-checked plain weapons (2026-03-18 piong wiki, cross-checked with
   // 2024 GFGA where both agree). No special/condition/status behavior.
   // Preserve main/add factories so later cards need data, not name branches.
@@ -513,7 +517,7 @@ const MODES = new Set(['mainAttack','addAttack','defend','cast','support','trade
 // Until sourced effects are implemented, explicitly gate those definitions.
 const DISCARD_POLICIES = new Set(['ordinary','forbidden','requiresSpecialResolution']);
 const EFFECT_TRIGGERS = new Set(['onDeclare','onCost','beforeHit','onDefense','afterHit','onTurnEnd','onZeroHp']);
-const EFFECT_TYPES = new Set(['redirectAttack','stripElement','multiplyAttack','addAttack','stopAttack','waivePreviousMp','setAttackElement','forceSale','requestBuy','reallocateResources','reviveAtZeroHp']);
+const EFFECT_TYPES = new Set(['redirectAttack','stripElement','multiplyAttack','addAttack','stopAttack','waivePreviousMp','setAttackElement','forceSale','requestBuy','reallocateResources','reviveAtZeroHp','absorbHp']);
 
 function plainObject(v) { return v !== null && typeof v === 'object' && !Array.isArray(v); }
 function nonnegative(n) { return Number.isSafeInteger(n) && n >= 0; }
@@ -537,6 +541,9 @@ function freezeEffect(effect) {
      (effect.when!=='onDeclare'||Object.keys(params).length!==1||
       !['fire','water'].includes(params.element)))
     throw new Error('Invalid setAttackElement data');
+  if(effect.type==='absorbHp'&&
+      (effect.when!=='afterHit'||Object.keys(params).length!==1||params.amount!=='damage'))
+    throw new Error('Invalid absorbHp effect data');
   if(effect.type==='reviveAtZeroHp'&&
      (effect.when!=='onZeroHp'||Object.keys(params).length!==1||params.hp!==10))
     throw new Error('Invalid reviveAtZeroHp effect data');
@@ -735,7 +742,7 @@ const {VERIFIED_BASIC_CARDS,PARTIAL_CARD_SOURCE} = __v2_module_1;
 const KNOWN_KEYS=new Set([
   'id','referenceName','kind','category','slot','element','attack','guard',
   'attackBonus','price','weight','reaction','reactionScope','stopScope',
-  'role','boost','plusAttack','mpCost','effect','attackElementOverride','discardPolicy','tradeAction'
+  'role','boost','plusAttack','mpCost','effect','attackElementOverride','discardPolicy','tradeAction','hpAbsorb'
 ]);
 const CATEGORY_BY_KIND=Object.freeze({weapon:'weapon_single',armor:'armor_normal',miracle:'miracle',defense_item:'item',support_item:'item',trade:'trade'});
 const mk=(when,type,params={})=>({when,type,params});
@@ -778,6 +785,11 @@ function convertLegacyCard(card,{ruleset=PARTIAL_CARD_SOURCE}={}) {
       }));
     } else if(card.reactionScope!==undefined)
       throw new Error('Orphan weapon reaction scope');
+    if(card.hpAbsorb!==undefined){
+      if(card.hpAbsorb!==true||card.slot!=='main')
+        throw new Error('Unverified HP absorption definition');
+      effects.push(mk('afterHit','absorbHp',{amount:'damage'}));
+    }
     if(card.attackElementOverride!==undefined){
       if(card.slot!=='addon'||!['fire','water'].includes(card.attackElementOverride)||
          card.element!==card.attackElementOverride)
@@ -1247,6 +1259,57 @@ const __v2_module_11 = (() => {
 "use strict";
 
 /**
+ * G3/G7 research contract: describe a single settled hit BEFORE optional
+ * passive HP-0 recovery. This is pure observation, not a lifesteal/status
+ * implementation, and must not be used to infer undocumented original rules.
+ *
+ * Different values matter: printed/attempted damage, HP actually lost,
+ * overkill, an instant defeat, and post-hit passive recovery are NOT
+ * interchangeable when future special weapon effects are implemented.
+ */
+function fail(message) { throw new Error(message); }
+function nonnegativeSafe(n) { return Number.isSafeInteger(n) && n >= 0; }
+
+function inspectHitOutcomeBoundaryFixture({
+  beforeHp, damage, hpAfter, instantDefeat, revivedHp = null
+} = {}) {
+  if(!nonnegativeSafe(beforeHp) || beforeHp===0)
+    fail('Hit boundary requires a living target and valid starting HP');
+  if(!nonnegativeSafe(damage) || !nonnegativeSafe(hpAfter) ||
+     typeof instantDefeat !== 'boolean')
+    fail('Malformed hit boundary');
+  if(instantDefeat) {
+    if(damage===0 || hpAfter!==0)
+      fail('Instant defeat requires a positive hit ending at zero HP');
+  } else if(hpAfter !== Math.max(0,beforeHp-damage)) {
+    fail('Damage and resulting HP disagree');
+  }
+  if(revivedHp !== null &&
+     (!nonnegativeSafe(revivedHp) || revivedHp===0 || hpAfter!==0))
+    fail('Recovery can only follow a zero-HP hit');
+  const hpLost = beforeHp-hpAfter;
+  const overkill = instantDefeat ? null : Math.max(0,damage-beforeHp);
+  const hitKind = damage===0 ? 'zero-damage'
+    : instantDefeat ? 'instant-defeat'
+    : overkill>0 ? 'overkill' : 'ordinary-hit';
+  return Object.freeze({
+    beforeHp,damage,hpAfter,hpLost,overkill,
+    instantDefeat,revived:revivedHp!==null,revivedHp,
+    hitKind,
+    // Preserve the distinction: a future onHit policy must consciously
+    // choose a source-backed amount and cannot quietly use one of these.
+    requiresSpecialEffectTimingReview:
+      instantDefeat || overkill>0 || revivedHp!==null
+  });
+}
+
+return {inspectHitOutcomeBoundaryFixture};
+})();
+
+const __v2_module_12 = (() => {
+"use strict";
+
+/**
  * V2 Dream research taxonomy / audit only. Not a draw or disguise RNG.
  *
  * Source: https://macarongamemo.com/entry/godfield-dream (2026-04-05)
@@ -1367,9 +1430,9 @@ function auditDreamResearchCatalogFixture(catalog){
 return {dreamLabTimingSignatureFixture,dreamSourceExclusionFixture,dreamResearchClassificationFixture,auditDreamResearchCatalogFixture};
 })();
 
-const __v2_module_12 = (() => {
+const __v2_module_13 = (() => {
 "use strict";
-const {dreamLabTimingSignatureFixture,dreamSourceExclusionFixture} = __v2_module_11;
+const {dreamLabTimingSignatureFixture,dreamSourceExclusionFixture} = __v2_module_12;
 
 /**
  * V2 laboratory-only Dream (formerly hallucination) appearance boundary.
@@ -1515,13 +1578,13 @@ function validateDreamOwnershipFixture(state,catalog){
 return {dreamTimingSignatureFixture,attachDreamAppearanceFixture,dreamVisibleDefinitionIdFixture,retireDreamAppearancesFixture,validateDreamOwnershipFixture};
 })();
 
-const __v2_module_13 = (() => {
+const __v2_module_14 = (() => {
 "use strict";
 const {createInstance, selectInstances} = __v2_module_2;
 const {previewBuyOfferFixture} = __v2_module_7;
 const {previewExchangeFixture} = __v2_module_8;
 const {previewSelfSaleFixture} = __v2_module_10;
-const {dreamVisibleDefinitionIdFixture} = __v2_module_12;
+const {dreamVisibleDefinitionIdFixture} = __v2_module_13;
 
 /**
  * V2 G2: authoritatively *stage* a combat interaction.
@@ -1999,7 +2062,7 @@ function viewStagingRoom(state,viewerId,catalog=null) {
 return {createStagingRoom,applyStagingCommand,viewStagingRoom};
 })();
 
-const __v2_module_14 = (() => {
+const __v2_module_15 = (() => {
 "use strict";
 const {createInstance} = __v2_module_2;
 const {MAX_HAND_SIZE,MAX_LEARNED_MIRACLES} = __v2_module_0;
@@ -2008,7 +2071,8 @@ const {planIncomingHandTransfer} = __v2_module_6;
 const {previewBuyOfferFixture,previewBuyChoiceFixture} = __v2_module_7;
 const {previewExchangeFixture} = __v2_module_8;
 const {planZeroHpRecoveryFixture} = __v2_module_9;
-const {retireDreamAppearancesFixture,validateDreamOwnershipFixture} = __v2_module_12;
+const {inspectHitOutcomeBoundaryFixture} = __v2_module_11;
+const {retireDreamAppearancesFixture,validateDreamOwnershipFixture} = __v2_module_13;
 const {previewSelfSaleFixture} = __v2_module_10;
 
 /**
@@ -2019,6 +2083,7 @@ const {previewSelfSaleFixture} = __v2_module_10;
  * refill/advance effects. Never substitute a partial reference-deck draw for
  * real weighted draws in production.
  */
+
 
 
 
@@ -2137,12 +2202,62 @@ function runEffectQueueFixture(state,catalog,queue,{
      if(!positiveCount(effect.damage)||!positiveCount(effect.hpAfter)||
         effect.hpAfter>p.hp||typeof effect.instantDefeat!=='boolean')
        fail('Malformed hit effect');
-     const recovery=planZeroHpRecoveryFixture({player:p,catalog,
-       hpAfter:effect.hpAfter});
-     p.hp=recovery.hpAfter;
+     // A source-backed absorbing weapon heals by the RESOLVED damage amount,
+     // even on overkill. A self-targeted absorber may reach transient HP0
+     // and recover without spending a Sun Charm (observed original behavior).
+     // Use the current attack source, which changes with reflect/deflect,
+     // NOT always the original attacker's seat.
+     if(effect.lifeSteal!==undefined&&effect.lifeSteal!==true)
+       fail('Invalid hit absorption flag');
+     const absorbs=effect.lifeSteal===true;
+     if(absorbs){
+       const pending=state.pending;
+       if(pending.type!=='attack'||pending.targetId!==effect.targetId||
+         (pending.attackContext
+           ?pending.attackContext.absorbsHp!==true
+           :!pending.attackInstanceIds?.some(id=>{
+             const attacker=who(state,pending.originalAttackerId);
+             const instance=attacker.hand.find(c=>c.instanceId===id);
+             return catalog.get(instance?.definitionId)?.effects.some(e=>
+               e.when==='afterHit'&&e.type==='absorbHp'&&e.params.amount==='damage');
+           })))
+         fail('Absorption requires an authentic attack effect');
+       if(effect.instantDefeat)
+         fail('Absorbing instant-defeat attacks need original verification');
+       inspectHitOutcomeBoundaryFixture({
+         beforeHp:p.hp,damage:effect.damage,hpAfter:effect.hpAfter,
+         instantDefeat:effect.instantDefeat
+       });
+       // The source-backed charm-vs-absorption order has not been verified.
+       if(p.id!==(pending.sourceId??pending.originalAttackerId)&&
+          effect.hpAfter===0&&p.hand.some(c=>
+            catalog.get(c.definitionId)?.effects.some(e=>
+              e.when==='onZeroHp'&&e.type==='reviveAtZeroHp')))
+         fail('Fatal absorption with Sun Charm unverified');
+     }
+     const targetBeforeHp=p.hp;
+     p.hp=effect.hpAfter;
      events.push({type:'damage',targetId:p.id,damage:effect.damage,
        instantDefeat:effect.instantDefeat,hpAfter:effect.hpAfter,
        ...(effect.stopped===undefined?{}:{stopped:effect.stopped})});
+     if(absorbs && effect.damage>0){
+       const beneficiary=who(s,state.pending.sourceId??state.pending.originalAttackerId);
+       const before=beneficiary.hp;
+       beneficiary.hp=Math.min(99,before+effect.damage);
+       events.push({type:'absorbHp',playerId:beneficiary.id,
+         sourceId:beneficiary.id,targetId:p.id,
+         attempted:effect.damage,restored:beneficiary.hp-before,
+         hpAfter:beneficiary.hp});
+     }
+     const healedSelf=absorbs &&
+       (state.pending.sourceId??state.pending.originalAttackerId)===p.id &&
+       p.hp>0;
+     // A self-absorbing hit is one compound attack: it can dip to zero
+     // transiently, but it never invokes the passive zero-HP charm.
+     const recovery=healedSelf?{kind:'survived',hpAfter:p.hp}
+       :planZeroHpRecoveryFixture({player:{...p,hp:targetBeforeHp},catalog,
+         hpAfter:p.hp});
+     p.hp=recovery.hpAfter;
      if(recovery.kind==='revived'){
        const index=p.hand.findIndex(x=>x.instanceId===recovery.consumedInstanceId);
        if(index<0)fail('Passive charm disappeared during resolution');
@@ -2431,10 +2546,10 @@ function runEffectQueueFixture(state,catalog,queue,{
 return {runEffectQueueFixture};
 })();
 
-const __v2_module_15 = (() => {
+const __v2_module_16 = (() => {
 "use strict";
 const {previewBuyOfferFixture,previewBuyChoiceFixture} = __v2_module_7;
-const {runEffectQueueFixture} = __v2_module_14;
+const {runEffectQueueFixture} = __v2_module_15;
 const {MAX_HAND_SIZE} = __v2_module_0;
 
 /**
@@ -2502,9 +2617,9 @@ function settleUncontestedBuyFixture(state,catalog,{
 return {settleUncontestedBuyFixture};
 })();
 
-const __v2_module_16 = (() => {
+const __v2_module_17 = (() => {
 "use strict";
-const {runEffectQueueFixture} = __v2_module_14;
+const {runEffectQueueFixture} = __v2_module_15;
 const {planForcedSalePayment} = __v2_module_5;
 const {MAX_HAND_SIZE} = __v2_module_0;
 
@@ -2599,10 +2714,10 @@ function settleUncontestedSaleFixture(state,catalog,selection,{
 return {previewUncontestedSale,settleUncontestedSaleFixture};
 })();
 
-const __v2_module_17 = (() => {
+const __v2_module_18 = (() => {
 "use strict";
 const {planForcedSalePayment} = __v2_module_5;
-const {runEffectQueueFixture} = __v2_module_14;
+const {runEffectQueueFixture} = __v2_module_15;
 
 /**
  * G4 source-backed SINGLE Super Mirror vs "Sell" research fixture.
@@ -2712,7 +2827,7 @@ function settleSingleMirrorSaleFixture(state,catalog,selection,{
 return {previewSingleMirrorSale,settleSingleMirrorSaleFixture};
 })();
 
-const __v2_module_18 = (() => {
+const __v2_module_19 = (() => {
 "use strict";
 const {planForcedSalePayment} = __v2_module_5;
 
@@ -2783,12 +2898,12 @@ function inspectForcedSaleLethalityFixture(state,catalog,{
 return {inspectForcedSaleLethalityFixture};
 })();
 
-const __v2_module_19 = (() => {
+const __v2_module_20 = (() => {
 "use strict";
-const {previewUncontestedSale} = __v2_module_16;
-const {previewSingleMirrorSale} = __v2_module_17;
-const {inspectForcedSaleLethalityFixture} = __v2_module_18;
-const {runEffectQueueFixture} = __v2_module_14;
+const {previewUncontestedSale} = __v2_module_17;
+const {previewSingleMirrorSale} = __v2_module_18;
+const {inspectForcedSaleLethalityFixture} = __v2_module_19;
+const {runEffectQueueFixture} = __v2_module_15;
 
 /**
  * LAB-ONLY G4: bridge authenticated two-step trade commands to the reusable
@@ -2885,10 +3000,10 @@ function resolveStagedSaleFixture(state,catalog,{
 return {validateSaleDeclarationFixture,resolveStagedSaleFixture};
 })();
 
-const __v2_module_20 = (() => {
+const __v2_module_21 = (() => {
 "use strict";
 const {previewBuyOfferFixture,previewBuyChoiceFixture} = __v2_module_7;
-const {runEffectQueueFixture} = __v2_module_14;
+const {runEffectQueueFixture} = __v2_module_15;
 const {MAX_HAND_SIZE} = __v2_module_0;
 
 /**
@@ -2953,7 +3068,7 @@ function resolveStagedBuyFixture(state,catalog,{
 return {resolveStagedBuyFixture};
 })();
 
-const __v2_module_21 = (() => {
+const __v2_module_22 = (() => {
 "use strict";
 const {combineElements} = __v2_module_0;
 
@@ -3025,7 +3140,7 @@ function compileOrderedWeaponAttack(state,catalog){
   let weaponAttack=0,attackElement='none',mainCount=0,weaponCount=0;
   let aura=null,plusCount=0,additive=0,lastWasMiracle=false,hasArmorBonus=false,itemBonus=0;
   let learnedDrawCount=0;
-  let forcedAttackElement=null;
+  let forcedAttackElement=null,absorbsHp=false;
   let wandPosition=-1,auraPosition=-1;
   const casts=[],selectedKinds=[];
   const miracles=[];
@@ -3052,6 +3167,11 @@ function compileOrderedWeaponAttack(state,catalog){
           forcedAttackElement=eff.params.element;
           wandPosition=position;
           continue;
+        }
+        if(eff.type==='absorbHp'&&eff.when==='afterHit'&&
+           eff.params.amount==='damage'&&def.family==='weapon'){
+          if(absorbsHp)fail('Multiple HP absorption weapons unverified');
+          absorbsHp=true;continue;
         }
         if(!['redirectAttack','stopAttack'].includes(eff.type)||eff.when!=='onDefense')
           fail('Unsupported weapon or armor effect');
@@ -3135,7 +3255,7 @@ function compileOrderedWeaponAttack(state,catalog){
     attack,element:forcedAttackElement??(aura?'none':attackElement),attackKind:'weapon',
     instanceIds:Object.freeze(selected.filter(x=>x.instance).map(x=>x.instance.instanceId)),
     payableMP,learnedDrawCount,learnedMiracles:Object.freeze(learnedMiracles),
-    hasModifiers:miracles.length>0,
+    hasModifiers:miracles.length>0,absorbsHp,
     selectedKinds:Object.freeze(selectedKinds)
   });
 }
@@ -3160,11 +3280,11 @@ function queuedAttackCosts(attackContext,actorId) {
 return {compileOrderedWeaponAttack,queuedAttackCosts};
 })();
 
-const __v2_module_22 = (() => {
+const __v2_module_23 = (() => {
 "use strict";
 const {sumLegalArmor, calculateHit, MAX_HAND_SIZE} = __v2_module_0;
-const {runEffectQueueFixture} = __v2_module_14;
-const {compileOrderedWeaponAttack,queuedAttackCosts} = __v2_module_21;
+const {runEffectQueueFixture} = __v2_module_15;
+const {compileOrderedWeaponAttack,queuedAttackCosts} = __v2_module_22;
 
 /**
  * V2 G3, PART 1: pure compile/resolve for reference-backed BASIC weapon combat.
@@ -3277,10 +3397,16 @@ function compileBasicResolution(state,catalog) {
   // source-backed pure rules helper (also used for solo miracles).
   const armor=sumLegalArmor(element,physicalShields,{rainbowCurtain:stripElement});
   const hit=calculateHit({attack,element,armor,hp:defender.hp,rainbowCurtain:stripElement});
+  // Exact lethality-vs-charm ordering is not confirmed for absorbing weapons.
+  if(attackContext.absorbsHp && !isSelf && hit.hpAfter===0 &&
+     defender.hand.some(c=>catalog.get(c.definitionId)?.effects.some(e=>
+       e.when==='onZeroHp'&&e.type==='reviveAtZeroHp')))
+    fail('Absorption against a fatal Sun Charm recovery requires original timing verification');
   const queue=Object.freeze([
     ...(p.attackContext?[]:queuedAttackCosts(attackContext,attacker.id)),
     ...(isSelf?[]:[Object.freeze({type:'spend',playerId:defender.id,instanceIds:Object.freeze(defending.map(x=>x.instance.instanceId))})]),
-    Object.freeze({type:'hit',targetId:defender.id,damage:hit.damage,hpAfter:hit.hpAfter,instantDefeat:hit.instantDefeat}),
+    Object.freeze({type:'hit',targetId:defender.id,damage:hit.damage,hpAfter:hit.hpAfter,instantDefeat:hit.instantDefeat,
+       ...(attackContext.absorbsHp?{lifeSteal:true}:{})}),
     Object.freeze({type:'refill',order:'seating',maxHand:MAX_HAND_SIZE}),
     Object.freeze({type:'advance',afterId:attacker.id})
   ]);
@@ -3305,11 +3431,11 @@ function resolveBasicFixture(state,catalog,options={}) {
 return {compileBasicWeaponAttack,compileBasicResolution,resolveBasicFixture};
 })();
 
-const __v2_module_23 = (() => {
+const __v2_module_24 = (() => {
 "use strict";
-const {compileBasicWeaponAttack} = __v2_module_22;
-const {queuedAttackCosts} = __v2_module_21;
-const {runEffectQueueFixture} = __v2_module_14;
+const {compileBasicWeaponAttack} = __v2_module_23;
+const {queuedAttackCosts} = __v2_module_22;
+const {runEffectQueueFixture} = __v2_module_15;
 
 /**
  * G3 weapon-stop resolver: the defensive miracle Wall stops any neutral
@@ -3447,13 +3573,13 @@ function resolveWallFixture(state,catalog,opts={}) {
 return {isWallDefense,compileWallResolution,resolveWallFixture};
 })();
 
-const __v2_module_24 = (() => {
+const __v2_module_25 = (() => {
 "use strict";
 const {planRedirectRoute} = __v2_module_3;
-const {compileBasicWeaponAttack,resolveBasicFixture} = __v2_module_22;
-const {isWallDefense,resolveWallFixture} = __v2_module_23;
-const {queuedAttackCosts} = __v2_module_21;
-const {runEffectQueueFixture} = __v2_module_14;
+const {compileBasicWeaponAttack,resolveBasicFixture} = __v2_module_23;
+const {isWallDefense,resolveWallFixture} = __v2_module_24;
+const {queuedAttackCosts} = __v2_module_22;
+const {runEffectQueueFixture} = __v2_module_15;
 
 /**
  * V2 G3 Part 2: source-backed basic redirect / deflect resolver.
@@ -3571,11 +3697,11 @@ function resolveRedirectFixture(state,catalog,{
 return {resolveRedirectFixture};
 })();
 
-const __v2_module_25 = (() => {
+const __v2_module_26 = (() => {
 "use strict";
 const {calculateHit,sumLegalArmor} = __v2_module_0;
 const {planRedirectRoute} = __v2_module_3;
-const {runEffectQueueFixture} = __v2_module_14;
+const {runEffectQueueFixture} = __v2_module_15;
 
 /**
  * V2 G3: narrow solo attack miracles with ordered defensive reactions.
@@ -3839,15 +3965,15 @@ function resolveSoloMiracleFixture(state,catalog,options={}) {
 return {compileSoloMiracleResolution,resolveSoloMiracleFixture};
 })();
 
-const __v2_module_26 = (() => {
+const __v2_module_27 = (() => {
 "use strict";
-const {applyStagingCommand} = __v2_module_13;
-const {validateSaleDeclarationFixture,resolveStagedSaleFixture} = __v2_module_19;
-const {resolveStagedBuyFixture} = __v2_module_20;
-const {resolveRedirectFixture} = __v2_module_24;
-const {resolveSoloMiracleFixture,compileSoloMiracleResolution} = __v2_module_25;
-const {compileOrderedWeaponAttack} = __v2_module_21;
-const {runEffectQueueFixture} = __v2_module_14;
+const {applyStagingCommand} = __v2_module_14;
+const {validateSaleDeclarationFixture,resolveStagedSaleFixture} = __v2_module_20;
+const {resolveStagedBuyFixture} = __v2_module_21;
+const {resolveRedirectFixture} = __v2_module_25;
+const {resolveSoloMiracleFixture,compileSoloMiracleResolution} = __v2_module_26;
+const {compileOrderedWeaponAttack} = __v2_module_22;
+const {runEffectQueueFixture} = __v2_module_15;
 const {drawRandom32} = __v2_module_2;
 const {MAX_HAND_SIZE} = __v2_module_0;
 
@@ -4065,13 +4191,13 @@ function submitAndResolveFixture(state,command,catalog,{
 return {resolvePrayFixture,resolveDiscardFixture,resolveStagedFixture,submitAndResolveFixture};
 })();
 
-const __v2_module_27 = (() => {
+const __v2_module_28 = (() => {
 "use strict";
 const {migrateLegacyCatalog} = __v2_module_4;
-const {createStagingRoom,viewStagingRoom} = __v2_module_13;
-const {submitAndResolveFixture} = __v2_module_26;
+const {createStagingRoom,viewStagingRoom} = __v2_module_14;
+const {submitAndResolveFixture} = __v2_module_27;
 const {VERIFIED_BASIC_CARDS} = __v2_module_1;
-const {attachDreamAppearanceFixture} = __v2_module_12;
+const {attachDreamAppearanceFixture} = __v2_module_13;
 
 /**
  * Offline 2-seat V2 lab controller.
@@ -4547,9 +4673,9 @@ function createV2LabController({
 return {createV2LabController};
 })();
 
-const __v2_module_28 = (() => {
+const __v2_module_29 = (() => {
 "use strict";
-const {createV2LabController} = __v2_module_27;
+const {createV2LabController} = __v2_module_28;
 
 /**
  * Minimal accessible and touch-friendly offline V2 hotseat UI.
@@ -4872,9 +4998,9 @@ function mountV2Lab(root,controller=createV2LabController()){
 return {renderV2LabMarkup,mountV2Lab};
 })();
 
-const __v2_lab_test_controller = __v2_module_27;
+const __v2_lab_test_controller = __v2_module_28;
 
-const __v2_lab_test_ui = __v2_module_28;
+const __v2_lab_test_ui = __v2_module_29;
 
 __v2_lab_test_ui.mountV2Lab(document.getElementById("v2-root"));
 </script>
