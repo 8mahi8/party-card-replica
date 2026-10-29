@@ -100,18 +100,29 @@ async function testScenario(base,{
       'tapped card not selected');
 
     const amount=await frameRef.evaluate(()=>{
+      const deck=document.querySelector('.stage-scroll');
+      if(document.getElementById('v2-root').classList.contains('v2-docked')){
+        deck.scrollTop=deck.scrollHeight;
+        return {mode:'deck',value:deck.scrollTop};
+      }
       window.scrollTo(0,document.body.scrollHeight);
-      return window.scrollY;
+      return {mode:'page',value:window.scrollY};
     });
-    passed(amount>40,'frame did not scroll: '+amount);
-    await controlInFrame(frame,'.confirm','fixed confirm '+width);
+    passed(amount.value>40,'hand content did not scroll: '+JSON.stringify(amount));
+    await controlInFrame(frame,'.confirm','confirm dock '+width);
     const actions=await frameRef.evaluate(()=>{
       const reset=document.querySelector('footer [data-action=reset]').getBoundingClientRect();
       const confirm=document.querySelector('.confirm').getBoundingClientRect();
-      return {resetTop:reset.top,resetBottom:reset.bottom,confirmTop:confirm.top};
+      const deck=document.querySelector('.stage-scroll').getBoundingClientRect();
+      const dock=document.getElementById('v2-root').classList.contains('v2-docked');
+      return {dock,resetTop:reset.top,resetBottom:reset.bottom,
+        confirmTop:confirm.top,confirmBottom:confirm.bottom,deckBottom:deck.bottom};
     });
-    passed(actions.resetTop>=0&&actions.resetBottom<=actions.confirmTop-4,
-      'footer reset overlaps sticky confirm in WebKit: '+JSON.stringify(actions));
+    passed(actions.dock?
+        actions.deckBottom<=actions.confirmTop-3&&
+        actions.resetTop>=actions.confirmBottom+2:
+        actions.resetTop>=0&&actions.resetBottom<=actions.confirmTop-4,
+      'footer or scroll pane overlaps confirmation: '+JSON.stringify(actions));
     await screenshot(shotPrefix+'-scrolled');
     await frame.locator('[data-action=submit]').tap();
     await frame.locator('.compact-pass').waitFor();
@@ -163,6 +174,64 @@ async function testScenario(base,{
     await context.close();
   }
 }
+
+async function testShortHandDockTouch(base){
+ for(const w of [390,1024]){
+  const context=await browser.newContext({
+   viewport:{width:w,height:844},screen:{width:w,height:844},
+   deviceScaleFactor:2,isMobile:true,hasTouch:true,locale:'ja-J'
+  });
+  try{
+   page=await context.newPage();
+   await page.goto(base+'/embed-harness.html',{waitUntil:'load'});
+   await page.locator('#game-embed').evaluate(el=>{el.style.height='430px';});
+   const frame=page.frameLocator('#game-embed');
+   await frame.locator('[data-action=reveal]').tap();
+   const metrics=await frame.locator('.stage-scroll').evaluate(deck=>{
+     const bar=document.querySelector('.stage-docked .action-bar');
+     const root=document.getElementById('v2-root');
+     const r=deck.getBoundingClientRect(),b=bar.getBoundingClientRect();
+     const footer=document.querySelector('footer').getBoundingClientRect();
+     const style=getComputedStyle(deck);
+     return {docked:root.classList.contains('v2-docked'),mode:style.overflowY,
+       scrollHeight:deck.scrollHeight,clientHeight:deck.clientHeight,
+       deckBottom:r.bottom,barTop:b.top,barBottom:b.bottom,footerTop:footer.top,
+       barPosition:getComputedStyle(bar).position};
+   });
+   passed(metrics.docked&&metrics.mode==='auto'&&
+      metrics.scrollHeight>metrics.clientHeight+80,
+     'short embed uses an independently scrollable hand: '+JSON.stringify(metrics));
+   passed(metrics.barPosition==='static' &&
+     metrics.deckBottom<=metrics.barTop-3 &&
+     metrics.footerTop>=metrics.barBottom+2,
+     'short embed control bar never overlays hand or reset: '+JSON.stringify(metrics));
+   const last=frame.locator('[data-card=hand]').last();
+   await last.scrollIntoViewIfNeeded();
+   const rect=await last.boundingBox();
+   const dock=await frame.locator('.stage-scroll').boundingBox();
+   const bar=await frame.locator('.stage-docked .action-bar').boundingBox();
+   passed(Boolean(rect&&dock&&bar&&rect.top>=dock.top-2 &&
+      rect.y+rect.height<=bar.y-3),
+      'last card can be fully scrolled above the action bar: '+JSON.stringify({rect,dock,bar}));
+   const previous=await frame.locator('.stage-scroll').evaluate(el=>el.scrollTop);
+   await last.tap();
+   const now=await frame.locator('.stage-scroll').evaluate(el=>el.scrollTop);
+   passed(now>=previous-10,'selecting last hand card must retain scroll: '+JSON.stringify({previous,now}));
+   passed(await frame.locator('.battle-card.picked').count()===1,
+     'scrolled last card remains selected after render');
+   const picked=await frame.locator('[data-card=hand]').last().boundingBox();
+   const fixed=await frame.locator('.stage-docked .action-bar').boundingBox();
+   passed(Boolean(picked&&fixed&&picked.y+picked.height<=fixed.y-3),
+     'selected last card remains visible above the confirm dock');
+   await screenshot('webkit-hand-dock-'+w);
+   await last.tap();
+   passed(await frame.locator('.battle-card.picked').count()===0,
+     'scrolling back to unselect keeps actions functional');
+  }catch(error){await screenshot('webkit-hand-dock-failure-'+w);throw error;}
+  finally{page=null;await context.close();}
+ }
+}
+
 async function testTurbulenceTouch(base){
  const context=await browser.newContext({
   viewport:{width:1024,height:768},screen:{width:1024,height:768},
@@ -1373,6 +1442,7 @@ try{
   browser=await webkit.launch({headless:true});
   await testScenario(base,{width:1024,height:768,embedHeight:460,shotPrefix:'webkit-ipad'});
   await testScenario(base,{width:390,height:844,embedHeight:430,shotPrefix:'webkit-narrow'});
+  await testShortHandDockTouch(base);
   await testTurbulenceTouch(base);
   await testSkyMoonTouch(base);
   await testMiracleDefenseSwitchTouch(base);
