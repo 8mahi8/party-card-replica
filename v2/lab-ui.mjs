@@ -229,7 +229,7 @@ export function mountV2Lab(root,controller=createV2LabController()){
    const previous=root.querySelector('.stage-scroll');
    const previousTop=previous?.scrollTop??0;
    const data=controller.view();
-   root.classList.toggle('v2-docked',data.revealed&&
+   root.classList?.toggle?.('v2-docked',data.revealed&&
      (data.phase==='turn'||(data.phase==='defense'&&!data.revivalTrial)));
    root.innerHTML=renderV2LabMarkup(data,{resetArmed});
    const next=root.querySelector('.stage-scroll');
