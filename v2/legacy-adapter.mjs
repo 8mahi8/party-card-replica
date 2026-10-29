@@ -94,12 +94,14 @@ export function convertLegacyCard(card,{ruleset=PARTIAL_CARD_SOURCE}={}) {
       modes.push('cast');effects.push(mk('onDeclare','multiplyAttack',{factor:2,scope:'weapon'}));
     } else throw new Error('Unmapped miracle role');
   } else if(card.kind==='trade') {
-    if(!['sell','buy'].includes(card.tradeAction))
+    if(!['sell','buy','exchange'].includes(card.tradeAction))
       throw new Error('Unmapped trade action');
     modes.push('trade');
     effects.push(card.tradeAction==='sell'?
       mk('onDeclare','forceSale',{kind:'sell'}):
-      mk('onDeclare','requestBuy',{kind:'buy'}));
+      card.tradeAction==='buy'?
+        mk('onDeclare','requestBuy',{kind:'buy'}):
+        mk('onDeclare','reallocateResources',{kind:'exchange'}));
   } else if(card.kind==='defense_item') {
     modes.push('defend');
     if(card.effect==='strip_element')effects.push(mk('onDefense','stripElement'));
