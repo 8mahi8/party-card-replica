@@ -44,6 +44,11 @@ input{min-height:42px;max-width:185px;padding:7px;font-size:18px;letter-spacing:
 .phase-area{display:flex;flex-direction:column;align-items:stretch;justify-content:center;text-align:center;gap:4px;padding:5px;background:#f4fff9aa;border-radius:8px;border:1px solid #77b9b2}
 #phase{font-size:14px;font-weight:900;color:#087d72}
 #battleHint{font-size:11px;line-height:1.35;color:#376e65;min-height:27px}
+#combatRoute{font-size:11px;font-weight:800;color:#176d68;min-height:14px}
+#combatRoute:empty{display:none}
+#selectionTotal{font-size:11px;color:#356a62;min-height:14px;line-height:1.35}
+#selectionTotal:empty{display:none}
+#selectionPreview .picked b{font-size:10px;color:#b05148;margin-right:3px}
 #actions{display:flex;flex-wrap:wrap;gap:6px;padding:0}
 #actions button{flex:1 1 100px;min-width:90px;min-height:42px;font-size:12px}
 #actions button[hidden]{display:none}
@@ -94,8 +99,8 @@ main{padding:0 6px 8px}.brandline{margin:0 -6px}
 <div class="battle-topline"><span>G.F. · 研究対戦</span><span class="mode">1 対 1</span></div>
 <div id="scores" class="scores" aria-label="プレイヤーのHP・MP・所持金"></div>
 <div class="arena">
-<div class="selected-tray"><header>選択中の神器</header><div id="selectionPreview"><span class="empty">カードをタップして選択</span></div></div>
-<div class="phase-area"><div id="phase"></div><div id="battleHint">手札の神器をタップ</div></div>
+<div class="selected-tray"><header>選択中の神器 · タップ順</header><div id="selectionPreview"><span class="empty">カードをタップして選択</span></div><div id="selectionTotal" aria-live="polite"></div></div>
+<div class="phase-area"><div id="phase"></div><div id="combatRoute"></div><div id="battleHint">手札の神器をタップ</div></div>
 </div>
 <div id="actions" hidden>
 <button id="attack" class="primary">攻撃する</button>
@@ -202,12 +207,28 @@ function render(){
   turn?(mine?'神器を選び、攻撃を確定':'相手の操作を待っています'):
   '試合結果を確認してください';
  const selected=player.hand||[];
+ const route=view.pending?.type==='attack'?
+  {source:view.pending.sourceId,target:view.pending.targetId}:
+  turn?{source:view.activePlayerId,target:view.players.find(p=>p.id!==view.activePlayerId)?.id}:null;
+ $('combatRoute').textContent=route?.source&&route?.target?
+  '攻撃対象  '+showSeatLabel(route.source)+' → '+showSeatLabel(route.target):'';
  $('handCount').textContent=selected.length+'枚 / 横にスライド';
  const preview=$('selectionPreview');preview.replaceChildren();
- for(const instance of selected){
-  if(!selection.has(instance.instanceId))continue;
+ const cardsById=new Map(selected.map(c=>[c.instanceId,c]));
+ let attackSum=0,guardSum=0,mpSum=0,index=0;
+ // The engine consumes selected cards in tap order. The preview must show
+ // that same order, especially for defense effects requiring a first card.
+ for(const instanceId of selection){
+  const instance=cardsById.get(instanceId);
+  if(!instance)continue;
+  const def=catalog.get(instance.definitionId);
+  attackSum+=def?.stats.attack||0;
+  guardSum+=def?.stats.guard||0;
+  mpSum+=def?.stats.mpCost||0;
   const chip=document.createElement('span');chip.className='picked';
-  chip.textContent=names.get(instance.definitionId)||instance.definitionId;
+  const order=document.createElement('b');order.textContent=String(++index)+'.';
+  chip.append(order,document.createTextNode(
+   names.get(instance.definitionId)||instance.definitionId));
   preview.append(chip);
  }
  if(!preview.childElementCount){
@@ -215,6 +236,12 @@ function render(){
   empty.textContent=mine?'カードをタップして選択':'自分の番まで待機';
   preview.append(empty);
  }
+ // Preview the printed stats, NOT a resolved damage estimate: elements,
+ // reflections, multi-hits and special effects belong to the battle engine.
+ $('selectionTotal').textContent=index?
+  'カード記載値の合計（参考） · '+(defense?'守 '+guardSum:'攻 '+attackSum)+
+   (mpSum?' · MP '+mpSum:''):'';
+
  const hand=$('hand'),scroll=hand.scrollLeft;
  hand.replaceChildren();
  for(const c of player.hand||[]){
