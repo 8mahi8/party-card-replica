@@ -1152,6 +1152,60 @@ async function testSunCharmRevivalTouch(base){
  }finally{page=null;await context.close();}
 }
 
+
+async function testSelfSaleTouch(base){
+ const context=await browser.newContext({
+  viewport:{width:390,height:844},screen:{width:390,height:844},
+  deviceScaleFactor:2,isMobile:true,hasTouch:true,locale:'ja-J'
+ });
+ try{
+  page=await context.newPage();
+  await page.goto(base+'/embed-harness.html',{waitUntil:'load'});
+  await page.locator('#game-embed').evaluate(el=>{el.style.height='430px';});
+  const frame=page.frameLocator('#game-embed');
+  await frame.locator('[data-action=self-sale-demo]').tap();
+  await frame.locator('.compact-pass').waitFor();
+  passed(await frame.locator('[data-card]').count()===0,
+    'self-Sell fixture begins with all physical cards hidden');
+  await frame.locator('[data-action=reveal]').tap();
+  const hands=frame.locator('[data-card=hand]');
+  passed(await hands.count()===3 &&
+    (await hands.first().textContent()).includes('売る'),
+    'self-Sell trial includes real Sell and offered item');
+  await hands.nth(0).tap();
+  await hands.nth(1).tap();
+  passed((await frame.locator('.stage-heading').textContent()).includes('自分にも売れます'),
+    'UI explains researched self-target Sell');
+  passed(await frame.locator('[data-target=A]').count()===1,
+    'current acting seat can be selected as trade target');
+  await frame.locator('[data-target=A]').tap();
+  const chosen=await frame.locator('[data-target=A]').getAttribute('aria-pressed');
+  passed(chosen==='true','self-target selection is visibly active');
+  const action=frame.locator('[data-action=submit]');
+  const rect=await action.boundingBox();
+  passed(Boolean(rect&&rect.height>=44),'self-Sell submit button remains tappable');
+  await screenshot('webkit-self-sale-before');
+  await action.tap();
+  await frame.locator('.compact-pass').waitFor();
+  passed((await frame.locator('.compact-pass h1').textContent()).includes('P2') &&
+    await frame.locator('[data-card]').count()===0,
+    'self-Sell resolves instantly without a fake opponent defense');
+  await frame.locator('[data-action=reveal]').tap();
+  const scores=await frame.locator('.seat').allTextContents();
+  passed(scores[0].includes('HP 40')&&scores[0].includes('MP 5')&&
+    scores[0].includes('¥ 25'),
+    'self-Sell redistributes deficits into earned money with conserved total: '+
+      JSON.stringify(scores));
+  passed(scores[0].includes('手札3枚') &&
+    scores[1].includes('HP 40')&&scores[1].includes('¥ 20'),
+    'offered item remains with P1 and P2 is untouched after refill');
+  await screenshot('webkit-self-sale-after');
+ }catch(error){
+  await screenshot('webkit-self-sale-failure');
+  throw error;
+ }finally{page=null;await context.close();}
+}
+
 async function testFullHandSaleTouch(base){
  const context=await browser.newContext({
   viewport:{width:390,height:844},screen:{width:390,height:844},
@@ -1250,6 +1304,7 @@ try{
   await testBuyTrialTouch(base);
   await testExchangeTrialTouch(base);
   await testSunCharmRevivalTouch(base);
+  await testSelfSaleTouch(base);
   console.log('WEBKIT_SMOKE_SUCCESS checks='+checks+' engine=Playwright WebKit'+
     ' fixed-height frames=1024x460,390x430');
 }catch(error){
