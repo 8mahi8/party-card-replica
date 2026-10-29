@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import vm from 'node:vm';
+import {readFileSync} from 'node:fs';
 import {buildOnlineHTML,ONLINE_MODULES} from '../v2/demo/build-online.mjs';
 
 test('single HTML online bundle compiles game logic and client without JS module imports',()=>{
@@ -20,4 +21,10 @@ test('single HTML online bundle compiles game logic and client without JS module
 
 test('same build inputs produce byte-identical online HTML',()=>{
  assert.equal(buildOnlineHTML(),buildOnlineHTML());
+});
+
+test('checked-in online single HTML stays synchronized with live source modules',()=>{
+ const committed=readFileSync(new URL('../v2/demo/firebase-online-standalone.html',import.meta.url),'utf8');
+ assert.equal(committed,buildOnlineHTML(),
+  'Stale online trial HTML: run node v2/demo/build-online.mjs');
 });
