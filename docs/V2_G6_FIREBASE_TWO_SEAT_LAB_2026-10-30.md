@@ -42,6 +42,24 @@ Firebase公式：[Webでのデータ読み書き](https://firebase.google.com/do
 
 この試験の成功も**実Firebase/異なる物理iPadの接続成功ではない**。実Firebaseのルール・ネットワーク状態は未検証のまま。
 
+## 2026-10-30｜G6 ホスト/ゲスト同時更新の同期ずれ対策（最新）
+
+**実装**：`v2/firebase-two-seat-transport-fixture.mjs`。すでに存在する権威エンジンは再実装せず、Firebaseへ配信する `views/A`・`views/B`・`acks/B` の変更パケットを作成時点のrevisionとひもづけ、単一の非同期キューで**送信順に直列化**した。ホストAの公開が遅い最中にゲストBの解決が進んでも、古いrevisionの書き込みが後から完成状態を上書きしない。
+
+**もう1件のバグ予防**：Bの防御などがエンジン内で正常にコミットされた後、Firebase `update` だけが失敗したときは、「操作が失敗した」という否定的な受領通知を返さない。通信失敗として `onError` を通知して保留し、**同一コマンドIDの再送**でエンジンは二重実行せずに最新のビューと成功受領情報を再配信する。ゲーム上の不正コマンドは従来通りエラー応答し、状態を更新しない。
+
+**新規2件の回帰**：`tests/firebase-two-seat-transport-fixture-v2.test.mjs` で(1)AのFirebase送信を意図的に遅延させたままBが防御しても、後続更新が先を追い越さず、最終revision 3/HP30になること、(2)Bの防御解決後のFirebase書き込みだけ一度失敗させ、偽の失敗受領を出さず同一IDの再送から復帰することを検証。revision=3はエンジンの攻撃宣言・防御宣言・解決の3更新に基づく。初回の新テストがrevision=2を期待して失敗したのはテストの値の誤りで、修正後のCIで成功。
+
+**実測**（コード＋テストコミット `37907e0ae8db7242f7d3a2bc81860fa7da93eb27`）：
+- Node **896/896 PASS**：GitHub Actions run `40931833573`
+- Chromium **28/28 PASS**：run `40931833732`
+- Playwright WebKit既存画面 **339/339 PASS** ＋新規オンライン2画面模擬Firebase **9/9 PASS**：run `40931833561`
+- スタンドアロンHTML生成整合性検証もPASS。**本物のFirebaseへのネット接続や異なる2台の実機iPadでの対戦を検証したものではない。**
+
+**静的配信の現状**：GitHub公式[Pages配信元の設定](https://docs.github.com/en/pages/getting-started-with-github-pages/configuring-a-publishing-source-for-your-github-pages-site)によれば任意の開発ブランチのルートを公開元にできる。ただし既存Pagesの設定を切り替えると公開内容へ影響が及ぶため、現行構成の確認なしに切り替えない。**現在有効なPages配信URLは確認できていない**。新しいオンライン画面はES Modulesの相対参照を使うため、GitHubのソース表示やローカル`file://`ではなく、同一オリジンでJSファイルを配信するHTTPSサーバーが必要。学校に直接貼るための1ファイル化はまだ行っていない。
+
+次は開発版のHTTPS配信経路の確定 → 実Firebaseで2端末のルーム作成・参加・攻撃・防御検証。実際に遅延や断線を経験するまで複雑な復旧基盤は作らない。学校Google Sites版やFirebase Rulesは変更しない。
+
 ## 試遊前提と明示した制約
 
 - 2台とも同じ`firebase-online-lab.html`を同一オリジンから読み込み、学校で既に使えているFirebase SDKへ接続する必要がある。GitHubのソース表示画面からは動かない。開発ブランチの静的配信/試遊URLが必要。
