@@ -38,6 +38,16 @@ export function dreamTimingSignatureFixture(def){
    discardPolicy:def.discardPolicy
  });
 }
+/** Shared safety rule for attachment, projection and ownership validation. */
+function allowableDreamPair(actual,visible){
+ if(actual.id===visible.id)return false;
+ if(['trade','miracle'].includes(actual.family)||
+    ['trade','miracle'].includes(visible.family)||
+    actual.playModes.includes('passive')||
+    actual.playModes.some(x=>!['mainAttack','addAttack','defend','support'].includes(x)))
+   return false;
+ return dreamTimingSignatureFixture(actual)===dreamTimingSignatureFixture(visible);
+}
 /** Return immutable room with an explicitly fixture-verified appearance. */
 export function attachDreamAppearanceFixture(state,catalog,{
  seatId,instanceId,appearsAsDefinitionId
@@ -53,10 +63,7 @@ export function attachDreamAppearanceFixture(state,catalog,{
  const displayDef=cardDef(catalog,appearsAsDefinitionId);
  if(trueDef.id===displayDef.id)fail('Dream fixture must have distinct appearance');
  // 2026 documentation: trade, miracles, unique-timing artifacts unaffected.
- if(['trade','miracle'].includes(trueDef.family)||trueDef.playModes.includes('passive')||
-    ['trade','miracle'].includes(displayDef.family)||
-    trueDef.playModes.some(x=>!['mainAttack','addAttack','defend','support'].includes(x))||
-    dreamTimingSignatureFixture(trueDef)!==dreamTimingSignatureFixture(displayDef))
+ if(!allowableDreamPair(trueDef,displayDef))
    fail('Dream appearance must share verified usable timing');
  const already=owner.dreamDisguises??[];
  if(!Array.isArray(already)||already.some(x=>x.instanceId===instanceId))
@@ -83,7 +90,7 @@ export function dreamVisibleDefinitionIdFixture(player,card,catalog){
  if(!(catalog instanceof Map))fail('Dream presentation requires catalog');
  const visual=cardDef(catalog,matching[0].appearsAsDefinitionId);
  const actual=cardDef(catalog,card.definitionId);
- if(dreamTimingSignatureFixture(visual)!==dreamTimingSignatureFixture(actual))
+ if(!allowableDreamPair(actual,visual))
    fail('Dream presentation timing mismatch');
  return visual.id;
 }
@@ -132,8 +139,7 @@ export function validateDreamOwnershipFixture(state,catalog){
      if(!physical)fail('Dream appearance references an unowned artifact');
      const trueDef=cardDef(catalog,physical.definitionId);
      const fakeDef=cardDef(catalog,entry.appearsAsDefinitionId);
-     if(trueDef.id===fakeDef.id||
-        dreamTimingSignatureFixture(trueDef)!==dreamTimingSignatureFixture(fakeDef))
+     if(!allowableDreamPair(trueDef,fakeDef))
        fail('Dream appearance timing mismatch');
    }
  }
