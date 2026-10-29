@@ -179,18 +179,18 @@ try{
    document.documentElement.clientWidth+2),'guest fits narrow viewport');
  await a.locator('#attack').tap();
  await b.waitForFunction(()=>document.querySelector('#phase')?.textContent
-   .includes('防御待ち'));
+   .includes('あなたの防御'));
  check(await b.locator('#defend').textContent()==='許す（防御なし）',
   'unselected defense reads 許す in reference-style interface');
- check((await b.locator('#phase').textContent()).includes('P2'),
+ check((await b.locator('#phase').textContent()).includes('あなたの防御'),
   'guest sees its defense window');
  // Drop the initial acknowledgement while keeping the updated seat views.
  await a.evaluate(()=>{window.__g6DropNextAck=true;});
  await b.locator('#defend').tap();
  await a.waitForFunction(()=>document.querySelector('#phase')?.textContent
-   .includes('攻撃手番 P2'));
+   .includes('相手の攻撃待ち'));
  await b.waitForFunction(()=>document.querySelector('#phase')?.textContent
-   .includes('攻撃手番 P2'));
+   .includes('あなたの攻撃'));
  check(await b.locator('#retryPanel').isVisible(),
   'guest can manually resend same command if the ack is lost');
  check(await b.locator('#retry').isEnabled(),
