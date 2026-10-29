@@ -216,7 +216,7 @@ export function mountV2Lab(root,controller=createV2LabController()){
        resetArmed=false;controller.reveal();
      }else if(['submit','discard','buy-accept','buy-decline'].includes(action)){
        resetArmed=false;
-       const poolInputs=[...root.querySelectorAll('[data-exchange-field]')];
+       const poolInputs=[...(root.querySelectorAll?.('[data-exchange-field]')??[])];
        const allocation=poolInputs.length===3?
          Object.fromEntries(poolInputs.map(input=>[
            input.getAttribute('data-exchange-field'),Number(input.value)
