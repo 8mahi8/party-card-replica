@@ -66,7 +66,7 @@ export function compileOrderedWeaponAttack(state,catalog){
     fail('Basic resolution requires weapon first');
   let weaponAttack=0,attackElement='none',mainCount=0,weaponCount=0;
   let aura=null,plusCount=0,additive=0,lastWasMiracle=false,hasArmorBonus=false,itemBonus=0;
-  let learnedDrawCount=0;
+  let learnedDrawCount=0,mirageCount=0;
   let forcedAttackElement=null,absorbsHp=false,hitCount=1;
   let wandPosition=-1,auraPosition=-1;
   const casts=[],selectedKinds=[];
@@ -132,6 +132,13 @@ export function compileOrderedWeaponAttack(state,catalog){
           fail('Only identical verified hand-based plus pair may stack');
         additive=add(additive,def.stats.attack);
         attackElement=combineElements(attackElement,def.element);
+      } else if(def.effects.length===1&&
+         def.effects[0].type==='widenAttack'&&
+         def.effects[0].when==='onDeclare'&&
+         def.effects[0].params.mode==='allLiving'&&
+         def.playModes.includes('cast')&&def.stats.mpCost===5){
+        mirageCount++;
+        if(mirageCount>3)fail('More than three Mirage casts need source verification');
       } else fail('Unsupported attack miracle effect');
       miracles.push({id:def.id,mpCost:def.stats.mpCost,discounted:false,fromLearned});
       if(fromLearned)learnedDrawCount++;
@@ -164,8 +171,19 @@ export function compileOrderedWeaponAttack(state,catalog){
     }
   }
   if(!weaponCount)fail('Attack requires a weapon');
-  if(hitCount===2&&(miracles.length>0||hasArmorBonus||itemBonus||absorbsHp))
+  if(hitCount===2&&(miracles.length>mirageCount||hasArmorBonus||itemBonus||absorbsHp))
     fail('Repeat hits with miracles, armor attack bonus or other special effects are not verified');
+  if(mirageCount){
+    // A full all-living attack needs a separate target iteration and audit
+    // before enabling 3+ seats. Research-limited 1v1 only.
+    if(state.players.length!==2)fail('Mirage all-target play needs multiplayer routing verification');
+    if(mirageCount!==miracles.length||aura||plusCount||hasArmorBonus||itemBonus||
+       forcedAttackElement!==null||absorbsHp)
+      fail('Mirage combined with other special attack effects is unverified');
+    // Source-backed: one Mirage = one sweep, two = two sweeps;
+    // Nokobunbun repeats each sweep twice, e.g. two Mirages = 4 hits.
+    hitCount*=mirageCount;
+  }
   if(miracles.length&&state.pending.targetId===caster.id)
     fail('Boosted self-target attack has not been verified');
   if(aura&&plusCount)fail('Aura plus additive miracle ordering unverified');
@@ -186,10 +204,10 @@ export function compileOrderedWeaponAttack(state,catalog){
     // The ordinary Aura attack is neutral even with an elemental weapon.
     // A verified dye wand AFTER Aura is the explicit exception: it sets
     // the final fire/water attribute. Do not preserve the weapon element.
-    attack,element:forcedAttackElement??(aura?'none':attackElement),attackKind:'weapon',
+    attack,element:forcedAttackElement??(aura||mirageCount?'none':attackElement),attackKind:'weapon',
     instanceIds:Object.freeze(selected.filter(x=>x.instance).map(x=>x.instance.instanceId)),
     payableMP,learnedDrawCount,learnedMiracles:Object.freeze(learnedMiracles),
-    hasModifiers:miracles.length>0,absorbsHp,hitCount,
+    hasModifiers:miracles.length>0,absorbsHp,hitCount,mirageCount,
     selectedKinds:Object.freeze(selectedKinds)
   });
 }
