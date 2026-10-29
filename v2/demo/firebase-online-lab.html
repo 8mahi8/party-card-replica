@@ -84,7 +84,7 @@ function ensureDb(){
  try{app=firebase.app('godfield-v2-lab')}catch{app=firebase.initializeApp({databaseURL:url},'godfield-v2-lab')}
  db=app.database();return db;
 }
-function onError(error){feedback('通信エラー: '+(error?.message||String(error)))}
+function onError(error){feedback((error?.commandRejected?'操作エラー: ':'通信エラー: ')+(error?.message||String(error)))}
 function callbacks(){
  return {
   onView(next){
