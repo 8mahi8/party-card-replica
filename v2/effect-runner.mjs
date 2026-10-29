@@ -9,6 +9,7 @@
 import {createInstance} from './foundation.mjs';
 import {MAX_HAND_SIZE,MAX_LEARNED_MIRACLES} from '../src/rules.mjs';
 import {planForcedSalePayment} from './trade-payment.mjs';
+import {planIncomingHandTransfer} from './hand-overflow.mjs';
 
 function fail(message){throw new Error(message);}
 function who(state,id){
@@ -144,8 +145,7 @@ export function runEffectQueueFixture(state,catalog,queue,{
      const item=seller.hand[saleIndex],definition=catalog.get(item.definitionId);
      if(!definition||definition.family==='trade')
        fail('Unverified trade item cannot be sold');
-     if(buyer.hand.length>=MAX_HAND_SIZE)
-       fail('Buyer hand cap needs original-game verification');
+     const incoming=planIncomingHandTransfer(buyer.hand,s.rngSeed);
      const payment=planForcedSalePayment({price:definition.stats.price,buyer});
      // The buyer-death transfer, seller payout and hand ownership timing
      // cannot yet be asserted from the original client's observed actions.
@@ -154,6 +154,15 @@ export function runEffectQueueFixture(state,catalog,queue,{
      if(!Number.isSafeInteger(seller.money+payment.sellerCredit))
        fail('Seller money overflow');
      seller.hand.splice(saleIndex,1);
+     if(incoming.willOverflow){
+       const removed=buyer.hand.splice(incoming.evictedIndex,1)[0];
+       if(removed?.instanceId!==incoming.evictedInstanceId)
+         fail('Incorrect receiver overflow card');
+       s.rngSeed=incoming.nextSeed;
+       events.push({type:'handOverflow',playerId:buyer.id,
+         lostInstanceId:removed.instanceId,lostDefinitionId:removed.definitionId,
+         cause:'trade'});
+     }
      buyer.hand.push(item);
      buyer.hp=payment.buyerAfter.hp;
      buyer.mp=payment.buyerAfter.mp;
