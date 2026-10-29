@@ -8,19 +8,19 @@ permissions:
 
 jobs:
   package:
-    if: github.event.pull_request.head.repo.full_name == github.repository
+    if: (github.event_name == 'workflow_dispatch' && github.ref_name == 'refactor/v2-foundation-review-20261027') || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository)
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.head_ref }}
+          ref: ${{ github.head_ref || github.ref_name }}
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
       - name: Verify only the approved development branch is the target
         env:
-          TARGET_BRANCH: ${{ github.head_ref }}
+          TARGET_BRANCH: ${{ github.head_ref || github.ref_name }}
         run: |
           test "$TARGET_BRANCH" = 'refactor/v2-foundation-review-20261027'
       - name: Generate portable HTML and validate JavaScript
@@ -30,7 +30,7 @@ jobs:
           node --test tests/g6-online-bundle-v2.test.mjs
       - name: Commit generated file to the same development branch
         env:
-          TARGET_BRANCH: ${{ github.head_ref }}
+          TARGET_BRANCH: ${{ github.head_ref || github.ref_name }}
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
