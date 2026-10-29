@@ -40,3 +40,11 @@
 - **公開範囲**：main・Google Sites学校公開版は触らず、研究ブランチ`refactor/v2-foundation-review-20261027`とDraft PR #1のみに保存。Linux WebKit自動タップ試験は学校iPad Safari実機の確認ではない。
 
 検証証拠と最終HEADは[開発PR #1](https://github.com/8mahi8/party-card-replica/pull/1)コメントに記録する。
+
+## 手動スクリーンショットレビューと修正
+
+Playwright WebKitから出力された`webkit-sun-charm-before-revival.png`および`webkit-sun-charm-after-revival.png`を**実際に画像として開いて目視**したところ、固定高さ390×430の研究用iframeで通常防御UIを使った際に、画面下部の確認ボタンがカード表示と重なり、太陽のお守りの説明が見えづらかった。
+
+そこで`v2/lab-ui.mjs`の**復活研究モード防御時のみ**、既存の取引画面と同系統のコンパクトレイアウトに切り替えるよう修正。公開ステータスを短くし、カードと「防御しない」ボタンを同じ可視領域に収める。`tests/v2-webkit-smoke.browser.mjs`にカードの下端と確定ボタンの上端の位置比較を追加し、**重ならないことをDOM座標でも回帰検証**する。通常の攻撃・防御・取引画面や学校公開版は変更しない。
+
+**上記はLinux WebKitの試験iframeスクリーンショットのレビュー**であり、Google Sitesを実際に開いた学校iPad Safariの実機レビューではない。
