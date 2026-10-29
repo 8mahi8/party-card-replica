@@ -76,3 +76,9 @@ test('defense UI shows only public declared attack projection from the host',()=
  assert.match(page,/相手の攻撃：/);
  assert.match(page,/\('incomingAttack'\)\.hidden=!announced/);
 });
+
+test('Google Sites-style storage restriction never prevents guest join',()=>{
+ assert.match(page,/try\{previousId=sessionStorage\.getItem\(key\)\}catch\{\}/);
+ assert.match(page,/try\{sessionStorage\.setItem\(key,guestId\)\}catch\{\}/);
+ assert.match(page,/const guestId=previousId\|\|randomId\(\)/);
+});
