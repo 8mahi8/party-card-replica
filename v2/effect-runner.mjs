@@ -7,6 +7,7 @@
  * real weighted draws in production.
  */
 import {createInstance} from './foundation.mjs';
+import {advanceMirageTargetRouteFixture} from './mirage-target-route.mjs';
 import {MAX_HAND_SIZE,MAX_LEARNED_MIRACLES} from '../src/rules.mjs';
 import {planForcedSalePayment} from './trade-payment.mjs';
 import {planIncomingHandTransfer} from './hand-overflow.mjs';
@@ -67,7 +68,8 @@ export function runEffectQueueFixture(state,catalog,queue,{
  validateDreamOwnershipFixture(state,catalog);
  if(interruptionOnly&&queue.some(e=>!['spend','grantDraw','mp','learn'].includes(e?.type)))
    fail('Resolution commands are not permitted while staging');
- const continuation=queue.at(-1)?.type==='continueStrike';
+ const mirageContinuation=queue.at(-1)?.type==='advanceMirageRoute';
+ const continuation=queue.at(-1)?.type==='continueStrike'||mirageContinuation;
  if(continuation&&(interruptionOnly||queue.filter(e=>e.type==='hit').length!==1||
     queue.some(e=>['refill','advance'].includes(e.type))||
     state.pending?.type!=='attack'||
@@ -443,6 +445,96 @@ export function runEffectQueueFixture(state,catalog,queue,{
      events.push({type:'reflectedSale',originalSellerId:seller.id,
        mirrorOwnerId:counter.id,itemDefinitionId:itemDef.id,
        price:itemDef.stats.price,debit:payment.debit});
+   } else if(effect.type==='advanceMirageRoute'){
+     if(!mirageContinuation||effect!==queue.at(-1)||
+        s.pending?.type!=='attack'||
+        state.rulesetId!=='mirage-multiplayer-research-fixture-v2'||
+        s.players.length<3||
+        effect.attackContext?.attackKind!=='weapon'||
+        ![1,2,3].includes(effect.attackContext.mirageCount)||
+        ![1,2].includes(effect.attackContext.hitCount/effect.attackContext.mirageCount)||
+        effect.attackContext.absorbsHp||
+        (state.pending.attackContext&&
+          JSON.stringify(state.pending.attackContext)!==JSON.stringify(effect.attackContext)))
+       fail('Invalid research-only multiplayer Mirage continuation');
+     const origin=who(state,state.pending.originalAttackerId);
+     const selections=state.pending.attackInstanceIds??[];
+     const realMirages=selections.filter(id=>origin.hand.some(c=>
+       c.instanceId===id&&catalog.get(c.definitionId)?.effects.some(e=>
+         e.when==='onDeclare'&&e.type==='widenAttack'&&e.params.mode==='allLiving'))).length+
+       (state.pending.attackSequence??[]).filter(step=>
+         step.learnedDefinitionId&&origin.learned.includes(step.learnedDefinitionId)&&
+         catalog.get(step.learnedDefinitionId)?.effects.some(e=>
+           e.when==='onDeclare'&&e.type==='widenAttack'&&e.params.mode==='allLiving')).length;
+     const hasWeapon=selections.some(id=>origin.hand.some(c=>
+       c.instanceId===id&&catalog.get(c.definitionId)?.family==='weapon'&&
+       catalog.get(c.definitionId)?.playModes.includes('mainAttack')));
+     const repeat=selections.some(id=>origin.hand.some(c=>
+       c.instanceId===id&&catalog.get(c.definitionId)?.effects.some(e=>
+         e.when==='onDeclare'&&e.type==='repeatAttack'&&e.params.count===2)));
+     if(!state.pending.attackContext){
+       if(!hasWeapon||realMirages!==effect.attackContext.mirageCount||
+          effect.attackContext.hitCount!==realMirages*(repeat?2:1)||
+          effect.route?.hitNumber!==0||
+          effect.route?.targetId!==state.pending.targetId||
+          effect.route?.sourceId!==origin.id||
+          effect.route?.roundIndex!==0||effect.route?.subHitIndex!==0||
+          effect.route?.roundCount!==realMirages||
+          effect.route?.hitsPerTarget!==(repeat?2:1)||
+          JSON.stringify(effect.route.visitedIds)!==JSON.stringify([state.pending.targetId]))
+         fail('Mirage first-hit route needs authentic physical and miracle selections');
+     } else if(!state.pending.mirageRoute||
+       JSON.stringify(state.pending.mirageRoute)!==JSON.stringify(effect.route)){
+       fail('Mirage continuation route cache mismatch');
+     }
+     if(effect.route?.targetId!==state.pending.targetId)
+       fail('Mirage route must match current defender');
+     // Route progression happens only AFTER the hit and zero-HP recovery
+     // have been applied to the cloned room, never on projected damage.
+     const next=advanceMirageTargetRouteFixture({
+       route:effect.route,players:s.players,rngSeed:s.rngSeed
+     });
+     s.rngSeed=next.nextSeed;
+     if(!next.complete){
+       const target=who(s,next.targetId);
+       if(target.hp<=0)fail('Cannot defend while eliminated');
+       s.pending={...s.pending,attackContext:effect.attackContext,
+         mirageRoute:next.route,sourceId:origin.id,targetId:target.id,
+         defense:null,strikeIndex:undefined};
+       s.phase='defense';s.activePlayerId=target.id;
+       events.push({type:'mirageNextTarget',targetId:target.id,
+         roundIndex:next.route.roundIndex,subHitIndex:next.route.subHitIndex,
+         hitNumber:next.route.hitNumber});
+     } else {
+       // The same settle/refill and turn-advance semantics as a single
+       // attack, but only once after the last possible Mirage target.
+       for(const p of s.players){
+         const amount=spent[p.id]??0;
+         if(!positiveCount(amount))fail('Invalid spent count');
+         let added=0;
+         if(p.hp>0){
+           while(added<amount&&p.hand.length<MAX_HAND_SIZE){
+             p.hand.push(createInstance(fixtureDrawDefinitionId,
+               s.nextInstanceSerial++,catalog));
+             added++;
+           }
+         }
+         if(amount)events.push({type:'refill',playerId:p.id,added});
+       }
+       const living=s.players.filter(p=>p.hp>0);
+       s.pending=null;
+       if(living.length<=1){
+         s.phase='finished';s.activePlayerId=null;
+         s.winnerId=living.length===1?living[0].id:null;
+         events.push({type:'matchEnd',winnerId:s.winnerId});
+       } else {
+         s.phase='turn';s.activePlayerId=nextAlive(s.players,origin.id);
+         s.turnCount++;
+         events.push({type:'turnAdvance',activePlayerId:s.activePlayerId});
+       }
+       events.push({type:'mirageRouteComplete',reason:next.reason,
+         hitNumber:next.hitNumber});
+     }
    } else if(effect.type==='continueStrike'){
      // A verified multi-hit attack opens a NEW defense window rather
      // than doubling damage or drawing new cards during its first strike.
@@ -516,7 +608,7 @@ export function runEffectQueueFixture(state,catalog,queue,{
      }
    } else fail('Unknown queued effect: '+String(effect.type));
  }
- if(interruptionOnly||continuation)s.pending.spentByPlayer={...spent};
+ if((interruptionOnly||continuation)&&s.pending)s.pending.spentByPlayer={...spent};
  validateDreamOwnershipFixture(s,catalog);
  return {state:s,events};
 }
