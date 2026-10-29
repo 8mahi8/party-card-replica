@@ -1642,6 +1642,8 @@ function previewSingleMirrorSale(state,catalog,selection,{mirrorInstanceId}={}){
  // resources/hand cap, neither of which is relevant after a mirror.
  if(seller.id!==state.activePlayerId||seller.id===counter.id)
    fail('Only current seller can be reflected');
+ if(selection.saleInstanceId===selection.soldInstanceId)
+   fail('Sell card and offered item must differ');
  const trade=seller.hand.find(c=>c.instanceId===selection.saleInstanceId);
  const item=seller.hand.find(c=>c.instanceId===selection.soldInstanceId);
  const tradeDef=catalog.get(trade?.definitionId);
