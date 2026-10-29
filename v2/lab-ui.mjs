@@ -205,7 +205,8 @@ export function renderV2LabMarkup(data,{resetArmed=false}={}){
    '<section class="trade-offer" aria-label="取引の提示">'+
    '<strong>売り付けられた神器：'+esc(data.pending.offer.label)+'</strong>'+
    '<span>価格 ¥'+esc(data.pending.offer.price)+'</span></section>':'';
- return header+'<main class="stage">'+
+ return header+'<main class="stage stage-docked">'+
+   '<div class="stage-scroll" tabindex="0" aria-label="行動と手札をスクロール">'+
    '<div class="stage-heading"><h1>'+esc(seatLabel(data.actorId))+'：'+title+'</h1><p>'+caption+'</p></div>'+
    offer+targets+exchangePanel+'<section class="cards-panel"><h2>手札 <small>'+data.hand.length+'枚</small></h2>'+
    '<div class="hand-grid">'+(data.hand.length?data.hand.map(c=>cardButton(c,'hand')).join(''):
@@ -215,14 +216,25 @@ export function renderV2LabMarkup(data,{resetArmed=false}={}){
        '<p class="empty">まだ習得していません</p>')+'</div></section>'+
    '<section class="selection"><h2>選択順 <small>再タップで解除</small></h2><div class="picks">'+
    (picked||'<span class="muted">まだ選択されていません</span>')+'</div></section>'+
-   notice+'<div class="action-bar">'+discardOption+
+   notice+'</div><div class="action-bar">'+discardOption+
    '<button type="button" class="primary wide confirm" data-action="submit">'+
    actionText+'</button></div></main>'+footer;
 }
 export function mountV2Lab(root,controller=createV2LabController()){
  if(!root||typeof root.addEventListener!=='function')throw new Error('Root element required');
  let resetArmed=false;
- const render=()=>{root.innerHTML=renderV2LabMarkup(controller.view(),{resetArmed});};
+ const render=()=>{
+   // Keep the scroll location when a card is selected. Replacing innerHTML
+   // otherwise jumps the short-iPad hand scroller back to the first row.
+   const previous=root.querySelector('.stage-scroll');
+   const previousTop=previous?.scrollTop??0;
+   const data=controller.view();
+   root.classList.toggle('v2-docked',data.revealed&&
+     (data.phase==='turn'||(data.phase==='defense'&&!data.revivalTrial)));
+   root.innerHTML=renderV2LabMarkup(data,{resetArmed});
+   const next=root.querySelector('.stage-scroll');
+   if(next)next.scrollTop=previousTop;
+ };
  root.addEventListener('click',event=>{
    const node=event.target?.closest?.('button');
    if(!node||!root.contains(node))return;
