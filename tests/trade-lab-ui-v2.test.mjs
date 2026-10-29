@@ -102,17 +102,24 @@ test('a nonmirror card cannot be used for a trade defense; result is atomic',()=
  assert.equal(lab.view().selection.length,0);
  assert.equal(lab.submit().ok,true);
 });
-test('an incomplete or self-directed Sell cannot strand a trade-defending seat',()=>{
+test('incomplete Sell is rejected; self-target Sell now resolves without opponent handoff',()=>{
  const lab=createV2LabController();lab.loadTradeTrial();
  const a=lab.reveal();use(lab,a,0);
  const original=JSON.stringify(lab.labSnapshot());
  assert.throws(()=>lab.submit(),/「売る」と売り渡す神器/);
  assert.equal(JSON.stringify(lab.labSnapshot()),original);
  use(lab,a,1);lab.setTarget('A');
- assert.throws(()=>lab.submit(),/自分への売却は原作確認/);
- assert.equal(JSON.stringify(lab.labSnapshot()),original);
- lab.setTarget('B');
- assert.equal(lab.submit().ok,true);
+ const self=lab.submit();
+ assert.equal(self.ok,true,self.error);
+ assert.equal(self.view.phase,'turn');
+ assert.equal(self.view.actorId,'B');
+ assert.equal(self.view.revealed,false);
+ const n=lab.labSnapshot();
+ assert.deepEqual(n.players.map(p=>[p.hp,p.mp,p.money]),[
+  [40,5,25],[40,10,20]
+ ]);
+ assert.equal(n.players[0].hand[0].instanceId,lab.labSnapshot().players[0].hand[0].instanceId);
+ assert.deepEqual(n.players[0].hand.map(c=>c.definitionId),['w003','d005','d001']);
 });
 test('reset returns to normal research hand after trade trial',()=>{
  const lab=createV2LabController(),initial=lab.labSnapshot();
