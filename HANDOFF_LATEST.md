@@ -5,6 +5,14 @@
 
 > **この文書は引き継ぎ入口であり、実装の真実は常に開発ブランチの最新コードとGitHub Actions。** コミットSHA・テスト件数・カード数は作業のたびに変わる。本文の日付や数値を確認せず永久に正しいと扱わないこと。
 
+## 2026-10-30 G6更新｜最新版単体HTMLで実Firebaseの双方向対戦成功【最新・優先】
+
+- **実ネット通信を確認済み**：現在の原作風HUDを含む`v2/demo/firebase-online-standalone.html`で、**本物のFirebase RTDBに対して独立WebKit2ブラウザでAが攻撃→Bが許す→Bが攻撃→Aが許す**を完走。両席`revision=6`一致、HP変化と宣言済み攻撃神器「ワンダーソード／攻10」・未使用手札秘匿を確認。テストした5桁ルームは`meta.hostId`を再検証して削除した。GitHub Actions [live run 40973710968](https://github.com/8mahi8/party-card-replica/actions/runs/40973710968)で `G6_LIVE_TWO_BROWSER_SUCCESS` と `G6_LIVE_CLEANUP_SUCCESS` を確認。**学校の別々のiPad実機ではなく、CI環境の2ブラウザコンテキストによる実Firebase通信。**
+- **Google Sitesのiframe向け最小修正**：`v2/demo/firebase-online-lab.html`のB参加処理は従来`sessionStorage.getItem/setItem`が拒否されると停止したため、アクセスをtry/catchで保護し、使用不可時は一時ゲストIDで参加可能に。これはMDNが説明するsandbox由来のストレージアクセス制限対策であり、**Google Sites自体のsandbox・学校iPad実機はまだ未確認**。保存不可時の再読み込み後の席復帰は非対応。
+- **検証**：Node **908/908 PASS** run [40973992022](https://github.com/8mahi8/party-card-replica/actions/runs/40973992022)、Chromium **28/28 PASS** run [40973992018](https://github.com/8mahi8/party-card-replica/actions/runs/40973992018)、WebKit旧画面 **339/339 PASS**＋オンライン2画面 **28/28 PASS** run [40973992092](https://github.com/8mahi8/party-card-replica/actions/runs/40973992092)。WebKitのBページでは`sessionStorage` getterを意図的に`SecurityError`にし、参加→攻防まで通した。
+- **保存・引継ぎ**：配布単体HTMLはbot commit `fde4f6c`で開発ブランチへ再生成・保存。正式記録は[`docs/V2_G6_REAL_FIREBASE_TWO_TURN_AND_IFRAME_2026-10-30.md`](docs/V2_G6_REAL_FIREBASE_TWO_TURN_AND_IFRAME_2026-10-30.md)。実Firebase検証workflowとビルドworkflowは手動起動へ戻した。`main`、学校Google Sites HTML、Firebase Rules/認証の変更なし。
+- **次に最も価値のある作業**：学校iPad2台のSafari/Google Sites埋込で動作確認。問題がなければG6の研究用4枚固定手札・固定補充を卒業し、**出典付きの原作正規山札・手札供給と個別カード効果の完成**へ進む。正規カード353種/500枠等を未検証の部分資料で代用して原作完成と称しない。Pagesの公開URLも未確認。
+
 ## 2026-10-30 G6最新｜防御側へ宣言済み攻撃神器・攻撃値を表示【今回の最新】
 
 - **原作の防御画面との差を確認**：[原作ブラウザ画面の説明と画像](https://godfield-beginner.game-info.wiki/)・[攻撃/防御の原作操作](https://w.atwiki.jp/piong/pages/16.html)。G6は攻撃元→対象だけ分かり、相手の使用神器・攻撃値が見えず、判断材料が不足していた。原作では宣言済みの攻撃内容を見て防御を選べる。
