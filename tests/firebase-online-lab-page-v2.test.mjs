@@ -44,3 +44,18 @@ test('online UI preserves in-flight command ID and offers recovery from a lost a
  assert.match(page,/waiting=false;pendingId=null;pendingCommand=null/);
  assert.doesNotMatch(page,/catch\(error\)\{waiting=false;pendingId=null/);
 });
+
+test('reference-style layout keeps the original field, player stats and bottom artifact strip',()=>{
+ assert.match(page,/class="brandline"/);
+ assert.match(page,/class="battle-board"/);
+ assert.match(page,/class="arena"/);
+ assert.match(page,/id="selectionPreview"/);
+ assert.match(page,/id="handCount"/);
+ assert.match(page,/id="battleHint"/);
+ assert.match(page,/\.hand\{display:flex/);
+ assert.match(page,/overflow-x:auto/);
+ assert.match(page,/aria-pressed/);
+ assert.match(page,/許す（防御なし）/);
+ assert.match(page,/\.score \.statline/);
+ assert.match(page,/radial-gradient/);
+});
