@@ -6,12 +6,12 @@
  */
 const FAMILIES = new Set(['weapon','armor','miracle','item','trade']);
 const ELEMENTS = new Set(['none','fire','water','wood','earth','light','dark']);
-const MODES = new Set(['mainAttack','addAttack','defend','cast','support','trade']);
+const MODES = new Set(['mainAttack','addAttack','defend','cast','support','trade','passive']);
 // Some original artifacts return to the hand and cost HP when discarded.
 // Until sourced effects are implemented, explicitly gate those definitions.
 const DISCARD_POLICIES = new Set(['ordinary','forbidden','requiresSpecialResolution']);
-const EFFECT_TRIGGERS = new Set(['onDeclare','onCost','beforeHit','onDefense','afterHit','onTurnEnd']);
-const EFFECT_TYPES = new Set(['redirectAttack','stripElement','multiplyAttack','addAttack','stopAttack','waivePreviousMp','setAttackElement','forceSale','requestBuy','reallocateResources']);
+const EFFECT_TRIGGERS = new Set(['onDeclare','onCost','beforeHit','onDefense','afterHit','onTurnEnd','onZeroHp']);
+const EFFECT_TYPES = new Set(['redirectAttack','stripElement','multiplyAttack','addAttack','stopAttack','waivePreviousMp','setAttackElement','forceSale','requestBuy','reallocateResources','reviveAtZeroHp']);
 
 function plainObject(v) { return v !== null && typeof v === 'object' && !Array.isArray(v); }
 function nonnegative(n) { return Number.isSafeInteger(n) && n >= 0; }
@@ -35,6 +35,9 @@ function freezeEffect(effect) {
      (effect.when!=='onDeclare'||Object.keys(params).length!==1||
       !['fire','water'].includes(params.element)))
     throw new Error('Invalid setAttackElement data');
+  if(effect.type==='reviveAtZeroHp'&&
+     (effect.when!=='onZeroHp'||Object.keys(params).length!==1||params.hp!==10))
+    throw new Error('Invalid reviveAtZeroHp effect data');
   if(effect.type==='reallocateResources'&&
      (effect.when!=='onDeclare'||Object.keys(params).length!==1||
       params.kind!=='exchange'))
