@@ -173,8 +173,14 @@ export function runEffectQueueFixture(state,catalog,queue,{
          attempted:effect.damage,restored:beneficiary.hp-before,
          hpAfter:beneficiary.hp});
      }
-     const recovery=planZeroHpRecoveryFixture({player:{...p,hp:targetBeforeHp},catalog,
-       hpAfter:p.hp});
+     const healedSelf=absorbs &&
+       (state.pending.sourceId??state.pending.originalAttackerId)===p.id &&
+       p.hp>0;
+     // A self-absorbing hit is one compound attack: it can dip to zero
+     // transiently, but it never invokes the passive zero-HP charm.
+     const recovery=healedSelf?{kind:'survived',hpAfter:p.hp}
+       :planZeroHpRecoveryFixture({player:{...p,hp:targetBeforeHp},catalog,
+         hpAfter:p.hp});
      p.hp=recovery.hpAfter;
      if(recovery.kind==='revived'){
        const index=p.hand.findIndex(x=>x.instanceId===recovery.consumedInstanceId);
