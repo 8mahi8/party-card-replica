@@ -5,6 +5,15 @@
 
 > **この文書は引き継ぎ入口であり、実装の真実は常に開発ブランチの最新コードとGitHub Actions。** コミットSHA・テスト件数・カード数は作業のたびに変わる。本文の日付や数値を確認せず永久に正しいと扱わないこと。
 
+## 2026-10-30 G6最新｜**本物のFirebaseを介した2ブラウザ対戦成功**【現在の到達点】
+
+- **重大な実通信バグを発見・修正**：Firebase RTDBに`{command:{orderedInstanceIds:[]}}`をオブジェクトで保存すると、空配列が欠落し、「防御しない」操作が`Invalid ordered card selection`で拒否されていた。localhostのmock DBでは再現せず、本物のFirebaseに接続したから判明。修正は`v2/firebase-two-seat-transport-fixture.mjs`で`commandJson:JSON.stringify(command)`に変更し、ホスト側でparseして既存エンジンへ渡す方式。原作ルール・Firebase Rules・匿名認証を変更していない。互換で旧`message.command`も読める。
+- **実Firebaseで検証成功**：GitHub Actions `G6 one-off live Firebase 2-seat probe` run [`40934112303`](https://github.com/8mahi8/party-card-replica/actions/runs/40934112303)。2つの**独立したPlaywright WebKitブラウザコンテキスト**から学校で使われる実Firebase RTDBへアクセスし、ホストが5桁ルーム作成→ゲスト参加→Aの攻撃→Bの空防御→双方HP30/revision3を実際に同期。テスト専用ルームの**削除も成功**（`G6_LIVE_TWO_BROWSER_SUCCESS`、`G6_LIVE_CLEANUP_SUCCESS`ログ確認）。
+- **検証済みコードコミット**：`f640b54a86561c568c653fcb3d062605174ad789`。GitHub Actions Node **897/897 PASS** run `40934112244`、Chromium **28/28 PASS** run `40934112378`、既存WebKit **339/339 PASS＋mockオンライン2画面9/9 PASS** run `40934112253`、実FirebaseのWebKit2ブラウザ成功 run `40934112303`。追加回帰1件で通信コマンドの空配列をJSON文字列として保持することを検証。
+- **資料**：[`docs/V2_G6_FIREBASE_TWO_SEAT_LAB_2026-10-30.md`](docs/V2_G6_FIREBASE_TWO_SEAT_LAB_2026-10-30.md)の最新節参照。外部本番Firebaseでのテストは安全な専用ルームだけに限定し、後片付け成功。`g6-live-firebase-probe.yml`は通常PR時の外部書き込みを停止し、手動起動のみ可能な設定へ変更した（workflow_dispatchのブランチ条件を要確認）。
+- **未検証**：学校iPad/iOS Safari実機、校内ネットワーク、Google Sites、外部HTTPS試遊URL、ホスト再読込復旧。G6の本物のDB通信が成功したことと学校環境で実際に遊べることを混同しない。固定の仮カード補充・一部研究カードのため、原作完全再現も未達。
+- **次工程**：開発版のHTTPS試遊経路を確立し、学校の2台のiPadでA攻撃→B空防御→次ターンを試す。原作山札/個別効果とUIの改善は並行。**mainと学校のGoogle Sites上の埋込HTML、Firebase Security Rulesは無断変更しない。**
+
 ## 2026-10-30 G6最新｜Firebase書き込み順序と一時失敗時の同一ID復帰【現在地】
 
 - **実装**：`v2/firebase-two-seat-transport-fixture.mjs`で、ホスト/ゲスト由来のFirebase更新を順番通りに公開するPromiseキューを追加。Aの更新が遅い間にBの防御が解決しても、後から到着する旧revisionで最新画面が巻き戻らない。
