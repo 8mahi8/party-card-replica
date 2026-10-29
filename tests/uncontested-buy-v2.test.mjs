@@ -25,8 +25,8 @@ test('Buy definition has source-backed 20/500 weight, ¥5 price and strict reque
  assert.equal(card.drawWeight,20);
  assert.deepEqual(card.effects.map(e=>[e.when,e.type,e.params.kind]),
   [['onDeclare','requestBuy','buy']]);
- assert.equal(summary.unique,92);
- assert.equal(summary.slots,249);
+ assert.equal(summary.unique,93);
+ assert.equal(summary.slots,269);
  assert.equal(summary.complete,false);
 });
 test('uncontested Buy pays money and moves exact random item; action card alone refills',()=>{
