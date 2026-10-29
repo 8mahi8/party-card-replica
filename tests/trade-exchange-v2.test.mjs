@@ -28,8 +28,8 @@ test('Exchange definition uses price ¥5 and research probability 20 / 500',()=>
  assert.equal(card.drawWeight,20);
  assert.deepEqual(card.effects.map(e=>[e.when,e.type,e.params.kind]),
    [['onDeclare','reallocateResources','exchange']]);
- assert.equal(summary.unique,93);
- assert.equal(summary.slots,269);
+ assert.equal(summary.unique,94);
+ assert.equal(summary.slots,270);
  assert.equal(summary.complete,false);
 });
 test('pure preview conserves exact HP:MP:money 1:1 and cannot mutate callers',()=>{
