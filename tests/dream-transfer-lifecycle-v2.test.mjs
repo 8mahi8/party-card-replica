@@ -144,3 +144,22 @@ test('malformed retirement cannot mutate the private dream ledger',()=>{
  }
  assert.equal(JSON.stringify(s),before);
 });
+
+test('forged trade-to-trade Dream alias is never admitted through owner projection',()=>{
+ const s=room(),trade=s.players[0].hand[0];
+ const forged={...s,players:s.players.map(p=>p.id==='A'?{
+  ...p,dreamDisguises:[{
+   instanceId:trade.instanceId,appearsAsDefinitionId:'t002'
+  }]
+ }:p)};
+ assert.throws(()=>validateDreamOwnershipFixture(forged,catalog),/timing mismatch/);
+ assert.throws(()=>viewStagingRoom(forged,'A',catalog),/timing mismatch/);
+ assert.equal(forged.players[0].hand[0].definitionId,'t001');
+});
+test('authentic Dream disguise remains valid when no alias is defined for another seat',()=>{
+ const s=dream(room(),'A',1,'w016');
+ assert.equal(validateDreamOwnershipFixture(s,catalog),true);
+ const projection=viewStagingRoom(s,'B',catalog);
+ assert.equal(projection.players[0].hand,undefined);
+ assert.equal(projection.players[1].hand.length,1);
+});
