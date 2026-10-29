@@ -125,7 +125,7 @@ test('real Super Mirror is recognized but an unverified reflection does not muta
  const snapshot=JSON.stringify(lab.labSnapshot());
  const result=lab.submit();
  assert.equal(result.ok,false);
- assert.match(result.error,/original verification/);
+ assert.match(result.error,/原作の確認待ち/);
  assert.equal(JSON.stringify(lab.labSnapshot()),snapshot);
  assert.equal(lab.view().phase,'buyDefense');
  // Remove mirror and proceed with the researched non-reflected case.
