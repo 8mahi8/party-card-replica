@@ -1132,6 +1132,8 @@ async function testSunCharmRevivalTouch(base){
   const submit=await frame.locator('[data-action=submit]').boundingBox();
   passed(Boolean(box&&submit&&box.height>=70&&submit.height>=44),
     'passive card and defense confirmation have sufficient touch areas');
+  passed(Boolean(box&&submit&&box.y+box.height+4<submit.y),
+    'passive Sun Charm card is entirely visible above the fixed confirmation button');
   await screenshot('webkit-sun-charm-before-revival');
   await frame.locator('[data-action=submit]').tap();
   await frame.locator('.compact-pass').waitFor();
