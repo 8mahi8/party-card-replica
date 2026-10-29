@@ -13,6 +13,7 @@ import {planIncomingHandTransfer} from './hand-overflow.mjs';
 import {previewBuyOfferFixture,previewBuyChoiceFixture} from './trade-buy.mjs';
 import {previewExchangeFixture} from './trade-exchange.mjs';
 import {planZeroHpRecoveryFixture} from './zero-hp-recovery.mjs';
+import {previewSelfSaleFixture} from './trade-self-sale.mjs';
 
 function fail(message){throw new Error(message);}
 function who(state,id){
@@ -159,6 +160,32 @@ export function runEffectQueueFixture(state,catalog,queue,{
      player.money=plan.after.money;
      events.push({type:'exchange',playerId:player.id,before:plan.before,
        after:plan.after,total:plan.total});
+   } else if(effect.type==='selfSale'){
+     if(Object.keys(effect).length!==2||!Object.hasOwn(effect,'playerId'))
+       fail('Malformed self Sale effect');
+     const pending=state.pending;
+     if(pending?.type!=='selfSale'||pending.originalAttackerId!==effect.playerId||
+        pending.targetId!==effect.playerId)
+       fail('Self Sale must match the authenticated room');
+     const actor=who(state,effect.playerId),current=who(s,effect.playerId);
+     const consumed=queue.filter(q=>q.type==='spend'&&q.playerId===effect.playerId);
+     if(consumed.length!==1||
+        consumed[0].instanceIds?.length!==1||
+        consumed[0].instanceIds[0]!==pending.saleInstanceId)
+       fail('Self Sale requires spending exactly one authentic Sell card');
+     const asTurn={...state,phase:'turn',activePlayerId:effect.playerId,pending:null};
+     const plan=previewSelfSaleFixture(asTurn,catalog,{
+       sellerId:effect.playerId,saleInstanceId:pending.saleInstanceId,
+       soldInstanceId:pending.soldInstanceId
+     });
+     if(!current.hand.some(c=>c.instanceId===plan.soldInstanceId))
+       fail('Self Sale offered item must remain held');
+     current.hp=plan.after.hp;
+     current.mp=plan.after.mp;
+     current.money=plan.after.money;
+     events.push({type:'selfSale',playerId:effect.playerId,
+       itemDefinitionId:plan.itemDefinitionId,
+       price:plan.price,total:plan.total});
    } else if(effect.type==='uncontestedSale'){
      // Source-verified transfer and debit only. A real live trade must first
      // implement Super Mirror counterplay; this effect is lab-fixture ONLY.
