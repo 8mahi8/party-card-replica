@@ -201,3 +201,33 @@ test('explicit first target cannot bypass RNG seed validation',()=>{
  assert.equal(x.targetId,'C');
  assert.equal(x.nextSeed,7);
 });
+
+test('forged Mirage history cannot skip a future defender or invent past visits',()=>{
+ const players=seats(4),first=start(players,2,1,71);
+ const current=first.route.targetId;
+ const other=players.find(p=>p.id!=='A'&&p.id!==current).id;
+ const cases=[
+  {...first.route,visitedIds:[current,other]},
+  {...first.route,visitedIds:[other,current]}
+ ];
+ for(const route of cases){
+  const before=JSON.stringify(route);
+  assert.throws(()=>advance({route,players,rngSeed:first.nextSeed}),
+    /Invalid visited ledger/);
+  assert.equal(JSON.stringify(route),before);
+ }
+ // The engine's real, sequential visits still progress.
+ const valid=advance({route:first.route,players,rngSeed:first.nextSeed});
+ assert.equal(valid.reason,'nextTarget');
+ assert.equal(valid.route.visitedIds.at(-1),valid.targetId);
+ assert.equal(valid.route.visitedIds.length,2);
+});
+test('invalid RNG seed is rejected even when route terminates without a draw',()=>{
+ const players=seats(2),first=start(players);
+ players[1].hp=0; // Legitimate all-targets-eliminated terminal state.
+ assert.equal(advance({route:first.route,players,rngSeed:first.nextSeed}).complete,true);
+ for(const seed of [undefined,0,-1,NaN,'7',4294967296]){
+  assert.throws(()=>advance({route:first.route,players,rngSeed:seed}),
+    /Invalid RNG seed/);
+ }
+});
