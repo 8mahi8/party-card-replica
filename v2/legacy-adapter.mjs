@@ -9,7 +9,7 @@ import {VERIFIED_BASIC_CARDS,PARTIAL_CARD_SOURCE} from '../src/verified-basic-ca
 const KNOWN_KEYS=new Set([
   'id','referenceName','kind','category','slot','element','attack','guard',
   'attackBonus','price','weight','reaction','reactionScope','stopScope',
-  'role','boost','plusAttack','mpCost','effect','attackElementOverride','discardPolicy','tradeAction'
+  'role','boost','plusAttack','mpCost','effect','attackElementOverride','discardPolicy','tradeAction','hpAbsorb'
 ]);
 const CATEGORY_BY_KIND=Object.freeze({weapon:'weapon_single',armor:'armor_normal',miracle:'miracle',defense_item:'item',support_item:'item',trade:'trade'});
 const mk=(when,type,params={})=>({when,type,params});
@@ -52,6 +52,11 @@ export function convertLegacyCard(card,{ruleset=PARTIAL_CARD_SOURCE}={}) {
       }));
     } else if(card.reactionScope!==undefined)
       throw new Error('Orphan weapon reaction scope');
+    if(card.hpAbsorb!==undefined){
+      if(card.hpAbsorb!==true||card.slot!=='main')
+        throw new Error('Unverified HP absorption definition');
+      effects.push(mk('afterHit','absorbHp',{amount:'damage'}));
+    }
     if(card.attackElementOverride!==undefined){
       if(card.slot!=='addon'||!['fire','water'].includes(card.attackElementOverride)||
          card.element!==card.attackElementOverride)
