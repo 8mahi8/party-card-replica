@@ -473,6 +473,7 @@ const VERIFIED_BASIC_CARDS = Object.freeze([
   Object.freeze({id:'m001',referenceName:'壁',kind:'miracle',role:'stop',stopScope:'neutral_weapon',category:'miracle',element:'none',mpCost:6,price:0,weight:1}),
   Object.freeze({id:'m002',referenceName:'氷',kind:'miracle',role:'attack',category:'miracle',element:'water',attack:4,mpCost:2,price:0,weight:1}),
   Object.freeze({id:'m003',referenceName:'闇',kind:'miracle',role:'attack',category:'miracle',element:'dark',attack:5,mpCost:5,price:0,weight:1}),
+  Object.freeze({id:'m012',referenceName:'蜃気楼',kind:'miracle',role:'wide_weapon',category:'miracle',element:'none',mpCost:5,price:0,weight:1}),
   Object.freeze({id:'m004',referenceName:'オーラ',kind:'miracle',role:'boost_weapon',boost:'double_weapon',category:'miracle',element:'none',mpCost:6,price:0,weight:1}),
   Object.freeze({id:'m005',referenceName:'火の玉',kind:'miracle',role:'attack',plusAttack:true,category:'miracle',element:'fire',attack:2,mpCost:2,price:0,weight:1}),
   Object.freeze({id:'m006',referenceName:'流星',kind:'miracle',role:'attack',plusAttack:true,category:'miracle',element:'light',attack:10,mpCost:7,price:0,weight:1}),
@@ -519,7 +520,7 @@ const MODES = new Set(['mainAttack','addAttack','defend','cast','support','trade
 // Until sourced effects are implemented, explicitly gate those definitions.
 const DISCARD_POLICIES = new Set(['ordinary','forbidden','requiresSpecialResolution']);
 const EFFECT_TRIGGERS = new Set(['onDeclare','onCost','beforeHit','onDefense','afterHit','onTurnEnd','onZeroHp']);
-const EFFECT_TYPES = new Set(['redirectAttack','stripElement','multiplyAttack','addAttack','stopAttack','waivePreviousMp','setAttackElement','forceSale','requestBuy','reallocateResources','reviveAtZeroHp','absorbHp','repeatAttack']);
+const EFFECT_TYPES = new Set(['redirectAttack','stripElement','multiplyAttack','addAttack','stopAttack','waivePreviousMp','setAttackElement','forceSale','requestBuy','reallocateResources','reviveAtZeroHp','absorbHp','repeatAttack','widenAttack']);
 
 function plainObject(v) { return v !== null && typeof v === 'object' && !Array.isArray(v); }
 function nonnegative(n) { return Number.isSafeInteger(n) && n >= 0; }
@@ -543,6 +544,9 @@ function freezeEffect(effect) {
      (effect.when!=='onDeclare'||Object.keys(params).length!==1||
       !['fire','water'].includes(params.element)))
     throw new Error('Invalid setAttackElement data');
+  if(effect.type==='widenAttack'&&
+      (effect.when!=='onDeclare'||Object.keys(params).length!==1||params.mode!=='allLiving'))
+    throw new Error('Invalid widenAttack effect data');
   if(effect.type==='repeatAttack'&&
       (effect.when!=='onDeclare'||Object.keys(params).length!==1||params.count!==2))
     throw new Error('Invalid repeatAttack effect data');
@@ -837,6 +841,10 @@ function convertLegacyCard(card,{ruleset=PARTIAL_CARD_SOURCE}={}) {
       modes.push('defend');effects.push(mk('onDefense','stopAttack',{scope:'neutralWeapon'}));
     } else if(card.role==='deflect_miracle') {
       modes.push('defend');effects.push(mk('onDefense','redirectAttack',{mode:'deflect',scope:'miracle'}));
+    } else if(card.role==='wide_weapon') {
+      if(card.mpCost!==5||card.element!=='none'||card.boost!==undefined||card.plusAttack!==undefined)
+        throw new Error('Unverified wide-weapon miracle definition');
+      modes.push('cast');effects.push(mk('onDeclare','widenAttack',{mode:'allLiving'}));
     } else if(card.role==='boost_weapon') {
       if(card.boost!=='double_weapon')throw new Error('Unmapped miracle boost');
       modes.push('cast');effects.push(mk('onDeclare','multiplyAttack',{factor:2,scope:'weapon'}));
@@ -2052,8 +2060,8 @@ function viewStagingRoom(state,viewerId,catalog=null) {
     pending:state.pending?{
       type:state.pending.type,sourceId:state.pending.sourceId??state.pending.originalAttackerId,
       targetId:state.pending.targetId,
-      ...(state.pending.strikeIndex!==undefined?{
-        strikeNumber:state.pending.strikeIndex+1,
+      ...(state.pending.attackContext?.hitCount>1?{
+        strikeNumber:(state.pending.strikeIndex??0)+1,
         strikeCount:state.pending.attackContext?.hitCount??1
       }:{}),
       stage:state.pending.type==='buy'?
@@ -2160,7 +2168,9 @@ function runEffectQueueFixture(state,catalog,queue,{
  const continuation=queue.at(-1)?.type==='continueStrike';
  if(continuation&&(interruptionOnly||queue.filter(e=>e.type==='hit').length!==1||
     queue.some(e=>['refill','advance'].includes(e.type))||
-    state.pending?.type!=='attack'||(state.pending.strikeIndex??0)!==0))
+    state.pending?.type!=='attack'||
+    !Number.isSafeInteger(state.pending.strikeIndex??0)||
+    (state.pending.strikeIndex??0)<0))
    fail('Invalid first-strike continuation queue');
  const s=cloneRoom(state,{interruptionOnly:interruptionOnly||continuation});
  const spent=Object.assign(Object.create(null),state.pending.spentByPlayer??{});
@@ -2535,12 +2545,13 @@ function runEffectQueueFixture(state,catalog,queue,{
      // A verified multi-hit attack opens a NEW defense window rather
      // than doubling damage or drawing new cards during its first strike.
      if(!continuation||effect!==queue.at(-1)||s.pending?.type!=='attack'||
-        s.pending.strikeIndex!==undefined||
         effect.attackContext?.attackKind!=='weapon'||
-        effect.attackContext.hitCount!==2||
+        ![2,3,4,6].includes(effect.attackContext.hitCount)||
+        !Number.isSafeInteger(s.pending.strikeIndex??0)||
+        (s.pending.strikeIndex??0)+1>=effect.attackContext.hitCount||
         effect.attackContext.absorbsHp===true||
         (state.pending.attackContext &&
-          (state.pending.attackContext.hitCount!==2||
+          (state.pending.attackContext.hitCount!==effect.attackContext.hitCount||
            JSON.stringify(state.pending.attackContext)!==JSON.stringify(effect.attackContext))))
        fail('Invalid repeated strike context');
      const origin=who(s,s.pending.originalAttackerId);
@@ -2551,17 +2562,26 @@ function runEffectQueueFixture(state,catalog,queue,{
        // Validate against PRE-QUEUE ownership, because the real attack
        // cards were just spent above in this same atomic settlement.
        const originalOrigin=who(state,s.pending.originalAttackerId);
-       const real=state.pending.attackInstanceIds?.some(id=>
+       const selections=state.pending.attackInstanceIds??[];
+       const realRepeat=selections.some(id=>
          originalOrigin.hand.some(card=>card.instanceId===id&&
            catalog.get(card.definitionId)?.effects.some(e=>
              e.when==='onDeclare'&&e.type==='repeatAttack'&&e.params.count===2)));
-       if(!real)fail('A repeated attack needs the original physical weapon');
+       const mirages=selections.filter(id=>
+         originalOrigin.hand.some(card=>card.instanceId===id&&
+           catalog.get(card.definitionId)?.effects.some(e=>
+             e.when==='onDeclare'&&e.type==='widenAttack'&&e.params.mode==='allLiving'))).length;
+       const expectedHits=(realRepeat?2:1)*Math.max(1,mirages);
+       if((!realRepeat&&mirages<2)||expectedHits!==effect.attackContext.hitCount||
+          mirages>3|| (mirages>0&&state.players.length!==2))
+         fail('A repeated attack needs the original physical weapon or Mirage sequence');
      }
      s.pending={...s.pending,attackContext:effect.attackContext,
        repeatTargetId:target.id,sourceId:origin.id,targetId:target.id,
-       strikeIndex:1,defense:null};
+       strikeIndex:(s.pending.strikeIndex??0)+1,defense:null};
      s.phase='defense';s.activePlayerId=target.id;
-     events.push({type:'nextStrike',strikeIndex:1,hitCount:2,targetId:target.id});
+     events.push({type:'nextStrike',strikeIndex:s.pending.strikeIndex,
+       hitCount:effect.attackContext.hitCount,targetId:target.id});
    } else if(effect.type==='refill'){
      for(const p of s.players){
        const amount=spent[p.id]??0;
@@ -3189,7 +3209,7 @@ function compileOrderedWeaponAttack(state,catalog){
     fail('Basic resolution requires weapon first');
   let weaponAttack=0,attackElement='none',mainCount=0,weaponCount=0;
   let aura=null,plusCount=0,additive=0,lastWasMiracle=false,hasArmorBonus=false,itemBonus=0;
-  let learnedDrawCount=0;
+  let learnedDrawCount=0,mirageCount=0;
   let forcedAttackElement=null,absorbsHp=false,hitCount=1;
   let wandPosition=-1,auraPosition=-1;
   const casts=[],selectedKinds=[];
@@ -3255,6 +3275,13 @@ function compileOrderedWeaponAttack(state,catalog){
           fail('Only identical verified hand-based plus pair may stack');
         additive=add(additive,def.stats.attack);
         attackElement=combineElements(attackElement,def.element);
+      } else if(def.effects.length===1&&
+         def.effects[0].type==='widenAttack'&&
+         def.effects[0].when==='onDeclare'&&
+         def.effects[0].params.mode==='allLiving'&&
+         def.playModes.includes('cast')&&def.stats.mpCost===5){
+        mirageCount++;
+        if(mirageCount>3)fail('More than three Mirage casts need source verification');
       } else fail('Unsupported attack miracle effect');
       miracles.push({id:def.id,mpCost:def.stats.mpCost,discounted:false,fromLearned});
       if(fromLearned)learnedDrawCount++;
@@ -3287,8 +3314,19 @@ function compileOrderedWeaponAttack(state,catalog){
     }
   }
   if(!weaponCount)fail('Attack requires a weapon');
-  if(hitCount===2&&(miracles.length>0||hasArmorBonus||itemBonus||absorbsHp))
+  if(hitCount===2&&(miracles.length>mirageCount||hasArmorBonus||itemBonus||absorbsHp))
     fail('Repeat hits with miracles, armor attack bonus or other special effects are not verified');
+  if(mirageCount){
+    // A full all-living attack needs a separate target iteration and audit
+    // before enabling 3+ seats. Research-limited 1v1 only.
+    if(state.players.length!==2)fail('Mirage all-target play needs multiplayer routing verification');
+    if(mirageCount!==miracles.length||aura||plusCount||hasArmorBonus||itemBonus||
+       forcedAttackElement!==null||absorbsHp)
+      fail('Mirage combined with other special attack effects is unverified');
+    // Source-backed: one Mirage = one sweep, two = two sweeps;
+    // Nokobunbun repeats each sweep twice, e.g. two Mirages = 4 hits.
+    hitCount*=mirageCount;
+  }
   if(miracles.length&&state.pending.targetId===caster.id)
     fail('Boosted self-target attack has not been verified');
   if(aura&&plusCount)fail('Aura plus additive miracle ordering unverified');
@@ -3309,10 +3347,10 @@ function compileOrderedWeaponAttack(state,catalog){
     // The ordinary Aura attack is neutral even with an elemental weapon.
     // A verified dye wand AFTER Aura is the explicit exception: it sets
     // the final fire/water attribute. Do not preserve the weapon element.
-    attack,element:forcedAttackElement??(aura?'none':attackElement),attackKind:'weapon',
+    attack,element:forcedAttackElement??(aura||mirageCount?'none':attackElement),attackKind:'weapon',
     instanceIds:Object.freeze(selected.filter(x=>x.instance).map(x=>x.instance.instanceId)),
     payableMP,learnedDrawCount,learnedMiracles:Object.freeze(learnedMiracles),
-    hasModifiers:miracles.length>0,absorbsHp,hitCount,
+    hasModifiers:miracles.length>0,absorbsHp,hitCount,mirageCount,
     selectedKinds:Object.freeze(selectedKinds)
   });
 }
@@ -3459,10 +3497,11 @@ function compileBasicResolution(state,catalog) {
      defender.hand.some(c=>catalog.get(c.definitionId)?.effects.some(e=>
        e.when==='onZeroHp'&&e.type==='reviveAtZeroHp')))
     fail('Absorption against a fatal Sun Charm recovery requires original timing verification');
-  const multiHit=attackContext.hitCount===2;
+  const hitCount=attackContext.hitCount??1;
+  const multiHit=hitCount>1;
   const hitIndex=p.strikeIndex??0;
   if(!Number.isSafeInteger(hitIndex)||hitIndex<0||
-     (multiHit?hitIndex>1:hitIndex!==0))
+     (multiHit?hitIndex>=hitCount:hitIndex!==0))
     fail('Invalid staged strike index');
   if(multiHit&&(attackContext.absorbsHp||attacker.id===p.repeatTargetId||
        (!p.attackContext&&p.targetId===attacker.id)))
@@ -3475,8 +3514,8 @@ function compileBasicResolution(state,catalog) {
   const defenderWillSurvive=hit.hpAfter>0||
     defender.hand.some(c=>catalog.get(c.definitionId)?.effects.some(e=>
       e.when==='onZeroHp'&&e.type==='reviveAtZeroHp'));
-  const continueStrike=multiHit&&hitIndex===0&&defenderWillSurvive&&
-    (attacker.id===defender.id||attacker.hp>0)&&
+  const continueStrike=multiHit&&hitIndex+1<hitCount&&defenderWillSurvive&&
+    (attacker.id!==defender.id||hit.hpAfter>0)&&
     (repeatTarget.id===defender.id||repeatTarget.hp>0);
   const queue=Object.freeze([
     ...(p.attackContext?[]:queuedAttackCosts(attackContext,attacker.id)),
@@ -3491,7 +3530,7 @@ function compileBasicResolution(state,catalog) {
   return Object.freeze({
     originalAttackerId:attacker.id,targetId:defender.id,
     attack,element,armor,stripElement,
-    hit,hitIndex,hitCount:attackContext.hitCount??1,continueStrike,queue
+    hit,hitIndex,hitCount,continueStrike,queue
   });
 }
 /**
@@ -3720,7 +3759,7 @@ function resolveRedirectFixture(state,catalog,{
  if(!redirected.length) {
    if(isWallDefense(state,catalog)){
      const attack=p.attackContext??compileBasicWeaponAttack(state,catalog);
-     if(attack.hitCount===2)
+     if((attack.hitCount??1)>1)
        bad('Wall versus repeated strikes needs original stop timing verification');
      return resolveWallFixture(state,catalog,{labOnly:true,fixtureDrawDefinitionId});
    }
@@ -3764,7 +3803,7 @@ function resolveRedirectFixture(state,catalog,{
  result.pending={
    ...result.pending,sourceId:route.source,targetId:route.target,
    attackContext,defense:null,
-   ...(attackContext.hitCount===2&&(p.strikeIndex??0)===0?
+   ...((attackContext.hitCount??1)>1&&(p.strikeIndex??0)===0?
      {repeatTargetId:p.repeatTargetId??p.targetId}:{})
  };
  if(immediate) {
@@ -4908,8 +4947,8 @@ function renderV2LabMarkup(data,{resetArmed=false}={}){
  const title=isExchange?'両替：配分を入力':
    data.phase==='turn'?'攻撃するカードを順番に選択':
    data.phase==='tradeDefense'?'取引への応答を選択':
-   '防御カードを順番に選択'+(data.pending?.strikeCount===2?
-     '（'+esc(data.pending.strikeNumber)+'/2発目）':'');
+   '防御カードを順番に選択'+(data.pending?.strikeCount>1?
+     '（'+esc(data.pending.strikeNumber)+'/'+esc(data.pending.strikeCount)+'発目）':'');
  const soloPlusMiracle=data.phase==='turn' && firstPicked?.family==='miracle' &&
    firstPicked.playModes.includes('addAttack');
  const isSelling=data.phase==='turn' && firstPicked?.tradeAction==='sell';
