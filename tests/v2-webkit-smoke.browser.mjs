@@ -930,8 +930,8 @@ async function testSellingTradeCardTouch(base){
   passed((await frame.locator('.compact-pass h1').textContent()).includes('P1'),
    'buyer may use purchased Sell on next turn');
   await frame.locator('[data-action=reveal]').tap();
-  passed((await frame.locator('.trade-offer').textContent()).includes('革の帽子'),
-   'purchased Sell creates a fresh authenticated offer');
+  passed((await frame.locator('.trade-offer').textContent()).includes('アイアンアーマー'),
+   'purchased Sell creates a fresh authenticated offer of d005');
   await frame.locator('[data-action=submit]').tap();
   await frame.locator('.compact-pass').waitFor();
   await frame.locator('[data-action=reveal]').tap();
