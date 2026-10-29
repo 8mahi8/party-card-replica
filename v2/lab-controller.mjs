@@ -33,6 +33,8 @@ function safeMessage(error){
   // A lab-only limitation, not a definitive rule of the original game.
   if(msg==='Weapon or armor after plus miracle unverified')
     return 'この選択順は原作で未確認です。＋攻の追加武器を奇跡より前に選ぶか、解除してください';
+  if(msg==='Lethal forced sale requires original zero-HP settlement verification')
+    return 'この「売る」は相手のHPが0になる取引です。復活・神器移動・補充の原作順序をまだ確認できないため、研究版では使用を保留します';
   if(msg==='Buy mirror response requires original verification')
     return '「買う」のスーパーミラー反射後の処理は原作の確認待ちです。選択を解除して「買うを許す」で続けられます';
   if(msg==='Attack must start with a weapon or offensive miracle')
