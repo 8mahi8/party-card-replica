@@ -135,6 +135,16 @@ export function resolveStagedFixture(state,catalog,{
     return resolveStagedSaleFixture(state,catalog,{labOnly,fixtureDrawDefinitionId});
   if(state.pending?.type==='buy')
     return resolveStagedBuyFixture(state,catalog,{labOnly,fixtureDrawDefinitionId});
+  if(state.pending?.type==='exchange'){
+    const p=state.pending;
+    return {...runEffectQueueFixture(state,catalog,[
+      {type:'spend',playerId:p.originalAttackerId,instanceIds:[p.exchangeInstanceId]},
+      {type:'exchange',playerId:p.originalAttackerId},
+      {type:'refill'},
+      {type:'advance',afterId:p.originalAttackerId}
+    ],{labOnly:true,fixtureDrawDefinitionId}),
+      plan:Object.freeze({type:'exchange',allocation:{...p.allocation}})};
+  }
   const family=attackFamily(state,catalog);
   if(family==='miracle')
     return resolveSoloMiracleFixture(state,catalog,{labOnly:true,fixtureDrawDefinitionId,deflectRng});
