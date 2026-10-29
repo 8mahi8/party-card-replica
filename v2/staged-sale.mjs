@@ -5,6 +5,7 @@
  */
 import {previewUncontestedSale} from './trade-sale.mjs';
 import {previewSingleMirrorSale} from './trade-reflection.mjs';
+import {inspectForcedSaleLethalityFixture} from './trade-lethal-review.mjs';
 import {runEffectQueueFixture} from './effect-runner.mjs';
 function fail(msg){throw new Error(msg);}
 function selection(p){
@@ -29,8 +30,15 @@ export function validateSaleDeclarationFixture(state,catalog){
    hasOutcome=true;break;
   }catch{}
  }
- if(!hasOutcome)
+ if(!hasOutcome){
+   // A lethal Sell is a real original-game action. Do not misreport it
+   // as an invalid card: tell research players exactly which resolution
+   // remains unsupported, without stranding the defending seat.
+   const inspected=inspectForcedSaleLethalityFixture(asTurn,catalog,s);
+   if(inspected.payment.buyerEliminated)
+     fail('Lethal forced sale requires original zero-HP settlement verification');
    fail('No source-verified sale response available for these resources');
+ }
  return true;
 }
 /**
