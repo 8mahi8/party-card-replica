@@ -30,6 +30,14 @@ GitHub公式[Pages公開元の設定方法](https://docs.github.com/en/pages/get
 
 **一時的な外部HTTPS候補**：`https://raw.githack.com/8mahi8/party-card-replica/refactor/v2-foundation-review-20261027/v2/demo/firebase-online-lab.html`。読み取り専用CI run `40935644067`ではHTTP 200とHTML実体の取得を確認（GitHub純正のPagesではなく第三者のHTML代理配信サービス）。**ブラウザ実行と学校Safari接続まで確認できたとはまだ言えない**。外部サービスの可用性・学校のフィルターに依存する。GitHub Pagesを有効化する場合は既存の公開内容への影響を考慮して、`main`に触れず開発ブランチのルートを指定する。
 
+## 追加検証と確定事項（2026-10-30）
+
+- **単体HTMLのGitHub保存成功**：GitHub Actions run [`40936099663`](https://github.com/8mahi8/party-card-replica/actions/runs/40936099663)で`node v2/demo/build-online.mjs`と`--check`、Nodeテストを実行し、生成した `v2/demo/firebase-online-standalone.html`（約276,000文字）を開発ブランチにコミット`e0adb7963e4167ffe8d44d8ce24fc7cf024b76f6`。GitHubソースの[単体HTML](../v2/demo/firebase-online-standalone.html)はダウンロード・コピー可能。ただしGitHubコード表示画面自体はプレイURLではない。
+- **実ブラウザでの単体HTML成功**：WebKit Actions [`40935224345`](https://github.com/8mahi8/party-card-replica/actions/runs/40935224345)にて、生成した単体HTMLをlocalhostで配信し2つの画面をタップ操作。模擬Firebase上でルーム作成/参加/攻撃/空防御/双方のHP更新を確認。CI artifact `g6-online-standalone-html`（ID `12924716292`）として配布ZIPを保存。Nodeテスト899/899も確認。
+- **GitHub Pages は未設定または未アクセス可能**：読み取り専用CI run `40935432804`と`40935644067`でPages API/試遊パスとも404を確認。`Settings → Pages → Source=Deploy from a branch → refactor/v2-foundation-review-20261027 → /(root) → Save` で有効化できる仕組みをGitHub公式資料で確認。ただしユーザー設定をAIのGitHubコネクタから変更する手段はなく、**設定自体は未変更**。有効化した後は`/v2/demo/firebase-online-standalone.html`をHTTPSで試す（公開の成功まではURLを「動く」と断定しない）。
+- **非公式なHTML代理配信は採用しない**：`raw.githack.com`でHTMLのHTTP 200取得までは成功したが、実際のPlaywright WebKit起動テストは`#status`に到達せずタイムアウト（run `40935814977`、`40936269151`、`40936520261`）。原因は未確定で、ユーザーに遊べるURLとして提供しない。
+- **運用**：単発の配布コミット・Pages状態確認・外部HTTPSブラウザ検証用ワークフローは通常PRによる再実行を停止し、必要時の手動起動に変更。通常のNode/Chromium/WebKit自動回帰は継続。学校のGoogle SitesとFirebase Rules、`main`は変更していない。
+
 ## 次に検証すること
 
 1. 外部HTTPS候補のWebKit上で、`firebase-online-lab.html`のインポート解決・起動可否を確かめる。フォームで実Firebaseデータを書き換える必要はない。
