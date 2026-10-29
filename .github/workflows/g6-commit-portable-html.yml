@@ -4,6 +4,8 @@ on:
   pull_request:
     paths:
       - '.github/workflows/g6-commit-portable-html.yml'
+      - 'v2/firebase-two-seat-transport-fixture.mjs'
+      - 'v2/demo/firebase-online-lab.html'
   workflow_dispatch:
 
 permissions:
