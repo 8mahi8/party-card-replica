@@ -99,6 +99,10 @@ export function convertLegacyCard(card,{ruleset=PARTIAL_CARD_SOURCE}={}) {
       modes.push('defend');effects.push(mk('onDefense','stopAttack',{scope:'neutralWeapon'}));
     } else if(card.role==='deflect_miracle') {
       modes.push('defend');effects.push(mk('onDefense','redirectAttack',{mode:'deflect',scope:'miracle'}));
+    } else if(card.role==='wide_weapon') {
+      if(card.mpCost!==5||card.element!=='none'||card.boost!==undefined||card.plusAttack!==undefined)
+        throw new Error('Unverified wide-weapon miracle definition');
+      modes.push('cast');effects.push(mk('onDeclare','widenAttack',{mode:'allLiving'}));
     } else if(card.role==='boost_weapon') {
       if(card.boost!=='double_weapon')throw new Error('Unmapped miracle boost');
       modes.push('cast');effects.push(mk('onDeclare','multiplyAttack',{factor:2,scope:'weapon'}));
