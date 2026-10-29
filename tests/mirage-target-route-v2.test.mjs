@@ -189,3 +189,15 @@ test('the room caps 9 seats and 3 sweeps but keeps deterministic order',()=>{
  assert.equal(first.route.eligibleIds.length,8);
  assert.deepEqual(x.steps,y.steps);
 });
+
+test('explicit first target cannot bypass RNG seed validation',()=>{
+ for(const seed of [0,-1,NaN,'7',4294967296]){
+  assert.throws(()=>begin({players:seats(),sourceId:'A',
+    firstTargetId:'B',rngSeed:seed}),/Invalid RNG seed/);
+ }
+ assert.throws(()=>begin({players:seats(),sourceId:'A',
+  firstTargetId:'Z',rngSeed:7}),/First target must be a living opponent/);
+ const x=begin({players:seats(),sourceId:'A',firstTargetId:'C',rngSeed:7});
+ assert.equal(x.targetId,'C');
+ assert.equal(x.nextSeed,7);
+});
