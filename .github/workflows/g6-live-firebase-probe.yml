@@ -1,0 +1,32 @@
+name: G6 one-off live Firebase 2-seat probe (development only)
+
+on:
+  # Only the initial addition of this workflow triggers on the existing draft PR.
+  # Routine game commits do NOT rerun an external database test.
+  pull_request:
+    paths:
+      - '.github/workflows/g6-live-firebase-probe.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  live-g6:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    container:
+      image: mcr.microsoft.com/playwright:v1.62.0-noble
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate live smoke ESM
+        run: node --check tests/v2-g6-live-firebase.browser.mjs
+      - name: Install browser driver for G6 test (not shipped with game)
+        run: npm install --no-save --no-package-lock --ignore-scripts playwright@1.62.0
+      - name: Real RTDB online 2-browser touch test (ephemeral lab room)
+        env:
+          G6_LIVE_FIREBASE: '1'
+        run: node tests/v2-g6-live-firebase.browser.mjs
