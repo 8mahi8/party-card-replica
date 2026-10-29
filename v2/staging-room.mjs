@@ -439,6 +439,34 @@ export function applyStagingCommand(state,command,catalog,{authorizedSeatId}={})
   return {state:next,applied:true,duplicate:false};
 }
 /**
+ * Project only the cards the attacker has ALREADY declared for this defense.
+ * This is a public combat announcement, not a projection of the attacker's
+ * unused hand or a prediction of the final damage/effect.
+ *
+ * Scoped to the fixed 2-player G6 lab until other rulesets' reveal timing is
+ * researched (Dream, Mirage, reflected attacks and learned miracles).
+ */
+function declaredAttackFixture(state,catalog){
+ const p=state.pending;
+ if(state.rulesetId!=='partial-reference-v2-lab'||
+   state.players.length!==2||state.phase!=='defense'||
+   p?.type!=='attack'||!(catalog instanceof Map))return null;
+ const attacker=state.players.find(q=>q.id===p.originalAttackerId);
+ if(!attacker)return null;
+ const ids=Array.isArray(p.attackInstanceIds)?p.attackInstanceIds:[];
+ if(!ids.length)return null;
+ const declared=[];
+ for(const instanceId of ids){
+  const card=attacker.hand.find(q=>q.instanceId===instanceId);
+  const def=catalog.get(card?.definitionId);
+  if(!def)return null;
+  declared.push({definitionId:def.id,printedAttack:def.stats.attack,
+    element:def.element});
+ }
+ return {cards:declared,
+   printedAttackTotal:declared.reduce((sum,c)=>sum+c.printedAttack,0)};
+}
+/**
  * Only a trustworthy server/host may call this for the authenticated seat.
  * Never transmit internal state or processed command payloads to opponents.
  */
@@ -455,6 +483,8 @@ export function viewStagingRoom(state,viewerId,catalog=null) {
     pending:state.pending?{
       type:state.pending.type,sourceId:state.pending.sourceId??state.pending.originalAttackerId,
       targetId:state.pending.targetId,
+      ...(declaredAttackFixture(state,catalog)?
+        {declaredAttack:declaredAttackFixture(state,catalog)}:{}),
       ...(state.pending.mirageRoute?{
         mirageRound:state.pending.mirageRoute.roundIndex+1,
         mirageRounds:state.pending.mirageRoute.roundCount,
