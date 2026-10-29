@@ -5,55 +5,107 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>ゴッドフィールド V2｜オンライン2人研究版</title>
 <style>
-:root{font-family:system-ui,-apple-system,"Hiragino Kaku Gothic ProN",sans-serif;color-scheme:dark;color:#e9eef8;background:#111827}
-*{box-sizing:border-box}body{margin:0;min-height:100dvh;background:#111827}button,input{font:inherit}button{cursor:pointer;color:inherit;touch-action:manipulation;-webkit-tap-highlight-color:transparent}button:disabled{opacity:.48;cursor:default}
-main{max-width:790px;margin:auto;padding:12px 12px 24px}h1{font-size:19px;margin:4px 0 10px}h2{font-size:15px;margin:10px 0}
-.notice{font-size:12px;line-height:1.5;background:#3e311a;border:1px solid #a68a4f;padding:9px;border-radius:9px;margin:8px 0 12px}
-.panel{border:1px solid #4a5870;background:#1b2637;border-radius:13px;padding:12px;margin:10px 0}
-.inline{display:flex;flex-wrap:wrap;gap:8px;align-items:center}.inline>*{flex:1;min-width:100px}
-button{min-height:42px;border:1px solid #567390;background:#253e5a;border-radius:9px;padding:8px 11px;font-weight:700}
-button.primary{background:#476c92;border-color:#8ab6e1}
-input{max-width:185px;min-height:42px;border:1px solid #637b92;background:#111e30;color:white;border-radius:9px;padding:8px;text-align:center;letter-spacing:.2em;font-size:18px}
-#roomLabel{font-weight:850;color:#f2d99f;font-size:17px;letter-spacing:.09em}
-#status{min-height:22px;color:#cee1ff;font-size:13px;white-space:pre-wrap}
-.scores{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
-.score{padding:9px;background:#131d2c;border:1px solid #52657b;border-radius:10px;font-size:13px;line-height:1.7}
-.score.active{border-color:#f0cf7b}.score strong{display:block}
-.hand{display:grid;grid-template-columns:repeat(auto-fit,minmax(138px,1fr));gap:7px}
-.hand button{min-height:80px;text-align:left;display:flex;flex-direction:column;gap:5px;justify-content:center}
-.hand button.selected{background:#365d51;border-color:#9cddb8}
-.hand button small{color:#b7c8df;font-size:11px}
-#phase{color:#ffdfa2;font-weight:700;font-size:14px;margin:8px 0}
+:root{font-family:system-ui,-apple-system,"Hiragino Kaku Gothic ProN",sans-serif;color:#174d4a;background:#8bd8cc}
+*{box-sizing:border-box}body{margin:0;min-height:100dvh;background:radial-gradient(ellipse at 22% 18%,#d8fcf4 0%,transparent 57%),radial-gradient(ellipse at 76% 78%,#8dc8ed 0%,transparent 56%),linear-gradient(135deg,#9be2d5,#9bcee3);color:#174d4a}
+button,input{font:inherit;touch-action:manipulation;-webkit-tap-highlight-color:transparent}button{cursor:pointer;min-height:42px;border:1px solid #308b83;border-radius:7px;padding:7px 12px;background:linear-gradient(#effff7,#b4e6d2);color:#075f5a;font-weight:800;box-shadow:0 2px 0 #338b83}button:disabled{opacity:.48;cursor:default;box-shadow:none}
+button.primary{background:linear-gradient(#087d76,#00655e);color:white;border-color:#005c55;box-shadow:0 2px 0 #034742}
+main{max-width:940px;min-height:100dvh;margin:auto;padding:0 10px 12px}
+.brandline{min-height:28px;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:3px 12px;margin:0 -10px;background:#08786c;color:#f3fff8;font-size:13px;font-weight:900}
+.brandline span{font-size:10px;font-weight:700;color:#d0f5d9}
+.notice{margin:6px 0;padding:0 8px;font-size:11px;color:#246f68}
+.notice summary{cursor:pointer;font-weight:800}
+.notice p{margin:4px 0;line-height:1.5}
+.panel{border:1px solid #5baca0;background:#e6fff2c9;border-radius:9px;padding:9px;margin:8px 0;box-shadow:0 2px 5px #0c6d6a18}
+h2{font-size:15px;margin:3px 0 9px}
+.inline{display:flex;flex-wrap:wrap;gap:7px;align-items:center}.inline>*{flex:1;min-width:100px}
+input{min-height:42px;max-width:185px;padding:7px;font-size:18px;letter-spacing:.16em;text-align:center;color:#07584f;border:1px solid #5caaa0;border-radius:7px;background:white}
+#lobby{margin-top:12px}#lobby .inline{margin-top:7px}
+.connection-bar{display:flex;align-items:center;flex-wrap:wrap;gap:8px;padding:5px 8px;margin-top:7px;background:#e3fff0a8;border:1px solid #70b9af;border-radius:7px}
+#roomLabel{font-size:13px;letter-spacing:.05em;color:#006a65}#roleLabel{font-size:11px;font-weight:700}
+#status{margin:0;flex:1 1 180px;min-height:18px;font-size:11px;line-height:1.4;color:#226b63}
 #battle[hidden],#lobby[hidden],#actions[hidden],#retryPanel[hidden]{display:none}
-#actions{display:flex;flex-wrap:wrap;gap:8px}
-#actions button{flex:1;min-width:120px}
-#retryPanel{display:flex;align-items:center;flex-wrap:wrap;gap:8px}
-#retryPanel[hidden]{display:none}
-#retryPanel p{font-size:12px;color:#ffdfa2;margin:0;flex:1 1 160px}
-@media(max-width:480px){main{padding:7px}.panel{padding:9px;margin:7px 0}.hand{grid-template-columns:repeat(2,minmax(0,1fr))}.hand button{min-height:72px;font-size:12px}h1{font-size:17px}}
+.battle-board{display:flex;flex-direction:column;gap:7px;margin:6px 0 0}
+.battle-topline{display:flex;justify-content:space-between;gap:7px;align-items:center;border-bottom:4px solid #058377;font-size:11px;font-weight:800}
+.battle-topline .mode{padding:2px 9px;border-radius:4px 4px 0 0;background:#058377;color:white}
+.scores{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
+.score{background:linear-gradient(#f9fff9,#d8f4e0);border:1px solid #79bba2;border-radius:8px;padding:6px 8px;min-width:0}
+.score.active{border:2px solid #128e80;padding:5px 7px;box-shadow:0 0 0 2px #baffcd}
+.score .player-title{display:flex;align-items:center;justify-content:space-between;gap:4px;font-size:12px;color:#075c55;font-weight:800}
+.score .turn-dot{background:#168e7c;color:white;font-size:9px;border-radius:12px;padding:1px 6px}
+.score .statline{display:flex;flex-wrap:wrap;gap:5px;font-size:11px;font-weight:800;margin-top:5px}
+.score .statline span{background:#fafff1;border-radius:4px;padding:1px 4px;border:1px solid #b8daca}
+.score .statline .hp{color:#bf4e54}.score .statline .mp{color:#2869b5}
+.arena{min-height:116px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.1fr);gap:8px;align-items:stretch}
+.selected-tray{min-width:0;border:1px solid #5caca1;border-radius:8px;background:#e8fff4ad;padding:6px 8px}
+.selected-tray header{font-size:10px;font-weight:800;color:#35786f;letter-spacing:.04em}
+#selectionPreview{margin-top:5px;display:flex;gap:4px;flex-wrap:wrap;align-content:start;min-height:45px}
+#selectionPreview .picked{max-width:100%;font-size:11px;background:#fffde4;border:1px solid #7fb7a3;padding:4px 6px;border-radius:4px;font-weight:800}
+#selectionPreview .empty{font-size:11px;color:#558f86;padding:6px 0}
+.phase-area{display:flex;flex-direction:column;align-items:stretch;justify-content:center;text-align:center;gap:4px;padding:5px;background:#f4fff9aa;border-radius:8px;border:1px solid #77b9b2}
+#phase{font-size:14px;font-weight:900;color:#087d72}
+#battleHint{font-size:11px;line-height:1.35;color:#376e65;min-height:27px}
+#actions{display:flex;flex-wrap:wrap;gap:6px;padding:0}
+#actions button{flex:1 1 100px;min-width:90px;min-height:42px;font-size:12px}
+#actions button[hidden]{display:none}
+#defend{background:linear-gradient(#e9f6ff,#aad5ef);border-color:#5ca0c9;color:#1a638b}
+.hand-area{padding:5px 6px 8px;background:#d6fff0bd;border-radius:7px;border-top:6px solid #078376}
+.hand-area header{display:flex;align-items:center;justify-content:space-between;font-size:12px;font-weight:900;padding:1px 5px 6px}
+#handCount{color:#31786f;font-weight:700;font-size:10px}
+.hand{display:flex;align-items:stretch;gap:5px;min-height:100px;max-width:100%;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x proximity;padding:4px 4px 9px;overscroll-behavior-x:contain;-webkit-overflow-scrolling:touch}
+.hand button{flex:0 0 83px;width:83px;min-height:106px;max-height:128px;scroll-snap-align:start;padding:3px;display:flex;align-items:stretch;flex-direction:column;gap:3px;text-align:center;position:relative;border:2px solid #83bda8;border-radius:5px;color:#184b3c;background:linear-gradient(#fbffe7,#d4f4d0);font-size:10px;box-shadow:0 2px 0 #6ca696}
+.hand button.armor{background:linear-gradient(#edfff3,#c9ecdf)}.hand button.miracle{background:linear-gradient(#fff5e9,#f6d4a8)}.hand button.item{background:linear-gradient(#f3efff,#d5d9f5)}
+.hand button.selected{transform:translateY(-3px);border-color:#c25a4b;background:linear-gradient(#fff7ce,#f7e2b1);box-shadow:0 3px 0 #c46a52,0 0 0 1px #fceba4}
+.hand .artmark{height:40px;display:grid;place-items:center;border-radius:3px;background:radial-gradient(circle at 65% 30%,#effff9,#92cdb5);color:#237c70;font-size:24px;font-weight:600}
+.hand .armor .artmark{background:radial-gradient(circle,#eafff7,#a0d5ce);color:#2876a0}
+.hand .miracle .artmark{background:radial-gradient(circle,#fff3e0,#d5b4db);color:#8a5997}
+.hand .item .artmark{background:radial-gradient(circle,#faf2ff,#bfcae4);color:#4b78a5}
+.hand .cardname{font-size:10px;line-height:1.15;min-height:21px;display:grid;place-items:center;font-weight:900;overflow:hidden}
+.hand .cardstats{font-size:11px;color:#195547;font-weight:900;white-space:nowrap}
+.hand .cardprice{font-size:9px;color:#6d642d;text-align:right}
+#retryPanel{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:0}
+#retryPanel p{font-size:11px;color:#446e64;margin:0;flex:1 1 170px}
+#retryPanel button{font-size:12px}
+@media(max-width:480px){
+main{padding:0 6px 8px}.brandline{margin:0 -6px}
+.notice{font-size:10px}.connection-bar{gap:5px;padding:4px 5px}
+.panel{padding:7px;margin:5px 0}.battle-board{gap:5px}
+.score{padding:5px}.score.active{padding:4px}.score .statline{gap:3px;font-size:10px}
+.arena{min-height:98px}.phase-area{padding:4px}#phase{font-size:12px}
+.hand button{flex-basis:78px;width:78px;min-height:101px}.hand .artmark{height:36px}
+}
+@media(max-height:520px){.notice p{display:none}.arena{min-height:86px}.hand button{min-height:94px}.hand .artmark{height:30px}}
 </style>
 </head>
 <body><main>
-<h1>ゴッドフィールド V2｜オンライン研究版</h1>
-<div class="notice">⚠ 開発・検証専用。2人対戦のみ／カードは固定補充／原作353種の再現ではありません。ホスト側のタブを閉じると試合が停止します。学校への公開前にはiPadで実機確認が必要です。</div>
+<header class="brandline"><strong>GOD FIELD <span>ゴッドフィールド</span></strong><span>ONLINE LAB · 2人用</span></header>
+<details class="notice"><summary>開発・試遊版について（固定補充・原作未完成）</summary>
+<p>原作の対戦画面を参考にした研究版です。カードは固定補充で、全353種類を再現したものではありません。ホスト側のタブを閉じると試合が停止します。学校iPadは未検証です。</p>
+</details>
 <section id="lobby" class="panel">
-<h2>2台で接続する</h2>
-<div class="inline"><button id="create" class="primary">ルームを作る（ホスト）</button></div>
-<div class="inline" style="margin-top:9px"><input id="joinCode" inputmode="numeric" maxlength="5" placeholder="5桁の番号"><button id="join">参加する（ゲスト）</button></div>
+<h2>対戦する</h2>
+<div class="inline"><button id="create" class="primary">部屋を作る</button></div>
+<div class="inline"><input id="joinCode" inputmode="numeric" maxlength="5" aria-label="5桁のルーム番号" placeholder="5桁の番号"><button id="join">部屋に参加</button></div>
 </section>
-<section class="panel">
-<div class="inline"><strong id="roomLabel">未接続</strong><span id="roleLabel">接続前</span></div>
+<section class="connection-bar" aria-live="polite">
+<strong id="roomLabel">未接続</strong><span id="roleLabel">接続前</span>
 <p id="status" role="status">Firebase接続を準備しています</p>
 </section>
-<section id="battle" hidden>
-<div class="panel"><div id="scores" class="scores"></div><div id="phase"></div></div>
-<div class="panel"><h2>自分の手札（タップで選択）</h2><div id="hand" class="hand"></div></div>
-<div id="actions" class="panel" hidden>
-<button id="attack" class="primary">選んだカードで攻撃</button>
-<button id="defend" class="primary">防御を確定／防御しない</button>
-<button id="pray">祈る（武器がない時）</button>
-<button id="discard">選んだカードを捨てる</button>
+<section id="battle" class="battle-board" hidden>
+<div class="battle-topline"><span>G.F. · 研究対戦</span><span class="mode">1 対 1</span></div>
+<div id="scores" class="scores" aria-label="プレイヤーのHP・MP・所持金"></div>
+<div class="arena">
+<div class="selected-tray"><header>選択中の神器</header><div id="selectionPreview"><span class="empty">カードをタップして選択</span></div></div>
+<div class="phase-area"><div id="phase"></div><div id="battleHint">手札の神器をタップ</div></div>
 </div>
+<div id="actions" hidden>
+<button id="attack" class="primary">攻撃する</button>
+<button id="defend" class="primary">防御する／許す</button>
+<button id="pray">祈る</button>
+<button id="discard">捨てる</button>
+</div>
+<section class="hand-area"><header>神器 <span id="handCount">自分の手札</span></header>
+<div id="hand" class="hand" aria-label="自分の神器を選択"></div>
+</section>
 <section id="retryPanel" class="panel" hidden>
 <p>操作の応答待ち。反映が遅いときは同じ操作を再送できます。</p>
 <button id="retry" type="button">同じ操作を再送</button>
@@ -5676,39 +5728,87 @@ function render(){
  $('retry').disabled=!waiting||retrying||!pendingCommand;
  if(!session)return;
  if(!view){feedback('相手の画面情報を読み込んでいます');return}
- const active=view.activePlayerId===seat;
+ const active=view.activePlayerId===seat,turn=view.phase==='turn',
+  defense=view.phase==='defense';
  const player=view.players.find(p=>p.id===seat);
- $('scores').replaceChildren();
+ const stats=$('scores');
+ stats.replaceChildren();
  for(const p of view.players){
-  const e=document.createElement('div');e.className='score'+(view.activePlayerId===p.id?' active':'');
-  e.textContent=showSeatLabel(p.id)+'  HP '+p.hp+' / MP '+p.mp+' / ¥ '+p.money+' / 手札 '+p.handCount+'枚';
-  $('scores').append(e);
+  const e=document.createElement('div');
+  e.className='score'+(view.activePlayerId===p.id?' active':'');
+  const title=document.createElement('div');title.className='player-title';
+  const name=document.createElement('span');
+  name.textContent=showSeatLabel(p.id)+(p.id===seat?' · 自分':'');
+  title.append(name);
+  if(view.activePlayerId===p.id){
+   const dot=document.createElement('span');dot.className='turn-dot';
+   dot.textContent='行動中';title.append(dot);
+  }
+  const line=document.createElement('div');line.className='statline';
+  for(const [key,label,value] of [
+   ['hp','HP',p.hp],['mp','MP',p.mp],['money','¥',p.money],
+   ['count','手札',p.handCount]
+  ]){
+   const span=document.createElement('span');span.className=key;
+   span.textContent=label+' '+value;line.append(span);
+  }
+  e.append(title,line);stats.append(e);
  }
+ const mine=active&&(seat!=='A'||joined),busy=waiting;
  $('phase').textContent=view.phase==='finished'?'対戦終了':
-  view.phase==='defense'?'防御待ち '+showSeatLabel(view.activePlayerId):
-  view.phase==='turn'?'攻撃手番 '+showSeatLabel(view.activePlayerId):
-  '処理中…';
- $('hand').replaceChildren();
+  defense?(mine?'あなたの防御':'相手の防御待ち'):
+  turn?(mine?'あなたの攻撃':'相手の攻撃待ち'):'処理中…';
+ $('battleHint').textContent=busy?'操作結果を待っています':
+  defense?(mine?'防具を選ぶか、「許す」':'相手の選択を待っています'):
+  turn?(mine?'神器を選び、攻撃を確定':'相手の操作を待っています'):
+  '試合結果を確認してください';
+ const selected=player.hand||[];
+ $('handCount').textContent=selected.length+'枚 / 横にスライド';
+ const preview=$('selectionPreview');preview.replaceChildren();
+ for(const instance of selected){
+  if(!selection.has(instance.instanceId))continue;
+  const chip=document.createElement('span');chip.className='picked';
+  chip.textContent=names.get(instance.definitionId)||instance.definitionId;
+  preview.append(chip);
+ }
+ if(!preview.childElementCount){
+  const empty=document.createElement('span');empty.className='empty';
+  empty.textContent=mine?'カードをタップして選択':'自分の番まで待機';
+  preview.append(empty);
+ }
+ const hand=$('hand'),scroll=hand.scrollLeft;
+ hand.replaceChildren();
  for(const c of player.hand||[]){
   const def=catalog.get(c.definitionId),btn=document.createElement('button');
   const picked=selection.has(c.instanceId);
-  btn.type='button';btn.className=picked?'selected':'';
+  const family=def?.family||'item';
+  btn.type='button';btn.className='artifact '+family+(picked?' selected':'');
   const name=names.get(c.definitionId)||c.definitionId;
   const stats=def?.stats||{};
-  btn.textContent=name;
-  const sub=document.createElement('small');
-  sub.textContent=[stats.attack?'攻'+stats.attack:'',stats.guard?'守'+stats.guard:'',
-    stats.mpCost?'MP'+stats.mpCost:''].filter(Boolean).join(' · ')||'カード';
-  btn.append(sub);btn.setAttribute('aria-pressed',String(picked));
+  const art=document.createElement('span');art.className='artmark';
+  art.textContent=family==='weapon'?'⚔':family==='armor'?'▣':
+   family==='miracle'?'✦':'◈';
+  const label=document.createElement('span');label.className='cardname';
+  label.textContent=name;
+  const stat=document.createElement('span');stat.className='cardstats';
+  stat.textContent=[stats.attack?'攻'+stats.attack:'',
+    stats.guard?'守'+stats.guard:'',
+    stats.mpCost?'MP'+stats.mpCost:''].filter(Boolean).join(' · ')||'神器';
+  const price=document.createElement('span');price.className='cardprice';
+  price.textContent='¥'+(stats.price??0);
+  btn.append(art,label,stat,price);
+  btn.setAttribute('aria-label',name+' '+stat.textContent);
+  btn.setAttribute('aria-pressed',String(picked));
   btn.disabled=!active||waiting;
   btn.addEventListener('click',()=>{
    if(selection.has(c.instanceId))selection.delete(c.instanceId);
    else selection.add(c.instanceId);
    render();
   });
-  $('hand').append(btn);
+  hand.append(btn);
  }
- const turn=view.phase==='turn',defense=view.phase==='defense',usable=active&&!waiting&&(seat!=='A'||joined);
+ hand.scrollLeft=scroll;
+ const usable=mine&&!busy;
  $('actions').hidden=!(turn||defense);
  $('attack').hidden=!turn;$('pray').hidden=!turn;$('discard').hidden=!turn;
  $('defend').hidden=!defense;
@@ -5716,6 +5816,7 @@ function render(){
  $('discard').disabled=!usable||!selection.size;
  $('pray').disabled=!usable||player.hand?.some(c=>catalog.get(c.definitionId)?.family==='weapon');
  $('defend').disabled=!usable;
+ $('defend').textContent=selection.size?'防御する':'許す（防御なし）';
  if(seat==='A'&&!joined)feedback('相手が5桁のルーム番号で参加するのを待っています');
 }
 async function send(type){
