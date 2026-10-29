@@ -352,8 +352,8 @@ const __v2_module_1 = (() => {
  * 調査用の参照名で、オリジナルUIの表示素材ではない。
  */
 const PARTIAL_CARD_SOURCE = 'piong-atwiki-and-macaron-2026-02-28';
-const main=(id,referenceName,attack,price,weight,{element='none',guard,reaction,reactionScope='neutral_weapon',stopScope,hpAbsorb}={})=>
-  Object.freeze({id,referenceName,kind:'weapon',slot:'main',category:'weapon_single',element,attack,price,weight,...(guard===undefined?{}:{guard}),...(reaction===undefined?{}:{reaction,reactionScope}),...(stopScope===undefined?{}:{stopScope}),...(hpAbsorb===undefined?{}:{hpAbsorb})});
+const main=(id,referenceName,attack,price,weight,{element='none',guard,reaction,reactionScope='neutral_weapon',stopScope,hpAbsorb,repeatHits}={})=>
+  Object.freeze({id,referenceName,kind:'weapon',slot:'main',category:'weapon_single',element,attack,price,weight,...(guard===undefined?{}:{guard}),...(reaction===undefined?{}:{reaction,reactionScope}),...(stopScope===undefined?{}:{stopScope}),...(hpAbsorb===undefined?{}:{hpAbsorb}),...(repeatHits===undefined?{}:{repeatHits})});
 const add=(id,referenceName,attack,price,weight=1,{element='none',reaction,reactionScope,stopScope,attackElementOverride}={})=>
   Object.freeze({id,referenceName,kind:'weapon',slot:'addon',category:'weapon_single',element,attack,price,weight,...(reaction===undefined?{}:{reaction,reactionScope}),...(stopScope===undefined?{}:{stopScope}),...(attackElementOverride===undefined?{}:{attackElementOverride})});
 const shield=(id,referenceName,guard,price,weight,{element='none',attackBonus,stopScope,reaction,reactionScope}={})=>
@@ -396,6 +396,8 @@ const VERIFIED_BASIC_CARDS = Object.freeze([
   // Special on-hit timing is handled by the common V2 effect runner.
   main('w048','ゴーストソード',7,10,1,{hpAbsorb:true}),
   main('w049','リアルゴーストソード',12,15,1,{hpAbsorb:true}),
+  // Source: Piong, Macaron (2026), and 2026 Mirage strategy analysis.
+  main('w050','のこぶんぶん',3,10,1,{repeatHits:2}),
   // Source-checked plain weapons (2026-03-18 piong wiki, cross-checked with
   // 2024 GFGA where both agree). No special/condition/status behavior.
   // Preserve main/add factories so later cards need data, not name branches.
@@ -517,7 +519,7 @@ const MODES = new Set(['mainAttack','addAttack','defend','cast','support','trade
 // Until sourced effects are implemented, explicitly gate those definitions.
 const DISCARD_POLICIES = new Set(['ordinary','forbidden','requiresSpecialResolution']);
 const EFFECT_TRIGGERS = new Set(['onDeclare','onCost','beforeHit','onDefense','afterHit','onTurnEnd','onZeroHp']);
-const EFFECT_TYPES = new Set(['redirectAttack','stripElement','multiplyAttack','addAttack','stopAttack','waivePreviousMp','setAttackElement','forceSale','requestBuy','reallocateResources','reviveAtZeroHp','absorbHp']);
+const EFFECT_TYPES = new Set(['redirectAttack','stripElement','multiplyAttack','addAttack','stopAttack','waivePreviousMp','setAttackElement','forceSale','requestBuy','reallocateResources','reviveAtZeroHp','absorbHp','repeatAttack']);
 
 function plainObject(v) { return v !== null && typeof v === 'object' && !Array.isArray(v); }
 function nonnegative(n) { return Number.isSafeInteger(n) && n >= 0; }
@@ -541,6 +543,9 @@ function freezeEffect(effect) {
      (effect.when!=='onDeclare'||Object.keys(params).length!==1||
       !['fire','water'].includes(params.element)))
     throw new Error('Invalid setAttackElement data');
+  if(effect.type==='repeatAttack'&&
+      (effect.when!=='onDeclare'||Object.keys(params).length!==1||params.count!==2))
+    throw new Error('Invalid repeatAttack effect data');
   if(effect.type==='absorbHp'&&
       (effect.when!=='afterHit'||Object.keys(params).length!==1||params.amount!=='damage'))
     throw new Error('Invalid absorbHp effect data');
@@ -742,7 +747,7 @@ const {VERIFIED_BASIC_CARDS,PARTIAL_CARD_SOURCE} = __v2_module_1;
 const KNOWN_KEYS=new Set([
   'id','referenceName','kind','category','slot','element','attack','guard',
   'attackBonus','price','weight','reaction','reactionScope','stopScope',
-  'role','boost','plusAttack','mpCost','effect','attackElementOverride','discardPolicy','tradeAction','hpAbsorb'
+  'role','boost','plusAttack','mpCost','effect','attackElementOverride','discardPolicy','tradeAction','hpAbsorb','repeatHits'
 ]);
 const CATEGORY_BY_KIND=Object.freeze({weapon:'weapon_single',armor:'armor_normal',miracle:'miracle',defense_item:'item',support_item:'item',trade:'trade'});
 const mk=(when,type,params={})=>({when,type,params});
@@ -785,6 +790,11 @@ function convertLegacyCard(card,{ruleset=PARTIAL_CARD_SOURCE}={}) {
       }));
     } else if(card.reactionScope!==undefined)
       throw new Error('Orphan weapon reaction scope');
+    if(card.repeatHits!==undefined){
+      if(card.repeatHits!==2||card.slot!=='main'||card.hpAbsorb!==undefined)
+        throw new Error('Unverified repeat-hit definition');
+      effects.push(mk('onDeclare','repeatAttack',{count:2}));
+    }
     if(card.hpAbsorb!==undefined){
       if(card.hpAbsorb!==true||card.slot!=='main')
         throw new Error('Unverified HP absorption definition');
@@ -2143,7 +2153,12 @@ function runEffectQueueFixture(state,catalog,queue,{
  validateDreamOwnershipFixture(state,catalog);
  if(interruptionOnly&&queue.some(e=>!['spend','grantDraw','mp','learn'].includes(e?.type)))
    fail('Resolution commands are not permitted while staging');
- const s=cloneRoom(state,{interruptionOnly});
+ const continuation=queue.at(-1)?.type==='continueStrike';
+ if(continuation&&(interruptionOnly||queue.filter(e=>e.type==='hit').length!==1||
+    queue.some(e=>['refill','advance'].includes(e.type))||
+    state.pending?.type!=='attack'||(state.pending.strikeIndex??0)!==0))
+   fail('Invalid first-strike continuation queue');
+ const s=cloneRoom(state,{interruptionOnly:interruptionOnly||continuation});
  const spent=Object.assign(Object.create(null),state.pending.spentByPlayer??{});
  const events=[];
  for(const effect of queue){
@@ -2512,6 +2527,34 @@ function runEffectQueueFixture(state,catalog,queue,{
      events.push({type:'reflectedSale',originalSellerId:seller.id,
        mirrorOwnerId:counter.id,itemDefinitionId:itemDef.id,
        price:itemDef.stats.price,debit:payment.debit});
+   } else if(effect.type==='continueStrike'){
+     // A verified multi-hit attack opens a NEW defense window rather
+     // than doubling damage or drawing new cards during its first strike.
+     if(!continuation||effect!==queue.at(-1)||s.pending?.type!=='attack'||
+        s.pending.strikeIndex!==undefined||
+        effect.attackContext?.attackKind!=='weapon'||
+        effect.attackContext.hitCount!==2||
+        effect.attackContext.absorbsHp===true||
+        (state.pending.attackContext &&
+          (state.pending.attackContext.hitCount!==2||
+           JSON.stringify(state.pending.attackContext)!==JSON.stringify(effect.attackContext))))
+       fail('Invalid repeated strike context');
+     const origin=who(s,s.pending.originalAttackerId);
+     const target=who(s,effect.repeatTargetId);
+     if(origin.hp<=0||target.hp<=0)
+       fail('Cannot continue a hit after a player is eliminated');
+     if(state.pending.attackContext===undefined){
+       const real=state.pending.attackInstanceIds?.some(id=>
+         origin.hand.some(card=>card.instanceId===id&&
+           catalog.get(card.definitionId)?.effects.some(e=>
+             e.when==='onDeclare'&&e.type==='repeatAttack'&&e.params.count===2)));
+       if(!real)fail('A repeated attack needs the original physical weapon');
+     }
+     s.pending={...s.pending,attackContext:effect.attackContext,
+       repeatTargetId:target.id,sourceId:origin.id,targetId:target.id,
+       strikeIndex:1,defense:null};
+     s.phase='defense';s.activePlayerId=target.id;
+     events.push({type:'nextStrike',strikeIndex:1,hitCount:2,targetId:target.id});
    } else if(effect.type==='refill'){
      for(const p of s.players){
        const amount=spent[p.id]??0;
@@ -2538,7 +2581,7 @@ function runEffectQueueFixture(state,catalog,queue,{
      }
    } else fail('Unknown queued effect: '+String(effect.type));
  }
- if(interruptionOnly)s.pending.spentByPlayer={...spent};
+ if(interruptionOnly||continuation)s.pending.spentByPlayer={...spent};
  validateDreamOwnershipFixture(s,catalog);
  return {state:s,events};
 }
@@ -3140,7 +3183,7 @@ function compileOrderedWeaponAttack(state,catalog){
   let weaponAttack=0,attackElement='none',mainCount=0,weaponCount=0;
   let aura=null,plusCount=0,additive=0,lastWasMiracle=false,hasArmorBonus=false,itemBonus=0;
   let learnedDrawCount=0;
-  let forcedAttackElement=null,absorbsHp=false;
+  let forcedAttackElement=null,absorbsHp=false,hitCount=1;
   let wandPosition=-1,auraPosition=-1;
   const casts=[],selectedKinds=[];
   const miracles=[];
@@ -3167,6 +3210,11 @@ function compileOrderedWeaponAttack(state,catalog){
           forcedAttackElement=eff.params.element;
           wandPosition=position;
           continue;
+        }
+        if(eff.type==='repeatAttack'&&eff.when==='onDeclare'&&
+           eff.params.count===2&&def.family==='weapon'&&def.playModes.includes('mainAttack')){
+          if(hitCount!==1)fail('Repeated multi-hit effects unverified');
+          hitCount=2;continue;
         }
         if(eff.type==='absorbHp'&&eff.when==='afterHit'&&
            eff.params.amount==='damage'&&def.family==='weapon'){
@@ -3255,7 +3303,7 @@ function compileOrderedWeaponAttack(state,catalog){
     attack,element:forcedAttackElement??(aura?'none':attackElement),attackKind:'weapon',
     instanceIds:Object.freeze(selected.filter(x=>x.instance).map(x=>x.instance.instanceId)),
     payableMP,learnedDrawCount,learnedMiracles:Object.freeze(learnedMiracles),
-    hasModifiers:miracles.length>0,absorbsHp,
+    hasModifiers:miracles.length>0,absorbsHp,hitCount,
     selectedKinds:Object.freeze(selectedKinds)
   });
 }
@@ -3402,18 +3450,39 @@ function compileBasicResolution(state,catalog) {
      defender.hand.some(c=>catalog.get(c.definitionId)?.effects.some(e=>
        e.when==='onZeroHp'&&e.type==='reviveAtZeroHp')))
     fail('Absorption against a fatal Sun Charm recovery requires original timing verification');
+  const multiHit=attackContext.hitCount===2;
+  const hitIndex=p.strikeIndex??0;
+  if(!Number.isSafeInteger(hitIndex)||hitIndex<0||
+     (multiHit?hitIndex>1:hitIndex!==0))
+    fail('Invalid staged strike index');
+  if(multiHit&&(attackContext.absorbsHp||attacker.id===p.repeatTargetId||
+       (!p.attackContext&&p.targetId===attacker.id)))
+    fail('Unsupported self-directed or absorption repeat combination');
+  // The first hit is a separate defense. Spent attack/defense cards are held
+  // as refill credits until the second hit resolves. If either the intended
+  // target or original attacker is already eliminated, finish after hit one.
+  const repeatTargetId=p.repeatTargetId??p.targetId;
+  const repeatTarget=getPlayer(state,repeatTargetId);
+  const defenderWillSurvive=hit.hpAfter>0||
+    defender.hand.some(c=>catalog.get(c.definitionId)?.effects.some(e=>
+      e.when==='onZeroHp'&&e.type==='reviveAtZeroHp'));
+  const continueStrike=multiHit&&hitIndex===0&&defenderWillSurvive&&
+    (attacker.id===defender.id||attacker.hp>0)&&
+    (repeatTarget.id===defender.id||repeatTarget.hp>0);
   const queue=Object.freeze([
     ...(p.attackContext?[]:queuedAttackCosts(attackContext,attacker.id)),
     ...(isSelf?[]:[Object.freeze({type:'spend',playerId:defender.id,instanceIds:Object.freeze(defending.map(x=>x.instance.instanceId))})]),
     Object.freeze({type:'hit',targetId:defender.id,damage:hit.damage,hpAfter:hit.hpAfter,instantDefeat:hit.instantDefeat,
        ...(attackContext.absorbsHp?{lifeSteal:true}:{})}),
-    Object.freeze({type:'refill',order:'seating',maxHand:MAX_HAND_SIZE}),
-    Object.freeze({type:'advance',afterId:attacker.id})
+    ...(continueStrike?
+      [Object.freeze({type:'continueStrike',attackContext,repeatTargetId})]:
+      [Object.freeze({type:'refill',order:'seating',maxHand:MAX_HAND_SIZE}),
+       Object.freeze({type:'advance',afterId:attacker.id})])
   ]);
   return Object.freeze({
     originalAttackerId:attacker.id,targetId:defender.id,
     attack,element,armor,stripElement,
-    hit,queue
+    hit,hitIndex,hitCount:attackContext.hitCount??1,continueStrike,queue
   });
 }
 /**
@@ -3681,7 +3750,9 @@ function resolveRedirectFixture(state,catalog,{
  }];
  result.pending={
    ...result.pending,sourceId:route.source,targetId:route.target,
-   attackContext,defense:null
+   attackContext,defense:null,
+   ...(attackContext.hitCount===2&&(p.strikeIndex??0)===0?
+     {repeatTargetId:p.repeatTargetId??p.targetId}:{})
  };
  if(immediate) {
    // Self-deflection is an immediate hit, not an extra defense opportunity.
