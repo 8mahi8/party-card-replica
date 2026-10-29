@@ -123,15 +123,28 @@ try{
  await b.locator('#joinCode').fill(room);
  await b.locator('#join').tap();
  await b.locator('#hand button').first().waitFor();
- await a.waitForFunction(()=>!document.querySelector('#attack')?.disabled||
-   document.querySelector('#status')?.textContent.includes('友達'));
+ await a.locator('#hand button').first().tap();
+ try{
+  await a.waitForFunction(()=>document.querySelector('#attack')?.disabled===false,
+   null,{timeout:6500});
+ }catch(e){
+  const info=await Promise.all([a,b].map(p=>p.evaluate(()=>({
+   room:document.querySelector('#roomLabel')?.textContent,
+   role:document.querySelector('#roleLabel')?.textContent,
+   status:document.querySelector('#status')?.textContent,
+   phase:document.querySelector('#phase')?.textContent,
+   attackDisabled:document.querySelector('#attack')?.disabled,
+   db:localStorage.getItem('__godfield_ci_rtdb')?.slice(0,450)
+  }))));
+  console.error('G6_JOIN_DEBUG '+JSON.stringify({info,errors}));
+  throw e;
+ }
  check(await a.locator('#hand button').count()===4,'host has own 4 cards');
  check(await b.locator('#hand button').count()===4,'guest has own 4 cards');
  check(await a.evaluate(()=>document.documentElement.scrollWidth<=
    document.documentElement.clientWidth+2),'host fits narrow viewport');
  check(await b.evaluate(()=>document.documentElement.scrollWidth<=
    document.documentElement.clientWidth+2),'guest fits narrow viewport');
- await a.locator('#hand button').first().tap();
  await a.locator('#attack').tap();
  await b.waitForFunction(()=>document.querySelector('#phase')?.textContent
    .includes('防御待ち'));
