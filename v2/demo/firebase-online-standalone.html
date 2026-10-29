@@ -5556,7 +5556,13 @@ async function createFirebaseTwoSeatHostFixture(options={}){
   read:()=>A.read(),
   async submit(command){
    if(closed)throw new Error('接続は終了しています');
-   const out=A.submit(command);
+   let out;
+   try{out=A.submit(command);}
+   catch(error){
+    const rejected=new Error(summarizeError(error));
+    rejected.commandRejected=true;
+    throw rejected;
+   }
    const receipt={id:command.commandId,ok:true,
       duplicate:out.duplicate,revision:out.revision};
    await publish({'acks/A':receipt});
@@ -5581,7 +5587,7 @@ async function joinFirebaseTwoSeatGuestFixture(options={}){
  const claimed=await room.child('meta/guestId').transaction(
   current=>current===null||current===guestId?guestId:undefined,undefined,false);
  if(!claimed.committed)throw new Error('このルームには既に参加者がいます');
- let closed=false;
+ let closed=false,deliverySequence=0;
  listen(room.child('views/B'),'value',snap=>{
   if(!closed)cb.onView(snap.val());
  },cb.onError,stops);
@@ -5597,8 +5603,12 @@ async function joinFirebaseTwoSeatGuestFixture(options={}){
    if(closed)throw new Error('接続は終了しています');
    if(command?.actorId!=='B')throw new Error('参加側の操作だけを送信できます');
    // One mailbox per guest: UI waits for the matching ack before sending again.
+   // RTDB listeners may not fire when the same mailbox value is written
+   // again. Change only the delivery marker; keep the game commandId stable
+   // so the authoritative engine can deduplicate a retry.
    await room.child('commands/B').set({
-    senderId:guestId,commandJson:JSON.stringify(command)
+    senderId:guestId,commandJson:JSON.stringify(command),
+    deliveryId:Date.now()+'-'+(++deliverySequence)
    });
    return {sent:true,id:command.commandId};
   },
@@ -5717,8 +5727,11 @@ async function send(type){
  waiting=true;pendingId=command.commandId;pendingCommand=command;
  feedback('操作を送信しています…');render();
  try{await session.submit(command)}catch(error){
-  // Preserve the ID even if the command was applied before publication failed.
-  // A new ID could turn a transient network error into a stuck match.
+  // A rejected card selection can be changed; a network failure after a
+  // committed action must preserve the same command ID for safe resending.
+  if(error?.commandRejected){
+   waiting=false;pendingId=null;pendingCommand=null;
+  }
   onError(error);render();
  }
 }
