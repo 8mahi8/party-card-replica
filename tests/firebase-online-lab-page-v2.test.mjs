@@ -59,3 +59,12 @@ test('reference-style layout keeps the original field, player stats and bottom a
  assert.match(page,/\.score \.statline/);
  assert.match(page,/radial-gradient/);
 });
+
+test('selection panel shows ordered artifact confirmation and source-target context',()=>{
+ assert.match(page,/id="combatRoute"/);
+ assert.match(page,/id="selectionTotal"/);
+ assert.match(page,/for\(const instanceId of selection\)/);
+ assert.match(page,/カード記載値の合計（参考）/);
+ assert.match(page,/view\.pending\?\.type==='attack'/);
+ assert.match(page,/document\.createTextNode/);
+});
