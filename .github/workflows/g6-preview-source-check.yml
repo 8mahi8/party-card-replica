@@ -33,3 +33,16 @@ jobs:
         run: |
           status=$(curl -sSL -o /dev/null -w '%{http_code}' --max-time 12 'https://8mahi8.github.io/party-card-replica/v2/demo/firebase-online-lab.html') || status=000
           echo "G6_PAGES_TRIAL_HTTP_STATUS=$status"
+
+      - name: Check read-only GitHub HTML proxy as a temporary preview
+        shell: bash
+        run: |
+          for url in             'https://raw.githack.com/8mahi8/party-card-replica/refactor/v2-foundation-review-20261027/v2/demo/firebase-online-lab.html'             'https://rawcdn.githack.com/8mahi8/party-card-replica/251507ebdf0409851e77937ad527b00140857bb6/v2/demo/firebase-online-lab.html'; do
+            code=$(curl -sSL -o /tmp/g6preview.html -w '%{http_code}' --max-time 15 "$url") || code=000
+            type=$(file -b --mime-type /tmp/g6preview.html 2>/dev/null || echo unknown)
+            echo "G6_EXTERNAL_PREVIEW code=$code type=$type url=$url"
+            if [ "$code" = "200" ]; then
+              head -c 100 /tmp/g6preview.html | tr '\n' ' '
+              echo
+            fi
+          done
