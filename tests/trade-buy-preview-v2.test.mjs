@@ -124,6 +124,9 @@ test('stale, forged or extra-field buy offers cannot be accepted or declined',()
  assert.throws(()=>choose({...s,revision:s.revision+1},p,true),/Stale or forged/);
  assert.throws(()=>choose(s,p,undefined),/explicit/);
  assert.equal(JSON.stringify(s),snapshot);
+ // A semantic offer copied across JSON/object boundaries need not preserve key order.
+ const shuffled=Object.fromEntries(Object.entries(p).reverse());
+ assert.equal(choose(s,shuffled,false).decision,'declined');
 });
 test('self-target, eliminated seats and empty target hands remain fail-closed',()=>{
  for(const s of [room([]),room(['d005'])]){
