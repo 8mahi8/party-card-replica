@@ -33,7 +33,7 @@ Firebase公式[Realtime Database JavaScript API](https://firebase.google.com/doc
 5. 初期状態オブジェクトや読み取り結果の変更でホスト状態は変わらない。
 6. 3人の研究用〈蜃気楼〉1周でB/Cが順番に防御し、各席に他人の手札を公開しない。
 
-**CI実行結果はGitHub Actions実測後に追記する。** これは学校実機・本家現行版の証明ではない。
+**CI実測：コード＋6テストコミット `cef8d15e8cad35501fab5b4578db48dbc4f97a09` で Node 885/885 PASS（run `40927755363`）、Chromium 28/28 PASS（run `40927755334`）、Playwright WebKit 339/339 PASS（run `40927755339`）。** V2単体HTMLの生成整合性チェックもChrome/WebKit CIで成功。これは学校実機・本家現行版の証明ではない。
 
 ## 次工程
 
