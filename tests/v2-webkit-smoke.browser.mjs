@@ -1250,6 +1250,49 @@ async function testDreamAppearanceTouch(base){
  finally{page=null;await context.close();}
 }
 
+
+async function testDreamOutgoingSaleTouch(base){
+ const context=await browser.newContext({viewport:{width:390,height:844},
+  screen:{width:390,height:844},deviceScaleFactor:2,isMobile:true,hasTouch:true,locale:'ja-J'});
+ try{
+  page=await context.newPage();
+  await page.goto(base+'/embed-harness.html',{waitUntil:'load'});
+  await page.locator('#game-embed').evaluate(el=>{el.style.height='430px';});
+  const frame=page.frameLocator('#game-embed');
+  await frame.locator('[data-action=dream-demo]').tap();
+  await frame.locator('[data-action=reveal]').tap();
+  const cards=frame.locator('[data-card=hand]');
+  passed((await cards.nth(1).textContent()).includes('ワンダーソード'),
+    'Dream sender originally sees false name');
+  await cards.first().tap();await cards.nth(1).tap();
+  await frame.locator('[data-target=B]').tap();
+  await frame.locator('[data-action=submit]').tap();
+  await frame.locator('.compact-pass').waitFor();
+  passed((await frame.locator('.compact-pass h1').textContent()).includes('P2') &&
+     await frame.locator('[data-card=hand]').count()===0,
+    'Dream Sell hides buyer hand before opponent defense');
+  await frame.locator('[data-action=reveal]').tap();
+  const offer=frame.locator('.trade-offer');
+  passed((await offer.textContent()).includes('金のこん棒') &&
+     (await offer.textContent()).includes('¥25'),
+    'defender sees authentic offered artifact and price');
+  await frame.locator('[data-action=submit]').tap();
+  await frame.locator('.compact-pass').waitFor();
+  passed(await frame.locator('[data-card]').count()===0,
+    'accepted Dream transfer conceals next hand');
+  await frame.locator('[data-action=reveal]').tap();
+  passed(await frame.locator('[data-card=hand]').filter({hasText:'金のこん棒'}).count()===1,
+    'recipient hand has authentic artifact');
+  passed(await frame.locator('[data-card=hand]').filter({hasText:'ワンダーソード'}).count()===0,
+    'recipient cannot inherit sender-only false appearance');
+  const scores=await frame.locator('.seat').allTextContents();
+  passed(scores[1].includes('MP 5')&&scores[1].includes('¥ 0'),
+    'true ¥25 price is paid from money then MP');
+  await screenshot('webkit-dream-outgoing-sale');
+ }catch(error){await screenshot('webkit-dream-outgoing-failure');throw error;}
+ finally{page=null;await context.close();}
+}
+
 async function testFullHandSaleTouch(base){
  const context=await browser.newContext({
   viewport:{width:390,height:844},screen:{width:390,height:844},
@@ -1350,6 +1393,7 @@ try{
   await testSunCharmRevivalTouch(base);
   await testSelfSaleTouch(base);
   await testDreamAppearanceTouch(base);
+  await testDreamOutgoingSaleTouch(base);
   console.log('WEBKIT_SMOKE_SUCCESS checks='+checks+' engine=Playwright WebKit'+
     ' fixed-height frames=1024x460,390x430');
 }catch(error){
