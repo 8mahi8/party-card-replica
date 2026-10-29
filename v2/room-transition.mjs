@@ -185,10 +185,20 @@ export function submitAndResolveFixture(state,command,catalog,{
   // Attack selection must be validated BEFORE asking another seat to defend.
   // Otherwise a bad combo or MP deficit can strand both players in a
   // pending-defense state with no way to correct the attack.
+  let stagedState=stage.state;
   if(stage.state.phase==='defense' &&
     ['playCards','playSequence','castLearned'].includes(command.type)) {
-    if(attackFamily(stage.state,catalog)==='weapon')
-      compileOrderedWeaponAttack(stage.state,catalog);
+    if(attackFamily(stage.state,catalog)==='weapon'){
+      const compiled=compileOrderedWeaponAttack(stage.state,catalog);
+      // Preview-only, not attackContext: the latter means the opening
+      // cards have ALREADY been spent when the first hit resolves.
+      if(stage.state.rulesetId==='mirage-multiplayer-research-fixture-v2'&&
+         stage.state.players.length>2&&compiled.mirageCount>0){
+        stagedState={...stage.state,pending:{...stage.state.pending,
+          miragePreview:{rounds:compiled.mirageCount,
+            hitsPerTarget:compiled.hitCount/compiled.mirageCount}}};
+      }
+    }
     else {
       // Preview the solo miracle against an empty defensive declaration.
       // It validates opening card, learned status and MP without committing
@@ -201,8 +211,8 @@ export function submitAndResolveFixture(state,command,catalog,{
   }
   if(stage.state.phase==='tradeDefense'&&command.type==='declareSale')
     validateSaleDeclarationFixture(stage.state,catalog);
-  if(stage.state.phase!=='resolving')
-    return {state:stage.state,applied:true,duplicate:false,autoResolved:false,
+  if(stagedState.phase!=='resolving')
+    return {state:stagedState,applied:true,duplicate:false,autoResolved:false,
       events:[],plan:null};
   const resolved=resolveStagedFixture(stage.state,catalog,{
     labOnly:true,fixtureDrawDefinitionId,deflectRng
