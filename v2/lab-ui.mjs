@@ -19,9 +19,9 @@ function cardButton(c,type){
  const picked=c.selectedOrder>0;
  return '<button type="button" class="battle-card'+(picked?' picked':'')+
  '" data-card="'+type+'" data-id="'+attr(type==='hand'?c.instanceId:c.definitionId)+
- '" aria-pressed="'+picked+'"'+(c.tradeSelectable===false?' disabled aria-disabled="true"':'')+'><span class="rank">'+(picked?c.selectedOrder:'+')+
+ '" aria-pressed="'+picked+'"'+(c.tradeSelectable===false||c.passive===true?' disabled aria-disabled="true"':'')+'><span class="rank">'+(picked?c.selectedOrder:'+')+
  '</span><span class="card-label">'+esc(c.label)+'</span><small>'+
- (type==='hand'?'手札 · '+elem(c.element):'習得済み奇跡')+'</small></button>';
+ (type==='hand'?(c.passive?'所持中 · HP0で自動発動':'手札 · '+elem(c.element)):'習得済み奇跡')+'</small></button>';
 }
 export function renderV2LabMarkup(data,{resetArmed=false}={}){
  const text=data.phase==='turn'?'攻撃':data.phase==='defense'?'防御':
@@ -50,13 +50,15 @@ export function renderV2LabMarkup(data,{resetArmed=false}={}){
      '<p>'+esc(data.notice)+'</p><p class="hint">端末を'+esc(seatLabel(data.actorId))+
      'へ渡してから手札を表示してください</p>'+
      '<button type="button" class="primary wide" data-action="reveal">自分の手札を見る</button>'+
-     (data.phase==='turn'&&data.actorId==='A'&&!data.tradeTrial&&!data.buyTrial&&!data.exchangeTrial?
+     (data.phase==='turn'&&data.actorId==='A'&&!data.tradeTrial&&!data.buyTrial&&!data.exchangeTrial&&!data.revivalTrial?
       '<button type="button" class="quiet wide scenario-launch" data-action="trade-demo">'+
       '売るの研究配置で始める</button>'+
       '<button type="button" class="quiet wide scenario-launch" data-action="buy-demo">'+
       '買うの研究配置で始める</button>'+
       '<button type="button" class="quiet wide scenario-launch" data-action="exchange-demo">'+
-      '両替の研究配置で始める</button>':'')+
+      '両替の研究配置で始める</button>'+
+      '<button type="button" class="quiet wide scenario-launch" data-action="revival-demo">'+
+      '太陽のお守りの復活を試す</button>':'')+
      '</section>'+footer;
  }
  if(data.phase==='buyDecision'){
@@ -209,6 +211,8 @@ export function mountV2Lab(root,controller=createV2LabController()){
        controller.loadBuyTrial();resetArmed=false;handoff=true;
      }else if(action==='exchange-demo'){
        controller.loadExchangeTrial();resetArmed=false;handoff=true;
+     }else if(action==='revival-demo'){
+       controller.loadRevivalTrial();resetArmed=false;handoff=true;
      }else if(action==='reset'){
        if(!resetArmed)resetArmed=true;
        else{controller.reset();resetArmed=false;handoff=true;}
