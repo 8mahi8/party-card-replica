@@ -197,3 +197,64 @@ test('same command id replay does not apply second damage or RNG draw',()=>{
  assert.equal(second.state.rngSeed,b.state.rngSeed);
  assert.equal(JSON.stringify(second.state.players),JSON.stringify(b.state.players));
 });
+
+test('explicit first-target C is deterministic and costs no opening RNG draw',()=>{
+ const s=init();
+ const first=attack(s,'C');
+ assert.equal(first.state.activePlayerId,'C');
+ assert.equal(first.state.rngSeed,s.rngSeed);
+ const second=block(first.state);
+ assert.equal(second.state.activePlayerId,'B');
+ assert.notEqual(second.state.rngSeed,s.rngSeed);
+});
+test('learned Wall cannot truncate a research multi-recipient attack',()=>{
+ const s=init({hands:{A:['w016','m012'],B:[],C:[]}});
+ s.players[1].learned.push('m001');
+ const a=attack(s),before=JSON.stringify(a.state);
+ assert.throws(()=>send(a.state,'defend',{orderedInstanceIds:[],
+   learnedDefinitionId:'m001'}),/Multiplayer Mirage redirect or Wall/);
+ assert.equal(JSON.stringify(a.state),before);
+});
+test('ordinary guard on miracle-reactive armor still works in multi-seat',()=>{
+ const s=init({hands:{A:['w016','m012'],B:['d018'],C:[]}});
+ const a=attack(s);
+ const b=block(a.state,[a.state.players[1].hand[0].instanceId]);
+ assert.equal(b.state.players[1].hp,39);
+ assert.equal(b.state.activePlayerId,'C');
+ const end=block(b.state);
+ assert.equal(end.state.phase,'turn');
+ assert.equal(end.state.players[2].hp,30);
+});
+test('projection shows sweep / subhit but never opponents hidden cards',()=>{
+ const s=init({hands:{A:['w050','m012','m012'],B:[],C:['d003']}});
+ const a=attack(s),b=block(a.state);
+ const p=viewStagingRoom(b.state,'C',catalog);
+ assert.equal(p.pending.mirageRound,1);
+ assert.equal(p.pending.mirageRounds,2);
+ assert.equal(p.pending.mirageTargetHit,2);
+ assert.equal(p.pending.mirageTargetHits,2);
+ assert.equal(p.pending.mirageHitsResolved,1);
+ assert(!Object.hasOwn(p.players[0],'hand'));
+ assert(!Object.hasOwn(p.players[1],'hand'));
+ assert(!Object.hasOwn(p.pending,'eligibleIds'));
+});
+test('three Mirages times Nokobunbun reaches 12 independent defenses across two rivals',()=>{
+ const s=init({hands:{A:['w050','m012','m012','m012'],B:[],C:[]}});
+ const out=run(s);
+ assert.equal(out.hops.length,12);
+ assert.equal(out.hops.filter(x=>x.target==='B').length,6);
+ assert.equal(out.hops.filter(x=>x.target==='C').length,6);
+ assert.equal(out.r.state.players[1].hp,22);
+ assert.equal(out.r.state.players[2].hp,22);
+ assert.equal(out.r.state.players[0].mp,10);
+ assert.equal(out.r.state.players[0].hand.length,4);
+ assert.equal(out.r.state.turnCount,1);
+});
+test('an eliminated first target skips the remainder of its Nokobunbun subhits',()=>{
+ const s=init({hp:{B:2},hands:{A:['w050','m012'],B:[],C:[]}});
+ const out=run(s);
+ assert.equal(out.hops.length,3);
+ assert.deepEqual(out.hops.map(x=>x.target),['B','C','C']);
+ assert.equal(out.r.state.players[1].hp,0);
+ assert.equal(out.r.state.players[2].hp,34);
+});
