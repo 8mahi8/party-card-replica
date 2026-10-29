@@ -12,6 +12,7 @@
 import {sumLegalArmor, calculateHit, MAX_HAND_SIZE} from '../src/rules.mjs';
 import {runEffectQueueFixture} from './effect-runner.mjs';
 import {compileOrderedWeaponAttack,queuedAttackCosts} from './ordered-attack.mjs';
+import {beginMirageTargetRouteFixture} from './mirage-target-route.mjs';
 
 function fail(message) { throw new Error(message); }
 function catalogDef(catalog,instance) {
@@ -84,6 +85,23 @@ export function compileBasicResolution(state,catalog) {
   const {attack,element}=attackContext;
   if(attackContext.attackKind!=='weapon'||!Number.isSafeInteger(attack)||attack<0)
     fail('Unsupported cached attack payload');
+  // The current multiplayer contract is deliberately fixture-only.
+  // Original first-victim choice and multi-seat redirects still need
+  // direct original verification before they can be a public ruleset.
+  const multiplayerMirage=state.players.length>2&&
+    state.rulesetId==='mirage-multiplayer-research-fixture-v2'&&
+    attackContext.mirageCount>0;
+  const mirageRoute=multiplayerMirage
+    ?(p.mirageRoute??beginMirageTargetRouteFixture({
+      players:state.players,sourceId:attacker.id,
+      firstTargetId:p.targetId,mirageCount:attackContext.mirageCount,
+      hitsPerTarget:attackContext.hitCount/attackContext.mirageCount,
+      rngSeed:state.rngSeed
+     }).route):null;
+  if(multiplayerMirage&&(p.targetId!==mirageRoute.targetId||
+     (p.mirageRoute&&(!p.attackContext||
+       p.attackContext.mirageCount!==attackContext.mirageCount))))
+    fail('Invalid multiplayer Mirage route or cached attack');
   const isSelf=(p.sourceId??p.originalAttackerId)===defender.id;
   let defending=[];
   if(isSelf) {
@@ -132,7 +150,7 @@ export function compileBasicResolution(state,catalog) {
   const defenderWillSurvive=hit.hpAfter>0||
     defender.hand.some(c=>catalog.get(c.definitionId)?.effects.some(e=>
       e.when==='onZeroHp'&&e.type==='reviveAtZeroHp'));
-  const continueStrike=multiHit&&hitIndex+1<hitCount&&defenderWillSurvive&&
+  const continueStrike=!multiplayerMirage&&multiHit&&hitIndex+1<hitCount&&defenderWillSurvive&&
     (attacker.id!==defender.id||hit.hpAfter>0)&&
     (repeatTarget.id===defender.id||repeatTarget.hp>0);
   const queue=Object.freeze([
@@ -140,7 +158,9 @@ export function compileBasicResolution(state,catalog) {
     ...(isSelf?[]:[Object.freeze({type:'spend',playerId:defender.id,instanceIds:Object.freeze(defending.map(x=>x.instance.instanceId))})]),
     Object.freeze({type:'hit',targetId:defender.id,damage:hit.damage,hpAfter:hit.hpAfter,instantDefeat:hit.instantDefeat,
        ...(attackContext.absorbsHp?{lifeSteal:true}:{})}),
-    ...(continueStrike?
+    ...(multiplayerMirage?
+      [Object.freeze({type:'advanceMirageRoute',attackContext,route:mirageRoute})]:
+      continueStrike?
       [Object.freeze({type:'continueStrike',attackContext,repeatTargetId})]:
       [Object.freeze({type:'refill',order:'seating',maxHand:MAX_HAND_SIZE}),
        Object.freeze({type:'advance',afterId:attacker.id})])
@@ -148,7 +168,7 @@ export function compileBasicResolution(state,catalog) {
   return Object.freeze({
     originalAttackerId:attacker.id,targetId:defender.id,
     attack,element,armor,stripElement,
-    hit,hitIndex,hitCount,continueStrike,queue
+    hit,hitIndex,hitCount,continueStrike,multiplayerMirage,queue
   });
 }
 /**
