@@ -20,6 +20,12 @@ button:disabled{opacity:.45;cursor:not-allowed}
 .phase{display:block;flex:0 0 auto;padding:8px 17px;color:#0a2431;border-radius:999px;background:#81dbeb;font-weight:800;font-size:13px}
 .disclaimer{background:#251d2b;border:1px solid #6b526a;color:#ffdecb;padding:12px 15px;line-height:1.6;border-radius:13px;font-size:12px;margin-bottom:14px}
 .score{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.score.multi-seat{grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.score.multi-seat .seat{padding:8px;border-radius:11px;min-width:0}
+.score.multi-seat .seat strong{font-size:15px}
+.score.multi-seat .seat small{display:block;margin:2px 0 0;font-size:10px}
+.score.multi-seat .values{margin-top:5px;gap:3px 9px;font-size:10px}
+.score.multi-seat .values b{font-size:14px}
 .seat{background:#14243b;border:1px solid #344c6e;border-radius:17px;padding:16px}
 .seat strong{font-size:19px}
 .seat small{color:#a7bbd7;margin-left:7px}
@@ -4651,6 +4657,13 @@ const SELF_SALE_TRIAL_HANDS=Object.freeze({
  A:Object.freeze(['t001','w003','d001']),B:Object.freeze(['d005','i002'])
 });
 const DREAM_TRIAL_HANDS=SELF_SALE_TRIAL_HANDS;
+// The initial target is user-selected ONLY as an explicit research assumption.
+const MIRAGE_TRIAL_HANDS=Object.freeze({
+ A:Object.freeze(['w016','m012','m012','d001']),
+ B:Object.freeze(['d003']),
+ C:Object.freeze(['d001'])
+});
+const MIRAGE_RESEARCH_RULESET='mirage-multiplayer-research-fixture-v2';
 
 function safeMessage(error){
   const msg=error?.message;
@@ -4666,7 +4679,7 @@ function safeMessage(error){
   return typeof msg==='string' && msg.length<=230 ? msg : 'この操作は現在の実験版では使えません';
 }
 function otherSeat(state,actor){
-  return state.players.find(p=>p.id!==actor)?.id??null;
+  return state.players.find(p=>p.id!==actor&&p.hp>0)?.id??null;
 }
 function keyOf(item){
   return item?.instanceId ? 'h:'+item.instanceId
@@ -4753,7 +4766,7 @@ function createV2LabController({
   let selected=[],visible=false,targetId=otherSeat(state,state.activePlayerId);
   let notice='手番プレイヤーだけが「手札を見る」を押してください';
   let commandSerial=0;
-  let tradeTrial=false,buyTrial=false,exchangeTrial=false,revivalTrial=false,selfSaleTrial=false,dreamTrial=false,exchangeDraft=null;
+  let tradeTrial=false,buyTrial=false,exchangeTrial=false,revivalTrial=false,selfSaleTrial=false,dreamTrial=false,mirageTrial=false,exchangeDraft=null;
 
   const active=()=>state.activePlayerId;
   function pendingActor(){
@@ -4776,7 +4789,7 @@ function createV2LabController({
           catalog.get(actor?.hand.find(c=>c.instanceId===x.instanceId)?.definitionId)
             ?.discardPolicy==='ordinary'),
       cardSetComplete:summary.complete,
-      cardSetCount:summary.unique,tradeTrial,buyTrial,exchangeTrial,revivalTrial,selfSaleTrial,dreamTrial,
+      cardSetCount:summary.unique,tradeTrial,buyTrial,exchangeTrial,revivalTrial,selfSaleTrial,dreamTrial,mirageTrial,
       exchangeAllocation:visible&&state.phase==='turn'&&exchangeDraft?
         {...exchangeDraft}:null
     };
@@ -5071,17 +5084,31 @@ function createV2LabController({
     notice='夢の研究配置です。「売る」で自分に神器を売り、見た目と実体を照合します';
     return view();
   }
+  function loadMirageTrial(){
+    state=createStagingRoom({
+      seats:Object.entries(MIRAGE_TRIAL_HANDS).map(([id,handDefinitionIds])=>({
+        id,handDefinitionIds:[...handDefinitionIds]
+      })),
+      firstSeatId:'A',rulesetId:MIRAGE_RESEARCH_RULESET,rngSeed:7
+    },catalog);
+    state.players[0].mp=20;
+    tradeTrial=false;buyTrial=false;exchangeTrial=false;revivalTrial=false;
+    selfSaleTrial=false;dreamTrial=false;mirageTrial=true;exchangeDraft=null;
+    selected=[];visible=false;targetId='B';commandSerial=0;
+    notice='3人〈蜃気楼〉研究配置。初回の攻撃先を選択し、以後は生存者から抽選します。原作の最初の対象選択は未確認です';
+    return view();
+  }
   function reset(){
     state=createStagingRoom({
       seats:handEntries.map(p=>({id:p.id,handDefinitionIds:[...p.handDefinitionIds]})),
       firstSeatId,rulesetId:'partial-reference-v2-lab'
     },catalog);
-    tradeTrial=false;buyTrial=false;exchangeTrial=false;revivalTrial=false;selfSaleTrial=false;dreamTrial=false;exchangeDraft=null;selected=[];visible=false;targetId=otherSeat(state,firstSeatId);
+    tradeTrial=false;buyTrial=false;exchangeTrial=false;revivalTrial=false;selfSaleTrial=false;dreamTrial=false;mirageTrial=false;exchangeDraft=null;selected=[];visible=false;targetId=otherSeat(state,firstSeatId);
     notice='新しい検証試合。手番プレイヤーに渡してください';
     commandSerial=0;
     return view();
   }
-  return {view,reveal,toggle,setTarget,submit,reset,loadTradeTrial,loadBuyTrial,loadExchangeTrial,loadRevivalTrial,loadSelfSaleTrial,loadDreamTrial,
+  return {view,reveal,toggle,setTarget,submit,reset,loadTradeTrial,loadBuyTrial,loadExchangeTrial,loadRevivalTrial,loadSelfSaleTrial,loadDreamTrial,loadMirageTrial,
     // Test-only state snapshot: never send to another player or persist online.
     labSnapshot:()=>JSON.parse(JSON.stringify(state))};
 }
@@ -5102,7 +5129,7 @@ const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({
  '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
 })[c]);
 const attr=x=>esc(encodeURIComponent(x));
-const seatLabel=id=>id==='A'?'P1':id==='B'?'P2':'P'+id;
+const seatLabel=id=>typeof id==='string'&&/^[A-I]$/.test(id)?'P'+(id.charCodeAt(0)-64):'P'+id;
 const elem=x=>({none:'無',fire:'火',water:'水',wood:'木',earth:'土',light:'光',dark:'闇'})[x]??'—';
 function portrait(p){
  return '<div class="seat"><div><strong>'+esc(seatLabel(p.id))+'</strong> <small>手札'+p.handCount+'枚</small></div>'+
@@ -5126,8 +5153,11 @@ function renderV2LabMarkup(data,{resetArmed=false}={}){
  '<span class="phase">'+text+'</span></div>';
  const header=topLine+
  '<div class="disclaimer">⚠ <strong>オフライン1台交代制</strong>・固定カード補充によるテスト。'+
- 'オンライン対戦・原作の出現率・全カード再現ではありません。</div>'+
- '<section class="score" aria-label="プレイヤーの状態">'+data.publicPlayers.map(portrait).join('')+'</section>';
+ 'オンライン対戦・原作の出現率・全カード再現ではありません。'+
+ (data.mirageTrial?' <strong>3人〈蜃気楼〉実験：最初の攻撃先は手動指定という未確認の仮定です。</strong>':'')+
+ '</div>'+
+ '<section class="score'+(data.publicPlayers.length>2?' multi-seat':'')+
+ '" aria-label="プレイヤーの状態">'+data.publicPlayers.map(portrait).join('')+'</section>';
  const footer='<footer><button type="button" class="quiet" data-action="reset">'+
  (resetArmed?'もう一度押すと試合を初期化':'最初からやり直す')+
  '</button><small>対戦ログの保存・ネットワーク通信は行いません。</small></footer>';
@@ -5144,7 +5174,7 @@ function renderV2LabMarkup(data,{resetArmed=false}={}){
      '<p>'+esc(data.notice)+'</p><p class="hint">端末を'+esc(seatLabel(data.actorId))+
      'へ渡してから手札を表示してください</p>'+
      '<button type="button" class="primary wide" data-action="reveal">自分の手札を見る</button>'+
-     (data.phase==='turn'&&data.actorId==='A'&&!data.tradeTrial&&!data.buyTrial&&!data.exchangeTrial&&!data.revivalTrial&&!data.selfSaleTrial&&!data.dreamTrial?
+     (data.phase==='turn'&&data.actorId==='A'&&!data.tradeTrial&&!data.buyTrial&&!data.exchangeTrial&&!data.revivalTrial&&!data.selfSaleTrial&&!data.dreamTrial&&!data.mirageTrial?
       '<button type="button" class="quiet wide scenario-launch" data-action="trade-demo">'+
       '売るの研究配置で始める</button>'+
       '<button type="button" class="quiet wide scenario-launch" data-action="buy-demo">'+
@@ -5156,7 +5186,9 @@ function renderV2LabMarkup(data,{resetArmed=false}={}){
       '<button type="button" class="quiet wide scenario-launch" data-action="self-sale-demo">'+
       '自分に「売る」を試す</button>'+
       '<button type="button" class="quiet wide scenario-launch" data-action="dream-demo">'+
-      '夢の神器を自分に売って確かめる</button>':'')+
+      '夢の神器を自分に売って確かめる</button>'+
+      '<button type="button" class="quiet wide scenario-launch" data-action="mirage-demo">'+
+      '3人〈蜃気楼〉の研究配置で始める</button>':'')+
      '</section>'+footer;
  }
  if(data.revivalTrial&&data.phase==='defense'){
@@ -5240,7 +5272,10 @@ function renderV2LabMarkup(data,{resetArmed=false}={}){
  const title=isExchange?'両替：配分を入力':
    data.phase==='turn'?'攻撃するカードを順番に選択':
    data.phase==='tradeDefense'?'取引への応答を選択':
-   '防御カードを順番に選択'+(data.pending?.strikeCount>1?
+   '防御カードを順番に選択'+(data.pending?.mirageRounds?
+     '（第'+esc(data.pending.mirageRound)+'/'+esc(data.pending.mirageRounds)+
+     '周・'+esc(data.pending.mirageTargetHit)+'/'+esc(data.pending.mirageTargetHits)+'発目）':
+     data.pending?.strikeCount>1?
      '（'+esc(data.pending.strikeNumber)+'/'+esc(data.pending.strikeCount)+'発目）':'');
  const soloPlusMiracle=data.phase==='turn' && firstPicked?.family==='miracle' &&
    firstPicked.playModes.includes('addAttack');
@@ -5340,7 +5375,9 @@ function mountV2Lab(root,controller=createV2LabController()){
    let handoff=false;
    let submitRejected=false;
    try{
-     if(action==='trade-demo'){
+     if(action==='mirage-demo'){
+       controller.loadMirageTrial();resetArmed=false;handoff=true;
+     }else if(action==='trade-demo'){
        controller.loadTradeTrial();resetArmed=false;handoff=true;
      }else if(action==='buy-demo'){
        controller.loadBuyTrial();resetArmed=false;handoff=true;
