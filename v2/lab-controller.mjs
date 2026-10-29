@@ -30,6 +30,9 @@ const EXCHANGE_TRIAL_HANDS=Object.freeze({
 const REVIVAL_TRIAL_HANDS=Object.freeze({
  A:Object.freeze(['w016','d001']),B:Object.freeze(['i005','d001'])
 });
+const SELF_SALE_TRIAL_HANDS=Object.freeze({
+ A:Object.freeze(['t001','w003','d001']),B:Object.freeze(['d005','i002'])
+});
 
 function safeMessage(error){
   const msg=error?.message;
@@ -132,7 +135,7 @@ export function createV2LabController({
   let selected=[],visible=false,targetId=otherSeat(state,state.activePlayerId);
   let notice='手番プレイヤーだけが「手札を見る」を押してください';
   let commandSerial=0;
-  let tradeTrial=false,buyTrial=false,exchangeTrial=false,revivalTrial=false,exchangeDraft=null;
+  let tradeTrial=false,buyTrial=false,exchangeTrial=false,revivalTrial=false,selfSaleTrial=false,exchangeDraft=null;
 
   const active=()=>state.activePlayerId;
   function pendingActor(){
@@ -155,7 +158,7 @@ export function createV2LabController({
           catalog.get(actor?.hand.find(c=>c.instanceId===x.instanceId)?.definitionId)
             ?.discardPolicy==='ordinary'),
       cardSetComplete:summary.complete,
-      cardSetCount:summary.unique,tradeTrial,buyTrial,exchangeTrial,revivalTrial,
+      cardSetCount:summary.unique,tradeTrial,buyTrial,exchangeTrial,revivalTrial,selfSaleTrial,
       exchangeAllocation:visible&&state.phase==='turn'&&exchangeDraft?
         {...exchangeDraft}:null
     };
@@ -317,7 +320,7 @@ export function createV2LabController({
            ?.effects.some(e=>e.when==='onDeclare'&&e.type==='forceSale'&&e.params.kind==='sell')){
         if(selected.length!==2||selected.some(x=>!x.instanceId))
           throw new Error('「売る」と売り渡す神器の順に2枚選んでください');
-        if(targetId===actor.id)throw new Error('自分への売却は原作確認まで研究版では扱いません');
+        // Source-backed self Sell is a distinct no-defense lab settlement.
         command={commandId:n,expectedRevision:state.revision,actorId:actor.id,
           type:'declareSale',targetId,saleInstanceId:selected[0].instanceId,
           soldInstanceId:selected[1].instanceId};
@@ -381,7 +384,7 @@ export function createV2LabController({
       seats:Object.entries(TRADE_TRIAL_HANDS).map(([id,handDefinitionIds])=>({id,handDefinitionIds:[...handDefinitionIds]})),
       firstSeatId:'A',rulesetId:'partial-reference-v2-lab'
     },catalog);
-    tradeTrial=true;buyTrial=false;exchangeTrial=false;revivalTrial=false;exchangeDraft=null;selected=[];visible=false;targetId='B';commandSerial=0;
+    tradeTrial=true;buyTrial=false;exchangeTrial=false;revivalTrial=false;exchangeDraft=null;selected=[];visible=false;targetId='B';selfSaleTrial=false;commandSerial=0;
     notice='取引研究モードです。P1が「売る」→商品を選び、P2が応答します';
     return view();
   }
@@ -392,7 +395,7 @@ export function createV2LabController({
       })),
       firstSeatId:'A',rulesetId:'partial-reference-v2-lab'
     },catalog);
-    tradeTrial=false;buyTrial=true;exchangeTrial=false;revivalTrial=false;exchangeDraft=null;selected=[];visible=false;targetId='B';commandSerial=0;
+    tradeTrial=false;buyTrial=true;exchangeTrial=false;revivalTrial=false;exchangeDraft=null;selected=[];visible=false;targetId='B';selfSaleTrial=false;commandSerial=0;
     notice='買う研究モードです。P1が「買う」を選び、P2が応答します';
     return view();
   }
@@ -404,7 +407,7 @@ export function createV2LabController({
       firstSeatId:'A',rulesetId:'partial-reference-v2-lab'
     },catalog);
     tradeTrial=false;buyTrial=false;exchangeTrial=true;revivalTrial=false;exchangeDraft=null;
-    selected=[];visible=false;targetId='B';commandSerial=0;
+    selected=[];visible=false;targetId='B';selfSaleTrial=false;commandSerial=0;
     notice='両替研究モードです。HP・MP・¥の合計を保って振り分けてください';
     return view();
   }
@@ -418,8 +421,20 @@ export function createV2LabController({
     // This low-HP starting condition is only a laboratory demonstration.
     state.players.find(p=>p.id==='B').hp=5;
     tradeTrial=false;buyTrial=false;exchangeTrial=false;revivalTrial=true;
-    exchangeDraft=null;selected=[];visible=false;targetId='B';commandSerial=0;
+    exchangeDraft=null;selected=[];visible=false;targetId='B';selfSaleTrial=false;commandSerial=0;
     notice='太陽のお守り研究モードです。P1が攻撃し、P2は防御せず復活を確認します';
+    return view();
+  }
+  function loadSelfSaleTrial(){
+    state=createStagingRoom({
+      seats:Object.entries(SELF_SALE_TRIAL_HANDS).map(([id,handDefinitionIds])=>({
+        id,handDefinitionIds:[...handDefinitionIds]
+      })),firstSeatId:'A',rulesetId:'partial-reference-v2-lab'
+    },catalog);
+    tradeTrial=false;buyTrial=false;exchangeTrial=false;revivalTrial=false;
+    selfSaleTrial=true;exchangeDraft=null;selected=[];visible=false;
+    targetId='A';commandSerial=0;
+    notice='自己売却研究モード。P1が「売る」と商品を選び、対象を自分にして確定します';
     return view();
   }
   function reset(){
@@ -427,12 +442,12 @@ export function createV2LabController({
       seats:handEntries.map(p=>({id:p.id,handDefinitionIds:[...p.handDefinitionIds]})),
       firstSeatId,rulesetId:'partial-reference-v2-lab'
     },catalog);
-    tradeTrial=false;buyTrial=false;exchangeTrial=false;revivalTrial=false;exchangeDraft=null;selected=[];visible=false;targetId=otherSeat(state,firstSeatId);
+    tradeTrial=false;buyTrial=false;exchangeTrial=false;revivalTrial=false;selfSaleTrial=false;exchangeDraft=null;selected=[];visible=false;targetId=otherSeat(state,firstSeatId);
     notice='新しい検証試合。手番プレイヤーに渡してください';
     commandSerial=0;
     return view();
   }
-  return {view,reveal,toggle,setTarget,submit,reset,loadTradeTrial,loadBuyTrial,loadExchangeTrial,loadRevivalTrial,
+  return {view,reveal,toggle,setTarget,submit,reset,loadTradeTrial,loadBuyTrial,loadExchangeTrial,loadRevivalTrial,loadSelfSaleTrial,
     // Test-only state snapshot: never send to another player or persist online.
     labSnapshot:()=>JSON.parse(JSON.stringify(state))};
 }
