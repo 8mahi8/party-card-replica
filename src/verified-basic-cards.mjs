@@ -12,8 +12,8 @@
  * 調査用の参照名で、オリジナルUIの表示素材ではない。
  */
 export const PARTIAL_CARD_SOURCE = 'piong-atwiki-and-macaron-2026-02-28';
-const main=(id,referenceName,attack,price,weight,{element='none',guard,reaction,reactionScope='neutral_weapon',stopScope}={})=>
-  Object.freeze({id,referenceName,kind:'weapon',slot:'main',category:'weapon_single',element,attack,price,weight,...(guard===undefined?{}:{guard}),...(reaction===undefined?{}:{reaction,reactionScope}),...(stopScope===undefined?{}:{stopScope})});
+const main=(id,referenceName,attack,price,weight,{element='none',guard,reaction,reactionScope='neutral_weapon',stopScope,hpAbsorb}={})=>
+  Object.freeze({id,referenceName,kind:'weapon',slot:'main',category:'weapon_single',element,attack,price,weight,...(guard===undefined?{}:{guard}),...(reaction===undefined?{}:{reaction,reactionScope}),...(stopScope===undefined?{}:{stopScope}),...(hpAbsorb===undefined?{}:{hpAbsorb})});
 const add=(id,referenceName,attack,price,weight=1,{element='none',reaction,reactionScope,stopScope,attackElementOverride}={})=>
   Object.freeze({id,referenceName,kind:'weapon',slot:'addon',category:'weapon_single',element,attack,price,weight,...(reaction===undefined?{}:{reaction,reactionScope}),...(stopScope===undefined?{}:{stopScope}),...(attackElementOverride===undefined?{}:{attackElementOverride})});
 const shield=(id,referenceName,guard,price,weight,{element='none',attackBonus,stopScope,reaction,reactionScope}={})=>
@@ -52,6 +52,10 @@ export const VERIFIED_BASIC_CARDS = Object.freeze([
   main('w029','エンゼルナイフ',11,15,1,{stopScope:'miracle'}),
   main('w030','エンゼルソード',13,15,1,{stopScope:'miracle'}),
   main('w031','エンゼルアクス',15,15,1,{stopScope:'miracle'}),
+  // 2026 Piong and Macaron independently identify full-attack HP absorption.
+  // Special on-hit timing is handled by the common V2 effect runner.
+  main('w048','ゴーストソード',7,10,1,{hpAbsorb:true}),
+  main('w049','リアルゴーストソード',12,15,1,{hpAbsorb:true}),
   // Source-checked plain weapons (2026-03-18 piong wiki, cross-checked with
   // 2024 GFGA where both agree). No special/condition/status behavior.
   // Preserve main/add factories so later cards need data, not name branches.
