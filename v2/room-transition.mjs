@@ -10,6 +10,7 @@
  * and must not be used for production card probability or online play.
  */
 import {applyStagingCommand} from './staging-room.mjs';
+import {validateSaleDeclarationFixture,resolveStagedSaleFixture} from './staged-sale.mjs';
 import {resolveRedirectFixture} from './redirect-resolution.mjs';
 import {resolveSoloMiracleFixture,compileSoloMiracleResolution} from './miracle-resolution.mjs';
 import {compileOrderedWeaponAttack} from './ordered-attack.mjs';
@@ -129,6 +130,8 @@ export function resolveStagedFixture(state,catalog,{
     return resolvePrayFixture(state,catalog,{labOnly,fixtureDrawDefinitionId});
   if(state.pending?.type==='discard')
     return resolveDiscardFixture(state,catalog,{labOnly,fixtureDrawDefinitionId});
+  if(state.pending?.type==='sale')
+    return resolveStagedSaleFixture(state,catalog,{labOnly,fixtureDrawDefinitionId});
   const family=attackFamily(state,catalog);
   if(family==='miracle')
     return resolveSoloMiracleFixture(state,catalog,{labOnly:true,fixtureDrawDefinitionId,deflectRng});
@@ -172,6 +175,8 @@ export function submitAndResolveFixture(state,command,catalog,{
       compileSoloMiracleResolution(preview,catalog);
     }
   }
+  if(stage.state.phase==='tradeDefense'&&command.type==='declareSale')
+    validateSaleDeclarationFixture(stage.state,catalog);
   if(stage.state.phase!=='resolving')
     return {state:stage.state,applied:true,duplicate:false,autoResolved:false,
       events:[],plan:null};
