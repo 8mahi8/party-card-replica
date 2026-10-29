@@ -5,6 +5,15 @@
 
 > **この文書は引き継ぎ入口であり、実装の真実は常に開発ブランチの最新コードとGitHub Actions。** コミットSHA・テスト件数・カード数は作業のたびに変わる。本文の日付や数値を確認せず永久に正しいと扱わないこと。
 
+## 2026-10-30 G6最新｜選択神器のタップ順と攻防確認の中央表示【この節が最新】
+
+- **原作資料照合**：[初心者向け原作ブラウザ画面](https://godfield-beginner.game-info.wiki/)、[ゴッドフィールドWiki・攻撃と防御](https://w.atwiki.jp/piong/pages/16.html)、[追加武器などの組み合わせ説明](https://w.atwiki.jp/gfplusa/pages/18.html)。原作は選択した神器を画面に並べて確定し、複数神器の攻防が重要。画像素材は転載せず情報配置を再現。
+- **修正対象**：`v2/demo/firebase-online-lab.html`。旧G6画面では選択コマンドを**タップ順**で送信する一方、中央の選択神器表示を手札の元の並び順に再ソートしていた。これを**Setの挿入順＝実コマンドの順番**で描画し、1./2.の番号を表示。選択解除→再選択後も送信側と同じ順を表示。攻・守・消費MPの印字数値合計を「カード記載値の合計（参考）」として明示（属性/特殊効果/反射等の最終結果を予測するものではない）。`view.pending.sourceId/targetId`など公開済み値から **P1 → P2** の攻撃先を表示し、相手の手札を漏らさない。エンジン、戦闘ルール、Firebase Rulesは変更なし。
+- **実測**：変更後のNode **905/905 PASS** run [`40971530720`](https://github.com/8mahi8/party-card-replica/actions/runs/40971530720)。新オンラインG6の390×430 WebKit実タップ **24/24 PASS**＋旧WebKit **339/339 PASS** run [`40971341208`](https://github.com/8mahi8/party-card-replica/actions/runs/40971341208)。Chromium **28/28 PASS** run [`40971341041`](https://github.com/8mahi8/party-card-replica/actions/runs/40971341041)。WebKitで手札2番目→1番目のタップ表示順、攻10/守3、相手からの攻撃先、許すへの復帰、攻防・再送まで確認。
+- **配布物**：オンライン単体HTML`v2/demo/firebase-online-standalone.html`をGitHub Actionsで生成・開発ブランチへ保存（bot commit `fb55f8c649ba5948d1bea8ac748388a0931f8878`）。[最新配布ZIP](https://github.com/8mahi8/party-card-replica/actions/runs/40971341208/artifacts/12941095297)、[WebKitキャプチャ](https://github.com/8mahi8/party-card-replica/actions/runs/40971341208/artifacts/12940582371)。初回Nodeの一致検査は生成前ファイルを読んだため1件失敗したが、再生成後の905/905で成功。単発の生成workflowは手動起動に戻した。
+- **引継ぎ**：詳細資料[`docs/V2_G6_ATTACK_DEFENSE_SELECTION_PREVIEW_2026-10-30.md`](docs/V2_G6_ATTACK_DEFENSE_SELECTION_PREVIEW_2026-10-30.md)に原作出典、実装、テスト、注意点を記録。
+- **次の優先**：まずGitHub PagesのHTTPS試遊経路が未設定なので、外部へ提示できる試遊URLを確認→学校iPad（Safari）2台で画面高さ・操作とFirebase実通信を確認。原作全353種/500枠、正規山札、特殊効果と詳細攻防表示などは未完成で、開発版を完全再現とは言わない。**本物のFirebaseで今回の新UIは未検証**。GitHub `main`、学校Google Sitesで貼ったHTML、Firebase Security Rules・認証は触れていない。
+
 ## 2026-10-30 G6｜原作ブラウザ版を参照したオンラインUI再設計【現行最新】
 
 - **外部資料を実際に照合**：[ゴッドフィールド初心者向け・ブラウザ画面](https://godfield-beginner.game-info.wiki/)、[原作の攻撃/防御の操作方法（Piong wiki）](https://w.atwiki.jp/piong/pages/16.html)、[原作画面のプレイ写真](https://note.com/moe_axera/n/n77ed29fe154d)。原作らしさの中心は淡い水色/緑背景、HP・MP・所持金のプレイヤー帯、中央で選択神器と攻撃防御を確認するエリア、下端の横長・横並び神器手札、「許す」の防御辞退表記。
