@@ -99,7 +99,7 @@ test('weapon additive is applied to all four hits without reusing the cards',()=
  assert.deepEqual(r.hits,[6,6,6,6]);
  assert.equal(r.result.state.players[1].hp,16);
  assert.equal(r.result.state.players[0].hand.length,4);
- assert.equal(r.events.filter(e=>e.type==='spend').length,1);
+ assert.equal(r.events.filter(e=>e.type==='spend'&&e.playerId==='A'&&e.count===4).length,1);
  assert.equal(r.events.filter(e=>e.type==='refill').length,1);
 });
 test('defender uses different armor on successive Mirage hits; no interim refill',()=>{
