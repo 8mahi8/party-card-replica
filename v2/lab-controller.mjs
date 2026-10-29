@@ -24,6 +24,9 @@ const TRADE_TRIAL_HANDS=Object.freeze({
 const BUY_TRIAL_HANDS=Object.freeze({
  A:Object.freeze(['t002','d001']),B:Object.freeze(['d005','i002'])
 });
+const EXCHANGE_TRIAL_HANDS=Object.freeze({
+ A:Object.freeze(['t003','d001']),B:Object.freeze(['d005','i002'])
+});
 
 function safeMessage(error){
   const msg=error?.message;
@@ -124,7 +127,7 @@ export function createV2LabController({
   let selected=[],visible=false,targetId=otherSeat(state,state.activePlayerId);
   let notice='手番プレイヤーだけが「手札を見る」を押してください';
   let commandSerial=0;
-  let tradeTrial=false,buyTrial=false;
+  let tradeTrial=false,buyTrial=false,exchangeTrial=false,exchangeDraft=null;
 
   const active=()=>state.activePlayerId;
   function pendingActor(){
@@ -147,7 +150,9 @@ export function createV2LabController({
           catalog.get(actor?.hand.find(c=>c.instanceId===x.instanceId)?.definitionId)
             ?.discardPolicy==='ordinary'),
       cardSetComplete:summary.complete,
-      cardSetCount:summary.unique,tradeTrial,buyTrial
+      cardSetCount:summary.unique,tradeTrial,buyTrial,exchangeTrial,
+      exchangeAllocation:visible&&state.phase==='turn'&&exchangeDraft?
+        {...exchangeDraft}:null
     };
     if(state.phase==='finished'){
       return {...status,publicPlayers:state.players.map(p=>({
@@ -163,7 +168,7 @@ export function createV2LabController({
         label:baseLabel(def),family:def.family,element:def.element,
         playModes:[...def.playModes],
         tradeAction:def.effects.find(e=>e.when==='onDeclare'&&
-          ['forceSale','requestBuy'].includes(e.type))?.params.kind??null,
+          ['forceSale','requestBuy','reallocateResources'].includes(e.type))?.params.kind??null,
         canReflectTrade:def.effects.some(e=>e.when==='onDefense'&&e.type==='redirectAttack'&&
           e.params.mode==='reflect'&&e.params.scope==='any'),
         tradeSelectable:!['tradeDefense','buyDefense'].includes(state.phase)||def.effects.some(e=>
@@ -244,6 +249,13 @@ export function createV2LabController({
         throw new Error('防御奇跡を1つだけ選択してください');
     }
     selected.push(choice);
+    if(state.phase==='turn'&&choice.instanceId){
+      const chosen=player.hand.find(x=>x.instanceId===choice.instanceId);
+      const def=catalog.get(chosen?.definitionId);
+      if(def?.effects.some(e=>e.type==='reallocateResources'&&
+        e.when==='onDeclare'&&e.params.kind==='exchange'))
+        exchangeDraft={hp:player.hp,mp:player.mp,money:player.money};
+    }
     return view();
   }
   function setTarget(id){
@@ -252,7 +264,7 @@ export function createV2LabController({
       throw new Error('攻撃先が無効です');
     targetId=id;return view();
   }
-  function submit({discard=false,accept}={}){
+  function submit({discard=false,accept,allocation}={}){
     if(!visible)throw new Error('手札表示後に操作してください');
     const actor=own();
     if(!actor)throw new Error('試合は終了しました');
@@ -310,6 +322,16 @@ export function createV2LabController({
         if(targetId===actor.id)throw new Error('自分への買うは原作確認まで研究版では扱いません');
         command={commandId:n,expectedRevision:state.revision,actorId:actor.id,
           type:'declareBuy',targetId,buyInstanceId:selected[0].instanceId};
+      }else if(selected[0]?.instanceId&&
+         catalog.get(actor.hand.find(c=>c.instanceId===selected[0].instanceId)?.definitionId)
+           ?.effects.some(e=>e.when==='onDeclare'&&e.type==='reallocateResources'&&e.params.kind==='exchange')){
+        if(selected.length!==1)throw new Error('「両替」だけを1枚選んでください');
+        if(!allocation||typeof allocation!=='object')
+          throw new Error('HP・MP・¥の配分を入力してください');
+        exchangeDraft={...allocation};
+        command={commandId:n,expectedRevision:state.revision,actorId:actor.id,
+          type:'exchange',exchangeInstanceId:selected[0].instanceId,
+          allocation:{...exchangeDraft}};
       }else if(selected.length===1&&selected[0].learnedDefinitionId){
         command={commandId:n,expectedRevision:state.revision,actorId:actor.id,
           type:'castLearned',learnedDefinitionId:selected[0].learnedDefinitionId,targetId};
@@ -329,7 +351,7 @@ export function createV2LabController({
         fixtureDrawDefinitionId
       });
       state=result.state;
-      selected=[];
+      selected=[];exchangeDraft=null;
       visible=false;
       targetId=state.phase==='turn'?otherSeat(state,state.activePlayerId):null;
       notice=state.phase==='finished'?'検証試合が終了しました':
@@ -352,7 +374,7 @@ export function createV2LabController({
       seats:Object.entries(TRADE_TRIAL_HANDS).map(([id,handDefinitionIds])=>({id,handDefinitionIds:[...handDefinitionIds]})),
       firstSeatId:'A',rulesetId:'partial-reference-v2-lab'
     },catalog);
-    tradeTrial=true;buyTrial=false;selected=[];visible=false;targetId='B';commandSerial=0;
+    tradeTrial=true;buyTrial=false;exchangeTrial=false;exchangeDraft=null;selected=[];visible=false;targetId='B';commandSerial=0;
     notice='取引研究モードです。P1が「売る」→商品を選び、P2が応答します';
     return view();
   }
@@ -363,8 +385,20 @@ export function createV2LabController({
       })),
       firstSeatId:'A',rulesetId:'partial-reference-v2-lab'
     },catalog);
-    tradeTrial=false;buyTrial=true;selected=[];visible=false;targetId='B';commandSerial=0;
+    tradeTrial=false;buyTrial=true;exchangeTrial=false;exchangeDraft=null;selected=[];visible=false;targetId='B';commandSerial=0;
     notice='買う研究モードです。P1が「買う」を選び、P2が応答します';
+    return view();
+  }
+  function loadExchangeTrial(){
+    state=createStagingRoom({
+      seats:Object.entries(EXCHANGE_TRIAL_HANDS).map(([id,handDefinitionIds])=>({
+        id,handDefinitionIds:[...handDefinitionIds]
+      })),
+      firstSeatId:'A',rulesetId:'partial-reference-v2-lab'
+    },catalog);
+    tradeTrial=false;buyTrial=false;exchangeTrial=true;exchangeDraft=null;
+    selected=[];visible=false;targetId='B';commandSerial=0;
+    notice='両替研究モードです。HP・MP・¥の合計を保って振り分けてください';
     return view();
   }
   function reset(){
@@ -372,12 +406,12 @@ export function createV2LabController({
       seats:handEntries.map(p=>({id:p.id,handDefinitionIds:[...p.handDefinitionIds]})),
       firstSeatId,rulesetId:'partial-reference-v2-lab'
     },catalog);
-    tradeTrial=false;buyTrial=false;selected=[];visible=false;targetId=otherSeat(state,firstSeatId);
+    tradeTrial=false;buyTrial=false;exchangeTrial=false;exchangeDraft=null;selected=[];visible=false;targetId=otherSeat(state,firstSeatId);
     notice='新しい検証試合。手番プレイヤーに渡してください';
     commandSerial=0;
     return view();
   }
-  return {view,reveal,toggle,setTarget,submit,reset,loadTradeTrial,loadBuyTrial,
+  return {view,reveal,toggle,setTarget,submit,reset,loadTradeTrial,loadBuyTrial,loadExchangeTrial,
     // Test-only state snapshot: never send to another player or persist online.
     labSnapshot:()=>JSON.parse(JSON.stringify(state))};
 }
