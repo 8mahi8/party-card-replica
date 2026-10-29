@@ -5,6 +5,18 @@
 
 > **この文書は引き継ぎ入口であり、実装の真実は常に開発ブランチの最新コードとGitHub Actions。** コミットSHA・テスト件数・カード数は作業のたびに変わる。本文の日付や数値を確認せず永久に正しいと扱わないこと。
 
+## 2026-10-30 G6実装｜Firebase RTDB・2人オンライン研究版【この節が最新】
+
+**実装コミット**：`b639af74`（通信モジュール）、`7c2fca79`（Firebase模擬結合テスト）、`d7107ec8`（RTDB変更パスのみ通知する模擬環境へ修正）、`15ef60c0`（2人用HTML画面）、`9b54d9f0`（HTML ESM/操作要素の静的回帰3件）。最新のコード・テスト状態を確認する際はPR #1のHEADを必ず再読する。
+
+- **新規UI**：`v2/demo/firebase-online-lab.html`。ホストが5桁ルーム作成、ゲストが番号入力で参加。自席の手札・HP/MP/お金表示、攻撃、防御、祈る、捨てる。開発版限定。GitHub上のファイルプレビューは実際のゲーム配信URLではない。
+- **通信**：`v2/firebase-two-seat-transport-fixture.mjs`。`godfieldV2LabRooms/<番号>`というゲーム固有のRTDBルートを使用（小国戦線IIIのルートに非干渉）。ホストだけが既存G2/G3の戦闘状態を持ち、ゲストは`commands/B`へ操作だけ送信。ホストは`views/A`・`views/B`をそれぞれの席専用に更新し、`acks/B`を返す。ルーム番号・ゲスト登録は`transaction`で衝突回避。
+- **公式資料・比較**：Firebase Realtime DatabaseのWeb読み書き、transactions、オフライン時の動作、小国戦線IIIの実装を参照。正式な原作再現や独自認証方式の追加は行っていない。
+- **CI実測（コード+テストコミット `9b54d9f0c250e9c62a06ee79f85a44e7242c8303`）**：**Node 894/894 PASS** run `40929433535`、**Chromium 28/28 PASS** run `40929433536`、**Playwright WebKit 339/339 PASS** run `40929433726`。オンライン専用の新規結合テストはNode Fake RTDBで6件、HTML構文/要素はNode3件。**実際のオンラインHTMLを2つのSafari画面で通信した試験ではなく、ブラウザ系の339/28は既存オフライン画面の回帰。**
+- **資料**：[`docs/V2_G6_FIREBASE_TWO_SEAT_LAB_2026-10-30.md`](docs/V2_G6_FIREBASE_TWO_SEAT_LAB_2026-10-30.md)。既存の研究用`v2/demo/standalone.html`とは別ファイル。Nodeテストと原作研究は継続する。
+- **主な制約**：実Firebaseへのルーム作成/参加/同期の実接続は**未実施**。学校iPad/iOS Safari/Google Sites実機も未検証。ホストタブが閉じると試合停止（復旧未実装）。Firebase Rules/認証は変更せず、既存DBのアクセス設定に依存。正式カード抽選・原作全カードは未完成。
+- **次工程**：開発ブランチをstatic HTTPSで試遊できる状態か確認→実Firebaseで実際に2台のルーム作成、参加、攻撃、防御、再送の動作を検証。Google Sites公開版と`main`は許可なく触らない。WebKit等で新規オンライン画面そのものを目視/タッチ検証する価値が高い。
+
 ## 2026-10-30 G6準備｜座席別ローカルホスト＋再送・画面秘匿テスト【現行最新】
 
 - **新コード**：`v2/local-room-host-fixture.mjs`。ホストが1つの権威状態を所有し、信頼済み試験セットアップから座席A/B/Cへ `read()` と `submit(command)` の小さい口を渡す。`submitAndResolveFixture` と `viewStagingRoom` を直接再利用し、既存G2/G3の効果解決・ID再送抑止・revision検査を重複実装しない。相手の手札、乱数、内部効果キュー、真のroom stateを返さない。
