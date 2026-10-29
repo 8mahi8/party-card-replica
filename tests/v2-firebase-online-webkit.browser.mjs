@@ -71,6 +71,12 @@ try{
    }
   }
   function write(changes){
+   // Simulate a successful defense whose one-time ack publication is lost.
+   // The next same-ID command must restore the receipt without another hit.
+   if(window.__g6DropNextAck){
+    const key=Object.keys(changes).find(p=>p.endsWith('/acks/B'));
+    if(key){delete changes[key];window.__g6DropNextAck=false;}
+   }
    const tree=data();
    for(const [p,val] of Object.entries(changes))writeInto(tree,p,val);
    localStorage.setItem(key,JSON.stringify(tree));
@@ -153,9 +159,21 @@ try{
    .includes('防御待ち'));
  check((await b.locator('#phase').textContent()).includes('P2'),
   'guest sees its defense window');
+ // Drop the initial acknowledgement while keeping the updated seat views.
+ await a.evaluate(()=>{window.__g6DropNextAck=true;});
  await b.locator('#defend').tap();
  await a.waitForFunction(()=>document.querySelector('#phase')?.textContent
    .includes('攻撃手番 P2'));
+ await b.waitForFunction(()=>document.querySelector('#phase')?.textContent
+   .includes('攻撃手番 P2'));
+ check(await b.locator('#retryPanel').isVisible(),
+  'guest can manually resend same command if the ack is lost');
+ check(await b.locator('#retry').isEnabled(),
+  'retry control enabled while waiting for acknowledgement');
+ await b.locator('#retry').tap();
+ await b.locator('#retryPanel').waitFor({state:'hidden'});
+ check(await b.locator('#retryPanel').isHidden(),
+  'guest receives duplicate acknowledgement and exits waiting state');
  const scores=await a.locator('.score').allTextContents();
  check(scores[1].includes('HP 30'),'host sees resolved damage after guest defense');
  check((await b.locator('.score').allTextContents())[1].includes('HP 30'),
