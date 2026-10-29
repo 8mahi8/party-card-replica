@@ -58,7 +58,7 @@ export function inspectForcedSaleLethalityFixture(state,catalog,{
    saleInstanceId,soldInstanceId,
    itemDefinitionId:item.definitionId,price:offered.stats.price,
    payment,consequence,
-   canSettleWithExistingLab:!payment.buyerEliminated,
+   needsZeroHpReview:payment.buyerEliminated,
    unresolved:Object.freeze(unresolved)
  });
 }
