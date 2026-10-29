@@ -1098,6 +1098,58 @@ async function testExchangeTrialTouch(base){
  }finally{page=null;await context.close();}
 }
 
+
+async function testSunCharmRevivalTouch(base){
+ const context=await browser.newContext({
+  viewport:{width:390,height:844},screen:{width:390,height:844},
+  deviceScaleFactor:2,isMobile:true,hasTouch:true,locale:'ja-J'
+ });
+ try{
+  page=await context.newPage();
+  await page.goto(base+'/embed-harness.html',{waitUntil:'load'});
+  await page.locator('#game-embed').evaluate(el=>{el.style.height='430px';});
+  const frame=page.frameLocator('#game-embed');
+  await frame.locator('[data-action=revival-demo]').tap();
+  await frame.locator('.compact-pass').waitFor();
+  passed(await frame.locator('[data-card]').count()===0,
+    'Sun Charm trial begins without leaking either hand');
+  await frame.locator('[data-action=reveal]').tap();
+  passed((await frame.locator('[data-card=hand]').first().textContent()).includes('ワンダーソード'),
+    'P1 sees the neutral research attack');
+  await frame.locator('[data-card=hand]').first().tap();
+  await frame.locator('[data-action=submit]').tap();
+  await frame.locator('.compact-pass').waitFor();
+  passed((await frame.locator('.compact-pass h1').textContent()).includes('P2'),
+    'fatal attack hands the iPad privately to P2 defense');
+  await frame.locator('[data-action=reveal]').tap();
+  const charm=frame.locator('[data-card=hand]').first();
+  passed((await charm.textContent()).includes('太陽のお守り') &&
+    (await charm.textContent()).includes('自動発動'),
+    'P2 sees the documented passive Sun Charm');
+  passed(await charm.isDisabled(),
+    'passive Sun Charm cannot be manually selected');
+  const box=await charm.boundingBox();
+  const submit=await frame.locator('[data-action=submit]').boundingBox();
+  passed(Boolean(box&&submit&&box.height>=70&&submit.height>=44),
+    'passive card and defense confirmation have sufficient touch areas');
+  await screenshot('webkit-sun-charm-before-revival');
+  await frame.locator('[data-action=submit]').tap();
+  await frame.locator('.compact-pass').waitFor();
+  passed((await frame.locator('.compact-pass h1').textContent()).includes('P2'),
+    'a Sun Charm revives P2 instead of ending a two-player match');
+  await frame.locator('[data-action=reveal]').tap();
+  const scores=await frame.locator('.seat').allTextContents();
+  passed(scores[1].includes('HP 10')&&scores[1].includes('手札2枚'),
+    'revived P2 has HP10 and one fixture refill: '+JSON.stringify(scores));
+  passed(await frame.locator('[data-card=hand]').filter({
+    hasText:'太陽のお守り'
+  }).count()===0,'consumed passive charm is absent after revival');
+  await screenshot('webkit-sun-charm-after-revival');
+ }catch(error){
+  await screenshot('webkit-sun-charm-failure');throw error;
+ }finally{page=null;await context.close();}
+}
+
 async function testFullHandSaleTouch(base){
  const context=await browser.newContext({
   viewport:{width:390,height:844},screen:{width:390,height:844},
@@ -1195,6 +1247,7 @@ try{
   await testFullHandSaleTouch(base);
   await testBuyTrialTouch(base);
   await testExchangeTrialTouch(base);
+  await testSunCharmRevivalTouch(base);
   console.log('WEBKIT_SMOKE_SUCCESS checks='+checks+' engine=Playwright WebKit'+
     ' fixed-height frames=1024x460,390x430');
 }catch(error){
