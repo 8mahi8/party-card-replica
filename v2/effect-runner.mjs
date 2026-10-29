@@ -10,6 +10,7 @@ import {createInstance} from './foundation.mjs';
 import {MAX_HAND_SIZE,MAX_LEARNED_MIRACLES} from '../src/rules.mjs';
 import {planForcedSalePayment} from './trade-payment.mjs';
 import {planIncomingHandTransfer} from './hand-overflow.mjs';
+import {previewBuyOfferFixture,previewBuyChoiceFixture} from './trade-buy.mjs';
 
 function fail(message){throw new Error(message);}
 function who(state,id){
@@ -174,6 +175,63 @@ export function runEffectQueueFixture(state,catalog,queue,{
      events.push({type:'uncontestedSale',sellerId:seller.id,buyerId:buyer.id,
        itemDefinitionId:item.definitionId,price:definition.stats.price,
        debit:payment.debit});
+   } else if(effect.type==='uncontestedBuy'){
+     // Research-only Buy settlement after an explicitly uncontested offer.
+     // Original Super Mirror response timing and a buyer's initial full hand
+     // are not established; never route a live command to this effect.
+     const keys=['type','buyerId','sellerId','buyInstanceId','itemInstanceId','accept'];
+     if(Object.keys(effect).some(k=>!keys.includes(k))||
+        typeof effect.accept!=='boolean')
+       fail('Invalid researched Buy effect');
+     if(state.pending?.type!=='uncontestedBuy'||
+        state.pending.originalAttackerId!==effect.buyerId||
+        state.pending.targetId!==effect.sellerId||
+        state.pending.buyInstanceId!==effect.buyInstanceId||
+        state.pending.itemInstanceId!==effect.itemInstanceId||
+        state.pending.accept!==effect.accept)
+       fail('Buy does not match authenticated research selection');
+     if(effect.buyerId===effect.sellerId)fail('Cannot buy from self');
+     const originalBuyer=who(state,effect.buyerId);
+     const paidTrade=originalBuyer.hand.find(c=>c.instanceId===effect.buyInstanceId);
+     const paidDef=catalog.get(paidTrade?.definitionId);
+     const spendCommands=queue.filter(q=>q?.type==='spend');
+     if(!paidTrade||paidDef?.family!=='trade'||
+        !paidDef.effects.some(e=>e.type==='requestBuy'&&
+          e.when==='onDeclare'&&e.params.kind==='buy')||
+        spendCommands.length!==1||
+        spendCommands[0].playerId!==effect.buyerId||
+        spendCommands[0].instanceIds?.length!==1||
+        spendCommands[0].instanceIds[0]!==effect.buyInstanceId)
+       fail('Buy requires spending exactly the authentic Buy trade card');
+     const asTurn={...state,phase:'turn',activePlayerId:effect.buyerId,pending:null};
+     const offer=previewBuyOfferFixture(asTurn,catalog,{
+       buyerId:effect.buyerId,targetId:effect.sellerId
+     });
+     if(offer.itemInstanceId!==effect.itemInstanceId)
+       fail('Buy cannot choose a different randomly offered card');
+     const choice=previewBuyChoiceFixture(asTurn,catalog,offer,{
+       accept:effect.accept
+     });
+     const buyer=who(s,effect.buyerId),seller=who(s,effect.sellerId);
+     // Avoid inventing whether the action-card refill or incoming item is
+     // processed first at the physical 18-card limit.
+     if(effect.accept && originalBuyer.hand.length===MAX_HAND_SIZE)
+       fail('Full-hand Buy settlement requires original timing verification');
+     s.rngSeed=offer.nextSeed;
+     if(!effect.accept){
+       events.push({type:'buyDeclined',buyerId:buyer.id,sellerId:seller.id,
+         itemDefinitionId:offer.itemDefinitionId,price:offer.price});
+     }else{
+       const index=seller.hand.findIndex(c=>c.instanceId===offer.itemInstanceId);
+       if(index<0)fail('Randomly chosen item is no longer held');
+       const item=seller.hand.splice(index,1)[0];
+       buyer.hand.push(item);
+       buyer.money=choice.buyerMoneyAfter;
+       seller.money=choice.sellerMoneyAfter;
+       events.push({type:'uncontestedBuy',buyerId:buyer.id,sellerId:seller.id,
+         itemDefinitionId:item.definitionId,price:offer.price,
+         itemInstanceId:item.instanceId});
+     }
    } else if(effect.type==='reflectedSale'){
      // One Super Mirror against a forced sale, research fixture only.
      // The original seller retains the item and becomes the payer; the
