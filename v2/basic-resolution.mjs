@@ -115,10 +115,11 @@ export function compileBasicResolution(state,catalog) {
      defender.hand.some(c=>catalog.get(c.definitionId)?.effects.some(e=>
        e.when==='onZeroHp'&&e.type==='reviveAtZeroHp')))
     fail('Absorption against a fatal Sun Charm recovery requires original timing verification');
-  const multiHit=attackContext.hitCount===2;
+  const hitCount=attackContext.hitCount??1;
+  const multiHit=hitCount>1;
   const hitIndex=p.strikeIndex??0;
   if(!Number.isSafeInteger(hitIndex)||hitIndex<0||
-     (multiHit?hitIndex>1:hitIndex!==0))
+     (multiHit?hitIndex>=hitCount:hitIndex!==0))
     fail('Invalid staged strike index');
   if(multiHit&&(attackContext.absorbsHp||attacker.id===p.repeatTargetId||
        (!p.attackContext&&p.targetId===attacker.id)))
@@ -131,8 +132,8 @@ export function compileBasicResolution(state,catalog) {
   const defenderWillSurvive=hit.hpAfter>0||
     defender.hand.some(c=>catalog.get(c.definitionId)?.effects.some(e=>
       e.when==='onZeroHp'&&e.type==='reviveAtZeroHp'));
-  const continueStrike=multiHit&&hitIndex===0&&defenderWillSurvive&&
-    (attacker.id===defender.id||attacker.hp>0)&&
+  const continueStrike=multiHit&&hitIndex+1<hitCount&&defenderWillSurvive&&
+    (attacker.id!==defender.id||hit.hpAfter>0)&&
     (repeatTarget.id===defender.id||repeatTarget.hp>0);
   const queue=Object.freeze([
     ...(p.attackContext?[]:queuedAttackCosts(attackContext,attacker.id)),
@@ -147,7 +148,7 @@ export function compileBasicResolution(state,catalog) {
   return Object.freeze({
     originalAttackerId:attacker.id,targetId:defender.id,
     attack,element,armor,stripElement,
-    hit,hitIndex,hitCount:attackContext.hitCount??1,continueStrike,queue
+    hit,hitIndex,hitCount,continueStrike,queue
   });
 }
 /**
