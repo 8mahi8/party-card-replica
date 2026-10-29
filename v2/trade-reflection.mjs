@@ -56,8 +56,8 @@ export function previewSingleMirrorSale(state,catalog,selection,{mirrorInstanceI
     !tradeDef.effects.some(e=>e.type==='forceSale'&&
       e.when==='onDeclare'&&e.params.kind==='sell'))
    fail('Sale requires valid Sell card and offered item');
- if(!itemDef||itemDef.family==='trade')
-   fail('Cannot sell an unverified trade artifact');
+ if(!itemDef)
+   fail('Unknown offered card definition');
  const payment=planForcedSalePayment({price:itemDef.stats.price,buyer:seller});
  if(payment.buyerEliminated||payment.unpaid)
    fail('Lethal reflected sale requires original verification');
