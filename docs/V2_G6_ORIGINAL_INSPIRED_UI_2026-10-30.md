@@ -24,7 +24,8 @@
 
 - `tests/firebase-online-lab-page-v2.test.mjs`：原作に寄せた構成と下部横並び、ステータス、選択領域、`許す`表示が存在することを静的検証。
 - `tests/v2-firebase-online-webkit.browser.mjs`：生成した単体HTMLの実WebKitタップ操作に加え、中央に選択神器名が出ること、選択ハイライト、HP表示、手札が横並びスクロール、未選択の防御が「許す」になることを検証。既存の再送復旧や無効カード選択からの復帰も維持。
-- **最終CI結果は完走したrunを確認してから記録する。**
+- **最終CI実測**：UIを含む検証commit `59b94837fd0be1ad9b53384c9d78663a88c1ce9d`にて、Node **904/904 PASS**（run `40941029006`）、Chromium **28/28 PASS**（run `40941028870`）、Playwright WebKit旧UI **339/339 PASS**＋今回の原作風オンラインUIでの2画面操作 **19/19 PASS**（run `40941028890`）。途中、旧「防御待ちP2」の文言に依存したWebKit試験がタイムアウトしたため、「あなたの防御」など新UIの文言に合わせて試験を修正した。戦闘コード・対戦ルールの修正ではない。
+- **配布用単体HTML**：GitHub Actionsが開発ブランチに自動再生成・保存した`v2/demo/firebase-online-standalone.html`（生成commit `1e76e8f278887b85416aaeb1573c841579e63407`）。同じUIを含む[CI ZIP artifact](https://github.com/8mahi8/party-card-replica/actions/runs/40941028890/artifacts/12925774641)も保存。スクリーンショットは同runの`v2-webkit-touch-evidence`に保存（AIによる画像自体の目視チェックは未実施）。
 - 実機iPad Safari、友達の実プレイによる読みやすさ、AIによるスクリーンショット画像の目視レビューは未検証。カード個別アート、より忠実な中央の攻撃・防御表示、原作の9枚手札、正規抽選は別工程。研究版の4枚固定デッキを原作相当とは扱わない。
 
 ## 次
