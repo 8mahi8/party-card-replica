@@ -139,7 +139,7 @@ export async function joinFirebaseTwoSeatGuestFixture(options={}){
  const claimed=await room.child('meta/guestId').transaction(
   current=>current===null||current===guestId?guestId:undefined,undefined,false);
  if(!claimed.committed)throw new Error('このルームには既に参加者がいます');
- let closed=false;
+ let closed=false,deliverySequence=0;
  listen(room.child('views/B'),'value',snap=>{
   if(!closed)cb.onView(snap.val());
  },cb.onError,stops);
@@ -155,8 +155,12 @@ export async function joinFirebaseTwoSeatGuestFixture(options={}){
    if(closed)throw new Error('接続は終了しています');
    if(command?.actorId!=='B')throw new Error('参加側の操作だけを送信できます');
    // One mailbox per guest: UI waits for the matching ack before sending again.
+   // RTDB listeners may not fire when the same mailbox value is written
+   // again. Change only the delivery marker; keep the game commandId stable
+   // so the authoritative engine can deduplicate a retry.
    await room.child('commands/B').set({
-    senderId:guestId,commandJson:JSON.stringify(command)
+    senderId:guestId,commandJson:JSON.stringify(command),
+    deliveryId:Date.now()+'-'+(++deliverySequence)
    });
    return {sent:true,id:command.commandId};
   },
