@@ -36,7 +36,8 @@ function cloneRoom(state,{interruptionOnly=false}={}){
    ...state,
    revision:state.revision+1,
    players:state.players.map(p=>({...p,
-     hand:p.hand.map(c=>({...c})),learned:[...p.learned]})),
+     hand:p.hand.map(c=>({...c})),learned:[...p.learned],
+     ...(p.dreamDisguises?{dreamDisguises:p.dreamDisguises.map(x=>({...x}))}:{})})),
    pending:interruptionOnly?{...state.pending,spentByPlayer:{...state.pending.spentByPlayer}}:null,
    processedCommands:[...state.processedCommands]
  };
@@ -183,6 +184,12 @@ export function runEffectQueueFixture(state,catalog,queue,{
      current.hp=plan.after.hp;
      current.mp=plan.after.mp;
      current.money=plan.after.money;
+     // A self-targeted Sell identifies the actual offered artifact without
+     // ending the entire Dream status for cards drawn in the future.
+     // Only the chosen physical instance loses its private fake appearance.
+     if(current.dreamDisguises)
+       current.dreamDisguises=current.dreamDisguises.filter(
+         x=>x.instanceId!==plan.soldInstanceId);
      events.push({type:'selfSale',playerId:effect.playerId,
        itemDefinitionId:plan.itemDefinitionId,
        price:plan.price,total:plan.total});
