@@ -166,8 +166,11 @@ async function send(type){
  waiting=true;pendingId=command.commandId;pendingCommand=command;
  feedback('操作を送信しています…');render();
  try{await session.submit(command)}catch(error){
-  // Preserve the ID even if the command was applied before publication failed.
-  // A new ID could turn a transient network error into a stuck match.
+  // A rejected card selection can be changed; a network failure after a
+  // committed action must preserve the same command ID for safe resending.
+  if(error?.commandRejected){
+   waiting=false;pendingId=null;pendingCommand=null;
+  }
   onError(error);render();
  }
 }
