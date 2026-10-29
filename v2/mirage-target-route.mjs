@@ -6,9 +6,9 @@
  * This module schedules TARGETS only. It NEVER resolves HP, defenses,
  * redirects, Wall, cost, learned miracles, or a live turn.
  *
- * The first victim is chosen with the same seeded random selection as
- * subsequent victims. Whether original clients choose the first victim
- * before or after a user target click is NOT independently confirmed.
+ * Research fixtures MAY provide an explicit firstTargetId, preserving RNG.
+ * Without it the first victim is seeded-random. Original first-victim
+ * selection has NOT been directly confirmed.
  * No code in the playable 1v1 resolver calls this research-only module.
  *
  * https://w.atwiki.jp/piong/pages/20.html
@@ -80,11 +80,13 @@ function immutableRoute(base,extra={}){
    eligibleIds:Object.freeze([...base.eligibleIds]),
    visitedIds:Object.freeze([...(extra.visitedIds??base.visitedIds)])});
 }
-/** Create target plan for an isolated fixture; first random draw is recorded. */
+/** Create an isolated fixture plan; optional selected first target spends no RNG. */
 export function beginMirageTargetRouteFixture({
  players,sourceId,firstTargetId=null,mirageCount=1,hitsPerTarget=1,rngSeed
 }={}){
  checkPlayers(players);id(sourceId);
+ if(!Number.isSafeInteger(rngSeed)||rngSeed<=0||rngSeed>0xffffffff)
+  fail('Invalid RNG seed');
  if(![1,2,3].includes(mirageCount)||![1,2].includes(hitsPerTarget))
   fail('Only 1-3 sweeps and 1-2 weapon hits are source-backed');
  if(!players.some(p=>p.id===sourceId&&p.hp>0))
