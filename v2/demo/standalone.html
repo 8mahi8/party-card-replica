@@ -2167,8 +2167,80 @@ return {previewSingleMirrorSale,settleSingleMirrorSaleFixture};
 
 const __v2_module_14 = (() => {
 "use strict";
+const {planForcedSalePayment} = __v2_module_5;
+
+/**
+ * G4 research-only lethal forced-sale inspector.
+ *
+ * The original's money -> MP -> HP debit and HP-zero outcome are sourced.
+ * A full lethal sale still needs the precise original ordering of card
+ * transfer, the spend/refill, any Sun Charm revival, and seller payout when
+ * insufficient resources remain. This helper never settles those outcomes.
+ *
+ * https://w.atwiki.jp/aniwotawiki/pages/47010.html
+ * https://idea427.hatenablog.com/entry/2023/07/31/192159
+ * https://note.com/hixiragi/n/n47365b74f372
+ */
+
+function fail(message){throw new Error(message);}
+function active(state,id){
+ const p=state.players.find(x=>x.id===id);
+ if(!p||!Number.isSafeInteger(p.hp)||p.hp<=0)
+   fail('Forced sale requires a living player');
+ return p;
+}
+/**
+ * Examine a genuine Sell action without playing it.
+ *
+ * NEVER pass the result through the normal effect queue when buyerEliminated:
+ * all zero-HP aftermath requires additional evidence, even if full nominal
+ * payment could be covered exactly.
+ */
+function inspectForcedSaleLethalityFixture(state,catalog,{
+ sellerId,targetId,saleInstanceId,soldInstanceId
+}={}){
+ if(!state||state.schemaVersion!==2||state.phase!=='turn'||
+   !Array.isArray(state.players)||!(catalog instanceof Map))
+   fail('Lethal preview requires a V2 research turn');
+ if(sellerId!==state.activePlayerId||sellerId===targetId)
+   fail('Only the current seller can inspect another player');
+ if(typeof saleInstanceId!=='string'||typeof soldInstanceId!=='string'||
+   saleInstanceId===soldInstanceId)
+   fail('Sell and offered artifact must have distinct physical IDs');
+ const seller=active(state,sellerId),buyer=active(state,targetId);
+ const sale=seller.hand.find(x=>x.instanceId===saleInstanceId);
+ const item=seller.hand.find(x=>x.instanceId===soldInstanceId);
+ const action=catalog.get(sale?.definitionId);
+ const offered=catalog.get(item?.definitionId);
+ if(!sale||!item||action?.family!=='trade'||!action.effects.some(e=>
+    e.when==='onDeclare'&&e.type==='forceSale'&&e.params.kind==='sell'))
+   fail('Lethal preview requires an authentic held Sell card and offered item');
+ if(!offered)fail('Unknown offered card definition');
+ const payment=planForcedSalePayment({price:offered.stats.price,buyer});
+ const consequence=payment.buyerEliminated?
+   (payment.unpaid>0?'hp-zero-shortfall':'hp-zero-exact'):'survives';
+ const unresolved=payment.buyerEliminated?
+   ['zeroHpRecoveryOrResurrection','lethalCardTransferAndRefill',
+     ...(payment.unpaid>0?['sellerCreditWithUnpaidAmount']:[])] :[];
+ return Object.freeze({
+   kind:'saleLethalityPreview',
+   sellerId,targetId,
+   saleInstanceId,soldInstanceId,
+   itemDefinitionId:item.definitionId,price:offered.stats.price,
+   payment,consequence,
+   needsZeroHpReview:payment.buyerEliminated,
+   unresolved:Object.freeze(unresolved)
+ });
+}
+
+return {inspectForcedSaleLethalityFixture};
+})();
+
+const __v2_module_15 = (() => {
+"use strict";
 const {previewUncontestedSale} = __v2_module_12;
 const {previewSingleMirrorSale} = __v2_module_13;
+const {inspectForcedSaleLethalityFixture} = __v2_module_14;
 const {runEffectQueueFixture} = __v2_module_10;
 
 /**
@@ -2176,6 +2248,7 @@ const {runEffectQueueFixture} = __v2_module_10;
  * single-outcome sale engine. The original client's repeated mirror timing,
  * hand-cap and lethal settlement are NOT inferred here.
  */
+
 
 
 
@@ -2202,8 +2275,15 @@ function validateSaleDeclarationFixture(state,catalog){
    hasOutcome=true;break;
   }catch{}
  }
- if(!hasOutcome)
+ if(!hasOutcome){
+   // A lethal Sell is a real original-game action. Do not misreport it
+   // as an invalid card: tell research players exactly which resolution
+   // remains unsupported, without stranding the defending seat.
+   const inspected=inspectForcedSaleLethalityFixture(asTurn,catalog,s);
+   if(inspected.payment.buyerEliminated)
+     fail('Lethal forced sale requires original zero-HP settlement verification');
    fail('No source-verified sale response available for these resources');
+ }
  return true;
 }
 /**
@@ -2258,7 +2338,7 @@ function resolveStagedSaleFixture(state,catalog,{
 return {validateSaleDeclarationFixture,resolveStagedSaleFixture};
 })();
 
-const __v2_module_15 = (() => {
+const __v2_module_16 = (() => {
 "use strict";
 const {previewBuyOfferFixture,previewBuyChoiceFixture} = __v2_module_7;
 const {runEffectQueueFixture} = __v2_module_10;
@@ -2326,7 +2406,7 @@ function resolveStagedBuyFixture(state,catalog,{
 return {resolveStagedBuyFixture};
 })();
 
-const __v2_module_16 = (() => {
+const __v2_module_17 = (() => {
 "use strict";
 const {combineElements} = __v2_module_0;
 
@@ -2533,11 +2613,11 @@ function queuedAttackCosts(attackContext,actorId) {
 return {compileOrderedWeaponAttack,queuedAttackCosts};
 })();
 
-const __v2_module_17 = (() => {
+const __v2_module_18 = (() => {
 "use strict";
 const {sumLegalArmor, calculateHit, MAX_HAND_SIZE} = __v2_module_0;
 const {runEffectQueueFixture} = __v2_module_10;
-const {compileOrderedWeaponAttack,queuedAttackCosts} = __v2_module_16;
+const {compileOrderedWeaponAttack,queuedAttackCosts} = __v2_module_17;
 
 /**
  * V2 G3, PART 1: pure compile/resolve for reference-backed BASIC weapon combat.
@@ -2678,10 +2758,10 @@ function resolveBasicFixture(state,catalog,options={}) {
 return {compileBasicWeaponAttack,compileBasicResolution,resolveBasicFixture};
 })();
 
-const __v2_module_18 = (() => {
+const __v2_module_19 = (() => {
 "use strict";
-const {compileBasicWeaponAttack} = __v2_module_17;
-const {queuedAttackCosts} = __v2_module_16;
+const {compileBasicWeaponAttack} = __v2_module_18;
+const {queuedAttackCosts} = __v2_module_17;
 const {runEffectQueueFixture} = __v2_module_10;
 
 /**
@@ -2820,12 +2900,12 @@ function resolveWallFixture(state,catalog,opts={}) {
 return {isWallDefense,compileWallResolution,resolveWallFixture};
 })();
 
-const __v2_module_19 = (() => {
+const __v2_module_20 = (() => {
 "use strict";
 const {planRedirectRoute} = __v2_module_3;
-const {compileBasicWeaponAttack,resolveBasicFixture} = __v2_module_17;
-const {isWallDefense,resolveWallFixture} = __v2_module_18;
-const {queuedAttackCosts} = __v2_module_16;
+const {compileBasicWeaponAttack,resolveBasicFixture} = __v2_module_18;
+const {isWallDefense,resolveWallFixture} = __v2_module_19;
+const {queuedAttackCosts} = __v2_module_17;
 const {runEffectQueueFixture} = __v2_module_10;
 
 /**
@@ -2944,7 +3024,7 @@ function resolveRedirectFixture(state,catalog,{
 return {resolveRedirectFixture};
 })();
 
-const __v2_module_20 = (() => {
+const __v2_module_21 = (() => {
 "use strict";
 const {calculateHit,sumLegalArmor} = __v2_module_0;
 const {planRedirectRoute} = __v2_module_3;
@@ -3212,14 +3292,14 @@ function resolveSoloMiracleFixture(state,catalog,options={}) {
 return {compileSoloMiracleResolution,resolveSoloMiracleFixture};
 })();
 
-const __v2_module_21 = (() => {
+const __v2_module_22 = (() => {
 "use strict";
 const {applyStagingCommand} = __v2_module_9;
-const {validateSaleDeclarationFixture,resolveStagedSaleFixture} = __v2_module_14;
-const {resolveStagedBuyFixture} = __v2_module_15;
-const {resolveRedirectFixture} = __v2_module_19;
-const {resolveSoloMiracleFixture,compileSoloMiracleResolution} = __v2_module_20;
-const {compileOrderedWeaponAttack} = __v2_module_16;
+const {validateSaleDeclarationFixture,resolveStagedSaleFixture} = __v2_module_15;
+const {resolveStagedBuyFixture} = __v2_module_16;
+const {resolveRedirectFixture} = __v2_module_20;
+const {resolveSoloMiracleFixture,compileSoloMiracleResolution} = __v2_module_21;
+const {compileOrderedWeaponAttack} = __v2_module_17;
 const {runEffectQueueFixture} = __v2_module_10;
 const {drawRandom32} = __v2_module_2;
 const {MAX_HAND_SIZE} = __v2_module_0;
@@ -3427,11 +3507,11 @@ function submitAndResolveFixture(state,command,catalog,{
 return {resolvePrayFixture,resolveDiscardFixture,resolveStagedFixture,submitAndResolveFixture};
 })();
 
-const __v2_module_22 = (() => {
+const __v2_module_23 = (() => {
 "use strict";
 const {migrateLegacyCatalog} = __v2_module_4;
 const {createStagingRoom,viewStagingRoom} = __v2_module_9;
-const {submitAndResolveFixture} = __v2_module_21;
+const {submitAndResolveFixture} = __v2_module_22;
 const {VERIFIED_BASIC_CARDS} = __v2_module_1;
 
 /**
@@ -3468,6 +3548,8 @@ function safeMessage(error){
   // A lab-only limitation, not a definitive rule of the original game.
   if(msg==='Weapon or armor after plus miracle unverified')
     return 'この選択順は原作で未確認です。＋攻の追加武器を奇跡より前に選ぶか、解除してください';
+  if(msg==='Lethal forced sale requires original zero-HP settlement verification')
+    return 'この「売る」は相手のHPが0になる取引です。復活・神器移動・補充の原作順序をまだ確認できないため、研究版では使用を保留します';
   if(msg==='Buy mirror response requires original verification')
     return '「買う」のスーパーミラー反射後の処理は原作の確認待ちです。選択を解除して「買うを許す」で続けられます';
   if(msg==='Attack must start with a weapon or offensive miracle')
@@ -3854,9 +3936,9 @@ function createV2LabController({
 return {createV2LabController};
 })();
 
-const __v2_module_23 = (() => {
+const __v2_module_24 = (() => {
 "use strict";
-const {createV2LabController} = __v2_module_22;
+const {createV2LabController} = __v2_module_23;
 
 /**
  * Minimal accessible and touch-friendly offline V2 hotseat UI.
@@ -4132,9 +4214,9 @@ function mountV2Lab(root,controller=createV2LabController()){
 return {renderV2LabMarkup,mountV2Lab};
 })();
 
-const __v2_lab_test_controller = __v2_module_22;
+const __v2_lab_test_controller = __v2_module_23;
 
-const __v2_lab_test_ui = __v2_module_23;
+const __v2_lab_test_ui = __v2_module_24;
 
 __v2_lab_test_ui.mountV2Lab(document.getElementById("v2-root"));
 </script>
