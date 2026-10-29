@@ -19,12 +19,13 @@ function cardButton(c,type){
  const picked=c.selectedOrder>0;
  return '<button type="button" class="battle-card'+(picked?' picked':'')+
  '" data-card="'+type+'" data-id="'+attr(type==='hand'?c.instanceId:c.definitionId)+
- '" aria-pressed="'+picked+'"><span class="rank">'+(picked?c.selectedOrder:'+')+
+ '" aria-pressed="'+picked+'"'+(c.tradeSelectable===false?' disabled aria-disabled="true"':'')+'><span class="rank">'+(picked?c.selectedOrder:'+')+
  '</span><span class="card-label">'+esc(c.label)+'</span><small>'+
  (type==='hand'?'手札 · '+elem(c.element):'習得済み奇跡')+'</small></button>';
 }
 export function renderV2LabMarkup(data,{resetArmed=false}={}){
- const text=data.phase==='turn'?'攻撃':data.phase==='defense'?'防御':'終了';
+ const text=data.phase==='turn'?'攻撃':data.phase==='defense'?'防御':
+   data.phase==='tradeDefense'?'取引防御':'終了';
  const topLine='<div class="topline"><div><strong class="brand">CARD LAB <em>V2</em></strong>'+
  '<div class="sub">学校iPad用・ルール検証だけの試遊版</div></div>'+
  '<span class="phase">'+text+'</span></div>';
@@ -48,17 +49,25 @@ export function renderV2LabMarkup(data,{resetArmed=false}={}){
      '<p>'+esc(data.notice)+'</p><p class="hint">端末を'+esc(seatLabel(data.actorId))+
      'へ渡してから手札を表示してください</p>'+
      '<button type="button" class="primary wide" data-action="reveal">自分の手札を見る</button>'+
+     (data.phase==='turn'&&data.actorId==='A'&&!data.tradeTrial?
+      '<button type="button" class="quiet wide scenario-launch" data-action="trade-demo">'+
+      '取引の研究配置で始める</button>':'')+
      '</section>'+footer;
  }
- const title=data.phase==='turn'?'攻撃するカードを順番に選択':'防御カードを順番に選択';
+ const title=data.phase==='turn'?'攻撃するカードを順番に選択':
+   data.phase==='tradeDefense'?'取引への応答を選択':'防御カードを順番に選択';
  const firstPicked=data.selection[0]?.instanceId
    ?data.hand.find(c=>c.instanceId===data.selection[0].instanceId):null;
  const soloPlusMiracle=data.phase==='turn' && firstPicked?.family==='miracle' &&
    firstPicked.playModes.includes('addAttack');
+ const isSelling=data.phase==='turn' && firstPicked?.tradeAction==='sell';
  const selectedWeapon=data.phase==='turn' && data.selection.some(x=>
    x.instanceId&&data.hand.some(c=>c.instanceId===x.instanceId&&c.family==='weapon'));
- const caption=data.phase==='turn'
-   ?(selectedWeapon?'武器は「捨てる」対象外です。攻撃に使うか、他のカードを選んでください'
+ const caption=data.phase==='tradeDefense'?
+   '取引への防御はスーパーミラーだけ。選ばなければ売買を受け入れます'
+   :data.phase==='turn'
+   ?(isSelling?'「売る」→売り渡す神器の順に2枚選択。自己取引は未検証です'
+   :selectedWeapon?'武器は「捨てる」対象外です。攻撃に使うか、他のカードを選んでください'
    :soloPlusMiracle
      ?'火の玉・流星を先頭に選ぶと単独奇跡。続けられるのは直後の精霊のみ'
      :data.canPray&&data.selection.length===0
@@ -76,17 +85,23 @@ export function renderV2LabMarkup(data,{resetArmed=false}={}){
      data.learned.find(q=>q.definitionId===x.learnedDefinitionId);
    return '<span class="pick-index">'+(i+1)+'. '+esc(c?.label??'選択中')+'</span>';
  }).join('');
- const actionText=data.phase==='defense'?(data.selection.length?'防御を確定':'防御しない')
+ const actionText=data.phase==='tradeDefense'?
+     (data.selection.length?'スーパーミラーで跳ね返す':'売買を受け入れる'):
+     data.phase==='defense'?(data.selection.length?'防御を確定':'防御しない')
    :data.canPray&&data.selection.length===0?'祈る（神器を1枚引く）':'攻撃を確定';
  const notice='<p class="status" role="status">'+esc(data.notice)+'</p>';
- const discardOption=data.phase==='turn' && data.canDiscardSelection
+ const discardOption=data.phase==='turn' && data.canDiscardSelection && !isSelling
    ?'<button type="button" class="quiet discard-option" data-action="discard">'+
      '<strong>'+data.selection.length+'枚捨てる</strong><small>補充なし・ターン終了</small>'+
      '</button>'
    :'';
+ const offer=data.phase==='tradeDefense'&&data.pending?.offer?
+   '<section class="trade-offer" aria-label="取引の提示">'+
+   '<strong>売り付けられた神器：'+esc(data.pending.offer.label)+'</strong>'+
+   '<span>価格 ¥'+esc(data.pending.offer.price)+'</span></section>':'';
  return header+'<main class="stage">'+
    '<div class="stage-heading"><h1>'+esc(seatLabel(data.actorId))+'：'+title+'</h1><p>'+caption+'</p></div>'+
-   targets+'<section class="cards-panel"><h2>手札 <small>'+data.hand.length+'枚</small></h2>'+
+   offer+targets+'<section class="cards-panel"><h2>手札 <small>'+data.hand.length+'枚</small></h2>'+
    '<div class="hand-grid">'+(data.hand.length?data.hand.map(c=>cardButton(c,'hand')).join(''):
        '<p class="empty">手札がありません</p>')+'</div></section>'+
    '<section class="cards-panel"><h2>習得済み奇跡</h2><div class="hand-grid">'+
@@ -111,7 +126,9 @@ export function mountV2Lab(root,controller=createV2LabController()){
    let handoff=false;
    let submitRejected=false;
    try{
-     if(action==='reset'){
+     if(action==='trade-demo'){
+       controller.loadTradeTrial();resetArmed=false;handoff=true;
+     }else if(action==='reset'){
        if(!resetArmed)resetArmed=true;
        else{controller.reset();resetArmed=false;handoff=true;}
      }else if(action==='reveal'){
