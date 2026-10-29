@@ -167,39 +167,87 @@ function render(){
  $('retry').disabled=!waiting||retrying||!pendingCommand;
  if(!session)return;
  if(!view){feedback('相手の画面情報を読み込んでいます');return}
- const active=view.activePlayerId===seat;
+ const active=view.activePlayerId===seat,turn=view.phase==='turn',
+  defense=view.phase==='defense';
  const player=view.players.find(p=>p.id===seat);
- $('scores').replaceChildren();
+ const stats=$('scores');
+ stats.replaceChildren();
  for(const p of view.players){
-  const e=document.createElement('div');e.className='score'+(view.activePlayerId===p.id?' active':'');
-  e.textContent=showSeatLabel(p.id)+'  HP '+p.hp+' / MP '+p.mp+' / ¥ '+p.money+' / 手札 '+p.handCount+'枚';
-  $('scores').append(e);
+  const e=document.createElement('div');
+  e.className='score'+(view.activePlayerId===p.id?' active':'');
+  const title=document.createElement('div');title.className='player-title';
+  const name=document.createElement('span');
+  name.textContent=showSeatLabel(p.id)+(p.id===seat?' · 自分':'');
+  title.append(name);
+  if(view.activePlayerId===p.id){
+   const dot=document.createElement('span');dot.className='turn-dot';
+   dot.textContent='行動中';title.append(dot);
+  }
+  const line=document.createElement('div');line.className='statline';
+  for(const [key,label,value] of [
+   ['hp','HP',p.hp],['mp','MP',p.mp],['money','¥',p.money],
+   ['count','手札',p.handCount]
+  ]){
+   const span=document.createElement('span');span.className=key;
+   span.textContent=label+' '+value;line.append(span);
+  }
+  e.append(title,line);stats.append(e);
  }
+ const mine=active&&(seat!=='A'||joined),busy=waiting;
  $('phase').textContent=view.phase==='finished'?'対戦終了':
-  view.phase==='defense'?'防御待ち '+showSeatLabel(view.activePlayerId):
-  view.phase==='turn'?'攻撃手番 '+showSeatLabel(view.activePlayerId):
-  '処理中…';
- $('hand').replaceChildren();
+  defense?(mine?'あなたの防御':'相手の防御待ち'):
+  turn?(mine?'あなたの攻撃':'相手の攻撃待ち'):'処理中…';
+ $('battleHint').textContent=busy?'操作結果を待っています':
+  defense?(mine?'防具を選ぶか、「許す」':'相手の選択を待っています'):
+  turn?(mine?'神器を選び、攻撃を確定':'相手の操作を待っています'):
+  '試合結果を確認してください';
+ const selected=player.hand||[];
+ $('handCount').textContent=selected.length+'枚 / 横にスライド';
+ const preview=$('selectionPreview');preview.replaceChildren();
+ for(const instance of selected){
+  if(!selection.has(instance.instanceId))continue;
+  const chip=document.createElement('span');chip.className='picked';
+  chip.textContent=names.get(instance.definitionId)||instance.definitionId;
+  preview.append(chip);
+ }
+ if(!preview.childElementCount){
+  const empty=document.createElement('span');empty.className='empty';
+  empty.textContent=mine?'カードをタップして選択':'自分の番まで待機';
+  preview.append(empty);
+ }
+ const hand=$('hand'),scroll=hand.scrollLeft;
+ hand.replaceChildren();
  for(const c of player.hand||[]){
   const def=catalog.get(c.definitionId),btn=document.createElement('button');
   const picked=selection.has(c.instanceId);
-  btn.type='button';btn.className=picked?'selected':'';
+  const family=def?.family||'item';
+  btn.type='button';btn.className='artifact '+family+(picked?' selected':'');
   const name=names.get(c.definitionId)||c.definitionId;
   const stats=def?.stats||{};
-  btn.textContent=name;
-  const sub=document.createElement('small');
-  sub.textContent=[stats.attack?'攻'+stats.attack:'',stats.guard?'守'+stats.guard:'',
-    stats.mpCost?'MP'+stats.mpCost:''].filter(Boolean).join(' · ')||'カード';
-  btn.append(sub);btn.setAttribute('aria-pressed',String(picked));
+  const art=document.createElement('span');art.className='artmark';
+  art.textContent=family==='weapon'?'⚔':family==='armor'?'▣':
+   family==='miracle'?'✦':'◈';
+  const label=document.createElement('span');label.className='cardname';
+  label.textContent=name;
+  const stat=document.createElement('span');stat.className='cardstats';
+  stat.textContent=[stats.attack?'攻'+stats.attack:'',
+    stats.guard?'守'+stats.guard:'',
+    stats.mpCost?'MP'+stats.mpCost:''].filter(Boolean).join(' · ')||'神器';
+  const price=document.createElement('span');price.className='cardprice';
+  price.textContent='¥'+(stats.price??0);
+  btn.append(art,label,stat,price);
+  btn.setAttribute('aria-label',name+' '+stat.textContent);
+  btn.setAttribute('aria-pressed',String(picked));
   btn.disabled=!active||waiting;
   btn.addEventListener('click',()=>{
    if(selection.has(c.instanceId))selection.delete(c.instanceId);
    else selection.add(c.instanceId);
    render();
   });
-  $('hand').append(btn);
+  hand.append(btn);
  }
- const turn=view.phase==='turn',defense=view.phase==='defense',usable=active&&!waiting&&(seat!=='A'||joined);
+ hand.scrollLeft=scroll;
+ const usable=mine&&!busy;
  $('actions').hidden=!(turn||defense);
  $('attack').hidden=!turn;$('pray').hidden=!turn;$('discard').hidden=!turn;
  $('defend').hidden=!defense;
@@ -207,6 +255,7 @@ function render(){
  $('discard').disabled=!usable||!selection.size;
  $('pray').disabled=!usable||player.hand?.some(c=>catalog.get(c.definitionId)?.family==='weapon');
  $('defend').disabled=!usable;
+ $('defend').textContent=selection.size?'防御する':'許す（防御なし）';
  if(seat==='A'&&!joined)feedback('相手が5桁のルーム番号で参加するのを待っています');
 }
 async function send(type){
