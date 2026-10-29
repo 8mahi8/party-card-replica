@@ -1495,6 +1495,67 @@ async function testAbsorbingWeaponTouch(base){
  finally{page=null;await context.close();}
 }
 
+
+async function testRepeatedWeaponTouch(base){
+ const context=await browser.newContext({
+  viewport:{width:390,height:844},screen:{width:390,height:844},
+  deviceScaleFactor:2,isMobile:true,hasTouch:true,locale:'ja-J'
+ });
+ try{
+  page=await context.newPage();
+  await page.goto(base+'/embed-harness.html',{waitUntil:'load'});
+  await page.locator('#game-embed').evaluate(el=>{el.style.height='430px';});
+  const frame=page.frameLocator('#game-embed');
+  const embedded=page.frames().find(f=>f!==page.mainFrame());
+  if(!embedded)throw new Error('Missing repeat hit test iframe');
+  await embedded.evaluate(()=>{
+   const old=document.getElementById('v2-root');
+   const fresh=document.createElement('div');fresh.id='v2-root';
+   old.replaceWith(fresh);
+   const lab=__v2_lab_test_controller.createV2LabController({
+     hands:{A:['w050','a003'],B:['d003']}
+   });
+   window.__repeatHitLab=lab;
+   __v2_lab_test_ui.mountV2Lab(fresh,lab);
+  });
+  const tap=sel=>frame.locator(sel).first().tap();
+  const snapshot=()=>embedded.evaluate(()=>window.__repeatHitLab.labSnapshot());
+  await tap('[data-action=reveal]');
+  const cards=frame.locator('[data-card=hand]');
+  passed(await cards.count()===2,'Nokobunbun and additive weapon are tap-selectable');
+  passed((await cards.nth(0).textContent()).includes('のこぶんぶん'),
+    'repeated weapon is visible with correct researched Japanese name');
+  await cards.nth(0).tap();await cards.nth(1).tap();
+  await tap('[data-action=submit]');
+  await frame.locator('.compact-pass').waitFor();
+  passed(await frame.locator('[data-card=hand]').count()===0,
+    'first repeated strike hides defender hand on handoff');
+  await tap('[data-action=reveal]');
+  passed((await frame.locator('[data-card=hand]').first().textContent()).includes('アイアンガントレット'),
+    'defender can choose physical armor on hit one');
+  await tap('[data-card=hand]');await tap('[data-action=submit]');
+  await frame.locator('.compact-pass').waitFor();
+  const first=await snapshot();
+  passed(first.players[1].hp===37&&first.pending.strikeIndex===1&&
+    first.players[0].hand.length===0&&first.players[1].hand.length===0,
+    'hit one damage6 guard3, no hand refill, next strike staged');
+  await tap('[data-action=reveal]');
+  passed((await frame.locator('.stage-heading h1').textContent()).includes('2/2発目'),
+    'the second separate defense is explicitly labeled 2/2');
+  await screenshot('webkit-repeat-hit-second-defense');
+  await tap('[data-action=submit]');
+  await frame.locator('.compact-pass').waitFor();
+  const final=await snapshot();
+  passed(final.players[1].hp===31&&final.players[0].hand.length===2&&
+    final.players[1].hand.length===1&&final.turnCount===1,
+    'hit two damage6; A refills2 B refills1 only after final strike');
+  passed(final.phase==='turn'&&final.activePlayerId==='B',
+    'two hits complete exactly one original turn, no third defense');
+  await screenshot('webkit-repeat-hit-settled');
+ }catch(error){await screenshot('webkit-repeat-hit-failure');throw error;}
+ finally{page=null;await context.close();}
+}
+
 async function testFullHandSaleTouch(base){
  const context=await browser.newContext({
   viewport:{width:390,height:844},screen:{width:390,height:844},
@@ -1599,6 +1660,7 @@ try{
   await testDreamOutgoingSaleTouch(base);
   await testExpandedVanillaWeaponTouch(base);
   await testAbsorbingWeaponTouch(base);
+  await testRepeatedWeaponTouch(base);
   console.log('WEBKIT_SMOKE_SUCCESS checks='+checks+' engine=Playwright WebKit'+
     ' fixed-height frames=1024x460,390x430');
 }catch(error){
