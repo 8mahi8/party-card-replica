@@ -19,9 +19,11 @@ function createFakeDb(){
   for(const s of seg.slice(0,-1))cur=cur[s]??={};
   cur[seg.at(-1)]=clone(value);
  }
- function notify(){
+ function notify(changed){
   for(const w of [...watchers]){
-   if(w.event==='value')w.fn({val:()=>pathGet(w.path)});
+   if(w.event!=='value')continue;
+   if(changed.some(p=>p===w.path||p.startsWith(w.path+'/')||w.path.startsWith(p+'/')))
+    w.fn({val:()=>pathGet(w.path)});
   }
  }
  function makeRef(path){
@@ -30,15 +32,15 @@ function createFakeDb(){
    async once(){return {val:()=>pathGet(path)};},
    on(event,fn){watchers.push({path,event,fn});if(event==='value')fn({val:()=>pathGet(path)});},
    off(event,fn){watchers=watchers.filter(w=>w.path!==path||w.event!==event||w.fn!==fn);},
-   async set(value){pathSet(path,value);notify();},
+   async set(value){pathSet(path,value);notify([path]);},
    async update(patch){
     for(const [key,value] of Object.entries(patch))pathSet(path+'/'+key,value);
-    notify();
+    notify(Object.keys(patch).map(key=>path+'/'+key));
    },
    async transaction(fn){
     const before=pathGet(path),after=fn(before);
     if(after===undefined)return {committed:false,snapshot:{val:()=>before}};
-    pathSet(path,after);notify();
+    pathSet(path,after);notify([path]);
     return {committed:true,snapshot:{val:()=>clone(after)}};
    }
   };
