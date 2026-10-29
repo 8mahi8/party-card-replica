@@ -5,6 +5,15 @@
 
 > **この文書は引き継ぎ入口であり、実装の真実は常に開発ブランチの最新コードとGitHub Actions。** コミットSHA・テスト件数・カード数は作業のたびに変わる。本文の日付や数値を確認せず永久に正しいと扱わないこと。
 
+## 2026-10-30 G6最新｜Firebase書き込み順序と一時失敗時の同一ID復帰【現在地】
+
+- **実装**：`v2/firebase-two-seat-transport-fixture.mjs`で、ホスト/ゲスト由来のFirebase更新を順番通りに公開するPromiseキューを追加。Aの更新が遅い間にBの防御が解決しても、後から到着する旧revisionで最新画面が巻き戻らない。
+- **障害時の受領情報**：エンジンがすでにBの操作を実行済みなのにFirebase送信のみ失敗した場合、「操作失敗」の応答を出さず通信エラーとして扱う。同一commandIdを再送すると重複ダメージなしで最新版と成功応答が再配信される。元のカードルールやダメージ処理は変更なし。
+- **回帰2件追加・実測**：検証済み実コードcommit `37907e0ae8db7242f7d3a2bc81860fa7da93eb27`。**Node 896/896 PASS**（run `40931833573`）、**Chromium 28/28 PASS**（run `40931833732`）、**WebKit旧UI 339/339 PASS + 新オンライン2画面mock RTDB 9/9 PASS**（run `40931833561`）。初回の新テストはゲームエンジンの正常なrevision=3を2と誤認したテスト側のミスで失敗し、期待値修正後はPASS。
+- **正式資料**：[`docs/V2_G6_FIREBASE_TWO_SEAT_LAB_2026-10-30.md`](docs/V2_G6_FIREBASE_TWO_SEAT_LAB_2026-10-30.md)の「ホスト/ゲスト同時更新の同期ずれ対策」を参照。GitHub Pagesは任意の開発ブランチから配信可能（GitHub公式仕様）だが、**このリポジトリの公開設定と実際のHTTPS試遊URLはまだ検証できていない**。設定を勝手に切り替えていない。
+- **G6次工程**：開発版静的HTTPSの確認→実Firebase上で2台のルーム作成・参加・攻撃・防御試験→学校iPad Safari実機。現時点のWebKitはLinux Playwright＋mock Firebase。実Firebase通信・学校実機・原作正規全カード/山札は未検証・未完成。
+- **保存・公開**：開発ブランチのDraft PR #1のみ更新。`main`、学校Google Sitesの貼付HTML、Firebase Security Rulesや認証方式は変更しない。
+
 ## 2026-10-30 G6追補｜オンライン画面WebKit 2画面操作までPASS【最新確認】
 
 - **コード＋全回帰の検証HEAD**：`a314144e57981d894d9c35e3b7455a5b389ba377`（開発ブランチのみ）。Node **894/894 PASS**（run `40930592209`）、Chromium **28/28 PASS**（run `40930592089`）、WebKit既存ホットシート **339/339 PASS**＋**オンライン新画面2タブ・模擬Firebase 9/9 PASS**（run `40930592083`）。`node v2/demo/build.mjs --check`も成功。
