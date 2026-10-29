@@ -1,0 +1,37 @@
+/**
+ * Read-only external HTTPS preview smoke. Does NOT create a Firebase room.
+ * It verifies the GitHub-hosted module tree is executable from raw.githack.com,
+ * not just fetchable by curl. Not an iOS Safari or school network guarantee.
+ */
+import assert from 'node:assert/strict';
+import {webkit} from 'playwright';
+
+const URL='https://raw.githack.com/8mahi8/party-card-replica/refactor/v2-foundation-review-20261027/v2/demo/firebase-online-lab.html';
+let browser;
+try{
+ browser=await webkit.launch({headless:true});
+ const context=await browser.newContext({viewport:{width:390,height:844},
+  isMobile:true,hasTouch:true,locale:'ja-JP'});
+ const page=await context.newPage();
+ const errors=[];
+ page.on('pageerror',err=>errors.push(err.message));
+ await page.goto(URL,{waitUntil:'domcontentloaded',timeout:30000});
+ await page.waitForFunction(()=>{
+  const status=document.getElementById('status')?.textContent||'';
+  return status.includes('ルームを作るか、5桁の番号で参加してください');
+ },null,{timeout:30000});
+ assert.equal(errors.length,0,'JS errors: '+errors.join(' | '));
+ assert.equal(await page.locator('#create').isEnabled(),true);
+ assert.equal(await page.locator('#join').isEnabled(),true);
+ assert.equal(await page.locator('script[type="module"]').count(),1);
+ assert(await page.evaluate(()=>document.documentElement.scrollWidth<=
+  document.documentElement.clientWidth+2));
+ // Do not press Create or Join. This proof does not touch RTDB data.
+ console.log('G6_EXTERNAL_HTTPS_PREVIEW_SUCCESS source=raw.githack.com module-imports=ok width=390');
+ await context.close();
+}catch(error){
+ console.error('G6_EXTERNAL_HTTPS_PREVIEW_FAILURE',String(error?.stack||error));
+ process.exitCode=1;
+}finally{
+ await browser?.close();
+}
