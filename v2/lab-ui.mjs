@@ -146,8 +146,8 @@ export function renderV2LabMarkup(data,{resetArmed=false}={}){
  const title=isExchange?'両替：配分を入力':
    data.phase==='turn'?'攻撃するカードを順番に選択':
    data.phase==='tradeDefense'?'取引への応答を選択':
-   '防御カードを順番に選択'+(data.pending?.strikeCount===2?
-     '（'+esc(data.pending.strikeNumber)+'/2発目）':'');
+   '防御カードを順番に選択'+(data.pending?.strikeCount>1?
+     '（'+esc(data.pending.strikeNumber)+'/'+esc(data.pending.strikeCount)+'発目）':'');
  const soloPlusMiracle=data.phase==='turn' && firstPicked?.family==='miracle' &&
    firstPicked.playModes.includes('addAttack');
  const isSelling=data.phase==='turn' && firstPicked?.tradeAction==='sell';
