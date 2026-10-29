@@ -13,9 +13,14 @@ import {planIncomingHandTransfer} from './hand-overflow.mjs';
 import {previewBuyOfferFixture,previewBuyChoiceFixture} from './trade-buy.mjs';
 import {previewExchangeFixture} from './trade-exchange.mjs';
 import {planZeroHpRecoveryFixture} from './zero-hp-recovery.mjs';
+import {retireDreamAppearancesFixture,validateDreamOwnershipFixture} from './dream-appearance.mjs';
 import {previewSelfSaleFixture} from './trade-self-sale.mjs';
 
 function fail(message){throw new Error(message);}
+function forgetDream(player,ids){
+ const next=retireDreamAppearancesFixture(player,ids);
+ if(next!==undefined)player.dreamDisguises=next;
+}
 function who(state,id){
  const p=state.players.find(x=>x.id===id);
  if(!p)fail('Unknown player');
@@ -58,6 +63,7 @@ export function runEffectQueueFixture(state,catalog,queue,{
     !Array.isArray(state.players)||!Array.isArray(state.processedCommands))
    fail('Invalid state for effect queue');
  if(!Array.isArray(queue)||!queue.length)fail('Empty compiled effect queue');
+ validateDreamOwnershipFixture(state,catalog);
  if(interruptionOnly&&queue.some(e=>!['spend','grantDraw','mp','learn'].includes(e?.type)))
    fail('Resolution commands are not permitted while staging');
  const s=cloneRoom(state,{interruptionOnly});
@@ -72,8 +78,7 @@ export function runEffectQueueFixture(state,catalog,queue,{
      const before=p.hand.length;
      p.hand=p.hand.filter(x=>!ids.has(x.instanceId));
      if(before-p.hand.length!==ids.size)fail('Card disappeared during resolution');
-     if(p.dreamDisguises)
-       p.dreamDisguises=p.dreamDisguises.filter(x=>!ids.has(x.instanceId));
+     forgetDream(p,effect.instanceIds);
      spent[p.id]=(spent[p.id]??0)+ids.size;
      events.push({type:'spend',playerId:p.id,count:ids.size});
    } else if(effect.type==='discard'){
@@ -94,8 +99,7 @@ export function runEffectQueueFixture(state,catalog,queue,{
      const before=p.hand.length;
      p.hand=p.hand.filter(x=>!ids.has(x.instanceId));
      if(before-p.hand.length!==ids.size)fail('Discarded card not in hand');
-     if(p.dreamDisguises)
-       p.dreamDisguises=p.dreamDisguises.filter(x=>!ids.has(x.instanceId));
+     forgetDream(p,effect.instanceIds);
      events.push({type:'discard',playerId:p.id,count:ids.size});
    } else if(effect.type==='grantDraw'){
      const p=who(s,effect.playerId);
@@ -131,6 +135,7 @@ export function runEffectQueueFixture(state,catalog,queue,{
        const index=p.hand.findIndex(x=>x.instanceId===recovery.consumedInstanceId);
        if(index<0)fail('Passive charm disappeared during resolution');
        p.hand.splice(index,1);
+       forgetDream(p,[recovery.consumedInstanceId]);
        // Source-backed used-artifact replacement, drawn only at the
        // existing shared refill point in this isolated laboratory.
        spent[p.id]=(spent[p.id]??0)+1;
@@ -191,9 +196,7 @@ export function runEffectQueueFixture(state,catalog,queue,{
      // A self-targeted Sell identifies the actual offered artifact without
      // ending the entire Dream status for cards drawn in the future.
      // Only the chosen physical instance loses its private fake appearance.
-     if(current.dreamDisguises)
-       current.dreamDisguises=current.dreamDisguises.filter(
-         x=>x.instanceId!==plan.soldInstanceId);
+     forgetDream(current,[plan.soldInstanceId]);
      events.push({type:'selfSale',playerId:effect.playerId,
        itemDefinitionId:plan.itemDefinitionId,
        price:plan.price,total:plan.total});
@@ -238,10 +241,14 @@ export function runEffectQueueFixture(state,catalog,queue,{
      if(!Number.isSafeInteger(seller.money+payment.sellerCredit))
        fail('Seller money overflow');
      seller.hand.splice(saleIndex,1);
+     forgetDream(seller,[item.instanceId]);
+     // No old aliases survive moving a physical artifact between seats.
+     forgetDream(buyer,[item.instanceId]);
      if(incoming.willOverflow){
        const removed=buyer.hand.splice(incoming.evictedIndex,1)[0];
        if(removed?.instanceId!==incoming.evictedInstanceId)
          fail('Incorrect receiver overflow card');
+       forgetDream(buyer,[removed.instanceId]);
        s.rngSeed=incoming.nextSeed;
        events.push({type:'handOverflow',playerId:buyer.id,
          lostInstanceId:removed.instanceId,lostDefinitionId:removed.definitionId,
@@ -310,6 +317,10 @@ export function runEffectQueueFixture(state,catalog,queue,{
        const index=seller.hand.findIndex(c=>c.instanceId===offer.itemInstanceId);
        if(index<0)fail('Randomly chosen item is no longer held');
        const item=seller.hand.splice(index,1)[0];
+       // Buying identifies the artifact; do not carry any seller-only
+       // appearance alias into the new owner's future private view.
+       forgetDream(seller,[item.instanceId]);
+       forgetDream(buyer,[item.instanceId]);
        buyer.hand.push(item);
        buyer.money=choice.buyerMoneyAfter;
        seller.money=choice.sellerMoneyAfter;
@@ -368,6 +379,9 @@ export function runEffectQueueFixture(state,catalog,queue,{
      seller.mp=payment.buyerAfter.mp;
      seller.money=payment.buyerAfter.money;
      counter.money+=payment.sellerCredit;
+     // Reflected Sell still identifies its offered artifact. Leave it
+     // physically with the original seller while clearing only its alias.
+     forgetDream(seller,[originalItem.instanceId]);
      events.push({type:'reflectedSale',originalSellerId:seller.id,
        mirrorOwnerId:counter.id,itemDefinitionId:itemDef.id,
        price:itemDef.stats.price,debit:payment.debit});
@@ -398,5 +412,6 @@ export function runEffectQueueFixture(state,catalog,queue,{
    } else fail('Unknown queued effect: '+String(effect.type));
  }
  if(interruptionOnly)s.pending.spentByPlayer={...spent};
+ validateDreamOwnershipFixture(s,catalog);
  return {state:s,events};
 }
