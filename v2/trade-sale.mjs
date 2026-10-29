@@ -48,6 +48,11 @@ export function previewUncontestedSale(state,catalog,{
    fail('Cannot sell an unverified trade artifact');
  if(buyer.hand.length>MAX_HAND_SIZE)
    fail('Receiver hand is above original hand cap');
+ // A player report says active/learned miracles may share the 18-card cap.
+ // Whether an overflow can eject a learned miracle is not yet verified.
+ if(buyer.learned.length>0 &&
+    buyer.hand.length+buyer.learned.length>=MAX_HAND_SIZE)
+   fail('Learned miracle overflow at hand cap needs original verification');
  const payment=planForcedSalePayment({price:itemDef.stats.price,buyer});
  if(payment.buyerEliminated||payment.unpaid)
    fail('Lethal forced sale requires original verification');
