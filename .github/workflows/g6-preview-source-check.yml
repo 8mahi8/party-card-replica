@@ -1,9 +1,6 @@
 name: G6 HTTPS preview metadata check (read-only)
 
 on:
-  pull_request:
-    paths:
-      - '.github/workflows/g6-preview-source-check.yml'
   workflow_dispatch:
 
 permissions:
