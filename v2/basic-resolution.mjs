@@ -115,18 +115,39 @@ export function compileBasicResolution(state,catalog) {
      defender.hand.some(c=>catalog.get(c.definitionId)?.effects.some(e=>
        e.when==='onZeroHp'&&e.type==='reviveAtZeroHp')))
     fail('Absorption against a fatal Sun Charm recovery requires original timing verification');
+  const multiHit=attackContext.hitCount===2;
+  const hitIndex=p.strikeIndex??0;
+  if(!Number.isSafeInteger(hitIndex)||hitIndex<0||
+     (multiHit?hitIndex>1:hitIndex!==0))
+    fail('Invalid staged strike index');
+  if(multiHit&&(attackContext.absorbsHp||attacker.id===p.repeatTargetId||
+       (!p.attackContext&&p.targetId===attacker.id)))
+    fail('Unsupported self-directed or absorption repeat combination');
+  // The first hit is a separate defense. Spent attack/defense cards are held
+  // as refill credits until the second hit resolves. If either the intended
+  // target or original attacker is already eliminated, finish after hit one.
+  const repeatTargetId=p.repeatTargetId??p.targetId;
+  const repeatTarget=getPlayer(state,repeatTargetId);
+  const defenderWillSurvive=hit.hpAfter>0||
+    defender.hand.some(c=>catalog.get(c.definitionId)?.effects.some(e=>
+      e.when==='onZeroHp'&&e.type==='reviveAtZeroHp'));
+  const continueStrike=multiHit&&hitIndex===0&&defenderWillSurvive&&
+    (attacker.id===defender.id||attacker.hp>0)&&
+    (repeatTarget.id===defender.id||repeatTarget.hp>0);
   const queue=Object.freeze([
     ...(p.attackContext?[]:queuedAttackCosts(attackContext,attacker.id)),
     ...(isSelf?[]:[Object.freeze({type:'spend',playerId:defender.id,instanceIds:Object.freeze(defending.map(x=>x.instance.instanceId))})]),
     Object.freeze({type:'hit',targetId:defender.id,damage:hit.damage,hpAfter:hit.hpAfter,instantDefeat:hit.instantDefeat,
        ...(attackContext.absorbsHp?{lifeSteal:true}:{})}),
-    Object.freeze({type:'refill',order:'seating',maxHand:MAX_HAND_SIZE}),
-    Object.freeze({type:'advance',afterId:attacker.id})
+    ...(continueStrike?
+      [Object.freeze({type:'continueStrike',attackContext,repeatTargetId})]:
+      [Object.freeze({type:'refill',order:'seating',maxHand:MAX_HAND_SIZE}),
+       Object.freeze({type:'advance',afterId:attacker.id})])
   ]);
   return Object.freeze({
     originalAttackerId:attacker.id,targetId:defender.id,
     attack,element,armor,stripElement,
-    hit,queue
+    hit,hitIndex,hitCount:attackContext.hitCount??1,continueStrike,queue
   });
 }
 /**
