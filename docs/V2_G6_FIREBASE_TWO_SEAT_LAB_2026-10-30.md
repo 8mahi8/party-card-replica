@@ -60,6 +60,37 @@ Firebase公式：[Webでのデータ読み書き](https://firebase.google.com/do
 
 次は開発版のHTTPS配信経路の確定 → 実Firebaseで2端末のルーム作成・参加・攻撃・防御検証。実際に遅延や断線を経験するまで複雑な復旧基盤は作らない。学校Google Sites版やFirebase Rulesは変更しない。
 
+## 2026-10-30｜G6初の**実Firebase**2ブラウザ接続テスト成功【最新】
+
+### 原因調査と修正
+
+本物のFirebase Realtime Databaseで初めてA攻撃→B防御を試験したところ、「カードを選択しない防御」の`orderedInstanceIds: []`がRTDBのネストされたオブジェクト保存で落ち、サーバー側が`Invalid ordered card selection`として防御を拒否していた。
+
+- **実際の診断事実**：ルーム作成、ゲスト参加、攻撃→「P2の防御待ち」までは実Firebaseで正常。Bが防御した直後はB画面に`Invalid ordered card selection`と表示され、DBの`acks/B`も`ok:false`、`views/A`/Bはrevision 1に留まった。実Firebase上のルーム番号とデータ内容はテスト終了後に削除確認済み（CI `40933773074`）。
+- **根本修正**：`v2/firebase-two-seat-transport-fixture.mjs`でゲストコマンドをFirebaseのオブジェクトとして直接保存せず、`{senderId,commandJson:JSON.stringify(command)}`に変更。ホストは受信文字列をパースして元のエンジンへ渡す。`orderedInstanceIds: []`が空のまま保たれ、オブジェクト形式の旧研究用mailboxも読み取り互換で残す。**戦闘エンジン・カード効果・Firebase Security Rulesは変更なし。**
+- **回帰**：`tests/firebase-two-seat-transport-fixture-v2.test.mjs`に「空防御配列をcommandJsonで保存し、そのまま解決する」1件を追加。
+
+### 本物のFirebaseを使った検証
+
+`tests/v2-g6-live-firebase.browser.mjs`を実装。通常のmockではなく**学校で実績のあるFirebase RTDBの実サーバー**へ、2つの独立Playwright WebKitブラウザコンテキストからアクセス。開発用ルームを作り、本物のSDKでゲスト参加・攻撃・防御を操作した。
+
+**成功した実測**：GitHub Actions run [`40934112303`](https://github.com/8mahi8/party-card-replica/actions/runs/40934112303)（コードコミット`f640b54a86561c568c653fcb3d062605174ad789`）。
+`G6_LIVE_HOST_CREATED` → `G6_LIVE_TWO_BROWSER_SUCCESS: room, join, attack, defend, revision3, HP30` → `G6_LIVE_CLEANUP_SUCCESS` のログを確認。**ルームの作成・双方のHP30/revision3同期・実Firebaseからの削除まで成功**。
+
+同じコミットの通常回帰Node **897/897 PASS** run `40934112244`。WebKit従来339項目＋mock2画面9項目とChromium28項目のCIも維持。
+
+### 注意する区別
+
+- **これは本物のFirebase経由の通信検証済み**。ただし2つの「独立したブラウザ環境」はCIサーバー上のPlaywright WebKitであり、別々の学校iPad端末・Safari実機・校内ネットワークでの動作確認ではない。
+- テストはリポジトリの開発コードをGitHub Actions内のlocalhost静的サーバーに配信した。**外部向けのGitHub Pages実公開URLはまだ確認できていない。** 実機で2台試すにはHTTPSの試遊経路が必要。
+- CIは本番ゲームデータや他ゲームのノードを触らず、専用`godfieldV2LabRooms/<テストの5桁番号>`を作成し、テスト完了後にその番号のノードだけ削除した。Rules、DB構成、認証設定は変更していない。
+- 追加した専用workflow`.github/workflows/g6-live-firebase-probe.yml`は成功を確認後に通常のPR同期では起動しない`workflow_dispatch`専用へ変更。意図しない実Firebaseへの反復書き込みを避ける。
+- ゲーム自体は固定補充・研究カード部分集合、ホストタブを閉じたときの復旧は未完成。**原作全再現・学校版完成ではない**。
+
+### 次工程
+
+開発用のHTTPS試遊リンクを用意して、**学校の2台のiPad（Safari・Google Sitesとは別の開発版）**でルーム作成→参加→攻撃→空防御→次ターンを確認する。通信失敗・描画停止が発生した場合にのみ追加の復旧設計を検討。原作カードの正確な再現と正規山札開発は別軸で継続。
+
 ## 試遊前提と明示した制約
 
 - 2台とも同じ`firebase-online-lab.html`を同一オリジンから読み込み、学校で既に使えているFirebase SDKへ接続する必要がある。GitHubのソース表示画面からは動かない。開発ブランチの静的配信/試遊URLが必要。
