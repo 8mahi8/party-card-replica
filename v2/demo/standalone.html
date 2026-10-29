@@ -762,6 +762,8 @@ const MAX_HAND=18;
 const ALLOWED_KEYS={
   pray:new Set(['commandId','expectedRevision','actorId','type']),
   discard:new Set(['commandId','expectedRevision','actorId','type','orderedInstanceIds']),
+  declareSale:new Set(['commandId','expectedRevision','actorId','type','targetId','saleInstanceId','soldInstanceId']),
+  respondSale:new Set(['commandId','expectedRevision','actorId','type','mirrorInstanceId']),
   playCards:new Set(['commandId','expectedRevision','actorId','type','targetId','orderedInstanceIds']),
   playSequence:new Set(['commandId','expectedRevision','actorId','type','targetId','orderedPlays']),
   castLearned:new Set(['commandId','expectedRevision','actorId','type','targetId','learnedDefinitionId']),
@@ -793,7 +795,10 @@ function fingerprint(command) {
     targetId:['playCards','playSequence','castLearned'].includes(command.type)?command.targetId:null,
     orderedPlays:command.orderedPlays??null,
     orderedInstanceIds:command.orderedInstanceIds??null,
-    learnedDefinitionId:command.learnedDefinitionId??null
+    learnedDefinitionId:command.learnedDefinitionId??null,
+    saleInstanceId:command.saleInstanceId??null,
+    soldInstanceId:command.soldInstanceId??null,
+    mirrorInstanceId:command.mirrorInstanceId??null
   });
 }
 function takeLegalSelection(player,instanceIds,catalog,mode,{allowEmpty=false}={}) {
@@ -957,7 +962,46 @@ function applyStagingCommand(state,command,catalog,{authorizedSeatId}={}) {
   let pending;
   let phase;
   let activePlayerId;
-  if(command.type==='discard'){
+  if(command.type==='declareSale'){
+    if(state.phase!=='turn'||actor.hp<=0)throw new Error('Not a living trade turn');
+    id(command.targetId,'target ID');
+    const target=seat(state,command.targetId);
+    if(target.id===actor.id||target.hp<=0)throw new Error('Invalid sale target');
+    id(command.saleInstanceId,'Sell card ID');
+    id(command.soldInstanceId,'offered item ID');
+    if(command.saleInstanceId===command.soldInstanceId)
+      throw new Error('Sell card and offered item must differ');
+    const trade=actor.hand.find(c=>c.instanceId===command.saleInstanceId);
+    const offer=actor.hand.find(c=>c.instanceId===command.soldInstanceId);
+    if(!trade||!offer)throw new Error('Sale card not held');
+    const tradeDef=catalog.get(trade.definitionId),offeredDef=catalog.get(offer.definitionId);
+    if(tradeDef?.family!=='trade'||!tradeDef.effects.some(e=>
+       e.when==='onDeclare'&&e.type==='forceSale'&&e.params.kind==='sell'))
+      throw new Error('Selected card cannot declare Sell');
+    if(!offeredDef||offeredDef.family==='trade')
+      throw new Error('Unverified trade item cannot be sold');
+    pending={type:'sale',originalAttackerId:actor.id,targetId:target.id,
+      saleInstanceId:trade.instanceId,soldInstanceId:offer.instanceId,
+      offeredDefinitionId:offer.definitionId,price:offeredDef.stats.price,
+      defense:null};
+    phase='tradeDefense';activePlayerId=target.id;
+  }else if(command.type==='respondSale'){
+    if(state.phase!=='tradeDefense'||state.pending?.type!=='sale'||
+       state.pending.targetId!==actor.id||actor.hp<=0)
+      throw new Error('Not the trade defending seat');
+    let mirrorInstanceId=null;
+    if(command.mirrorInstanceId!==undefined){
+      id(command.mirrorInstanceId,'Mirror instance ID');
+      const mirror=actor.hand.find(c=>c.instanceId===command.mirrorInstanceId);
+      const def=catalog.get(mirror?.definitionId);
+      if(!mirror||!def?.effects.some(e=>e.when==='onDefense'&&
+          e.type==='redirectAttack'&&e.params.mode==='reflect'&&e.params.scope==='any'))
+        throw new Error('Only Super Mirror can reflect this trade');
+      mirrorInstanceId=mirror.instanceId;
+    }
+    pending={...state.pending,defense:{playerId:actor.id,mirrorInstanceId}};
+    phase='resolving';activePlayerId=null;
+  }else if(command.type==='discard'){
     if(state.phase!=='turn'||actor.hp<=0)
       throw new Error('Cannot discard outside a living turn');
     // Discard uses PHYSICAL card instances; learned spells cannot be thrown.
@@ -1013,7 +1057,7 @@ function applyStagingCommand(state,command,catalog,{authorizedSeatId}={}) {
     // G3 will decide damage and possible self-defeat.
     phase=target.id===actor.id?'resolving':'defense';
     activePlayerId=target.id===actor.id?null:target.id;
-  } else {
+  } else if(command.type==='defend'||command.type==='defendSequence') {
     if(state.phase!=='defense'||!state.pending||
        state.pending.targetId!==actor.id)throw new Error('Not the defending seat');
     const sequence=command.type==='defendSequence'
@@ -1058,7 +1102,12 @@ function viewStagingRoom(state,viewerId) {
     pending:state.pending?{
       type:state.pending.type,sourceId:state.pending.sourceId??state.pending.originalAttackerId,
       targetId:state.pending.targetId,
-      stage:state.pending.defense?'awaitingResolution':'awaitingDefense'
+      stage:state.pending.type==='sale'?
+        (state.pending.defense?'awaitingResolution':'awaitingTradeResponse'):
+        (state.pending.defense?'awaitingResolution':'awaitingDefense'),
+      ...(state.pending.type==='sale'?{offer:{
+        definitionId:state.pending.offeredDefinitionId,price:state.pending.price
+      }}:{})
     }:null
   };
 }
@@ -1254,6 +1303,13 @@ function runEffectQueueFixture(state,catalog,queue,{
          return def?.family==='trade'&&def.effects.some(e=>e.type==='forceSale'&&e.params.kind==='sell');
        }));
      if(!paidTradeCard)fail('Sale effect requires spending a valid Sell trade card');
+     if(state.pending?.type==='sale'&&(
+       state.pending.originalAttackerId!==effect.sellerId||
+       state.pending.targetId!==effect.buyerId||
+       state.pending.soldInstanceId!==effect.soldInstanceId||
+       state.pending.defense?.playerId!==effect.buyerId||
+       state.pending.defense?.mirrorInstanceId!==null))
+       fail('Sale does not match authenticated accepted response');
      if(effect.sellerId===effect.buyerId)fail('Cannot sell to self');
      const seller=who(s,effect.sellerId),buyer=who(s,effect.buyerId);
      if(seller.hp<=0||buyer.hp<=0)fail('Trade seat eliminated');
@@ -1287,8 +1343,15 @@ function runEffectQueueFixture(state,catalog,queue,{
      const allowed=['type','originalSellerId','mirrorOwnerId','soldInstanceId'];
      if(Object.keys(effect).some(k=>!allowed.includes(k)))
        fail('Unexpected reflected sale property');
-     if(state.pending?.type!=='singleMirrorSale')
+     if(state.pending?.type!=='singleMirrorSale'&&state.pending?.type!=='sale')
        fail('Reflected sale requires researched mirror staging');
+     if(state.pending?.type==='sale'&&(
+       state.pending.originalAttackerId!==effect.originalSellerId||
+       state.pending.targetId!==effect.mirrorOwnerId||
+       state.pending.soldInstanceId!==effect.soldInstanceId||
+       state.pending.defense?.playerId!==effect.mirrorOwnerId||
+       !state.pending.defense.mirrorInstanceId))
+       fail('Reflected sale does not match authenticated response');
      if(effect.originalSellerId===effect.mirrorOwnerId)
        fail('Cannot reflect a sale to self');
      const originalSeller=who(state,effect.originalSellerId);
@@ -1361,6 +1424,299 @@ return {runEffectQueueFixture};
 })();
 
 const __v2_module_8 = (() => {
+"use strict";
+const {runEffectQueueFixture} = __v2_module_7;
+const {planForcedSalePayment} = __v2_module_6;
+const {MAX_HAND_SIZE} = __v2_module_0;
+
+/**
+ * G3/G4 UNCONTESTED SALE FIXTURE. NOT A LIVE trade command.
+ *
+ * Original-game sources:
+ * https://w.atwiki.jp/aniwotawiki/pages/47010.html
+ * https://w.atwiki.jp/piong/pages/19.html
+ * https://note.com/hixiragi/n/n47365b74f372
+ *
+ * A Super Mirror can reflect a trade. Rather than silently make forced
+ * sales unblockable, this research fixture models only a sale after
+ * the defender has NOT countered it. Original hand-full and lethal cases
+ * are gated until directly verified. No UI/online integration.
+ */
+
+
+
+function fail(message){throw new Error(message);}
+function seat(state,id){return state.players.find(p=>p.id===id);}
+function held(player,instanceId){
+ if(typeof instanceId!=='string')fail('Invalid sale instance ID');
+ const card=player.hand.find(c=>c.instanceId===instanceId);
+ if(!card)fail('Sale card not held');
+ return card;
+}
+/** A pure input-validation preview: useful for UI staging later. */
+function previewUncontestedSale(state,catalog,{
+ sellerId,targetId,saleInstanceId,soldInstanceId
+}={}){
+ if(!state||state.schemaVersion!==2||state.phase!=='turn'||
+    !Array.isArray(state.players)||!(catalog instanceof Map))
+   fail('Sale preview needs a live turn in a V2 lab');
+ if(sellerId!==state.activePlayerId||sellerId===targetId)
+   fail('Only current seller may offer sale to another seat');
+ const seller=seat(state,sellerId),buyer=seat(state,targetId);
+ if(!seller||!buyer||seller.hp<=0||buyer.hp<=0)
+   fail('Invalid alive trade parties');
+ if(saleInstanceId===soldInstanceId)fail('Trade and sold card must differ');
+ const saleCard=held(seller,saleInstanceId),offer=held(seller,soldInstanceId);
+ const saleDef=catalog.get(saleCard.definitionId),itemDef=catalog.get(offer.definitionId);
+ if(!saleDef||saleDef.family!=='trade'||
+    !saleDef.effects.some(e=>e.when==='onDeclare'&&
+      e.type==='forceSale'&&e.params.kind==='sell'))
+   fail('Selected source is not a Sell card');
+ if(!itemDef||itemDef.family==='trade')
+   fail('Cannot sell an unverified trade artifact');
+ if(buyer.hand.length>=MAX_HAND_SIZE)
+   fail('Buyer hand cap needs original-game verification');
+ const payment=planForcedSalePayment({price:itemDef.stats.price,buyer});
+ if(payment.buyerEliminated||payment.unpaid)
+   fail('Lethal forced sale requires original verification');
+ if(!Number.isSafeInteger(seller.money+payment.sellerCredit))
+   fail('Seller money overflow');
+ return Object.freeze({sellerId,targetId,saleInstanceId,soldInstanceId,
+  itemDefinitionId:offer.definitionId,price:itemDef.stats.price,payment});
+}
+/** Simulate only an acknowledged, uncontested sale in a fixture-controlled turn. */
+function settleUncontestedSaleFixture(state,catalog,selection,{
+ labOnly=false,fixtureDrawDefinitionId,authorizedSeatId
+}={}){
+ if(labOnly!==true)fail('Only available in lab fixture mode');
+ if(!catalog?.has(fixtureDrawDefinitionId))
+   fail('Unknown fixture draw card');
+ if(authorizedSeatId!==selection?.sellerId)
+   fail('Sender seat is not authenticated');
+ const plan=previewUncontestedSale(state,catalog,selection);
+ const staged={...state,revision:state.revision+1,phase:'resolving',
+  activePlayerId:null,pending:{
+   type:'uncontestedSale',originalAttackerId:plan.sellerId
+  }};
+ const result=runEffectQueueFixture(staged,catalog,[
+  {type:'spend',playerId:plan.sellerId,instanceIds:[plan.saleInstanceId]},
+  {type:'uncontestedSale',sellerId:plan.sellerId,buyerId:plan.targetId,
+   soldInstanceId:plan.soldInstanceId},
+  {type:'refill'},
+  {type:'advance',afterId:plan.sellerId}
+ ],{labOnly:true,fixtureDrawDefinitionId});
+ return {...result,plan:Object.freeze({kind:'uncontestedSale',price:plan.price,
+  itemDefinitionId:plan.itemDefinitionId})};
+}
+
+return {previewUncontestedSale,settleUncontestedSaleFixture};
+})();
+
+const __v2_module_9 = (() => {
+"use strict";
+const {planForcedSalePayment} = __v2_module_6;
+const {runEffectQueueFixture} = __v2_module_7;
+
+/**
+ * G4 source-backed SINGLE Super Mirror vs "Sell" research fixture.
+ *
+ * This is deliberately NOT wired to live trade selection or the school UI:
+ * the timing/priority of repeated mirrors, lethal settlement and card-hand
+ * cap cases still need direct original-client observation.
+ *
+ * Sources:
+ * https://kankurou53.hatenablog.com/entry/2025/07/19/165703
+ * https://note.com/makariki/n/n437bc90ac4dc
+ * https://ameblo.jp/shibransk/entry-12647363984.html
+ */
+
+
+function fail(message){throw new Error(message);}
+const livePlayer=(state,id)=>{
+ const p=state.players.find(x=>x.id===id);
+ if(!p||p.hp<=0)fail('Reflected sale requires living seats');
+ return p;
+};
+/**
+ * Refund the item to its original owner, charge that original seller for the
+ * item's price, and credit the original target (Super Mirror's owner).
+ * An existing physical card never duplicates or changes instance ID.
+ *
+ * This helper only evaluates a single successful reflection. It does NOT
+ * claim that the original has no subsequent counter-reflection opportunity.
+ */
+function previewSingleMirrorSale(state,catalog,selection,{mirrorInstanceId}={}){
+ if(!state||state.phase!=='turn'||state.schemaVersion!==2)
+   fail('Reflected sale requires starting turn');
+ const seller=livePlayer(state,selection?.sellerId);
+ const counter=livePlayer(state,selection?.targetId);
+ if(typeof mirrorInstanceId!=='string')fail('Mirror instance ID required');
+ if(mirrorInstanceId===selection?.saleInstanceId||
+    mirrorInstanceId===selection?.soldInstanceId)
+   fail('Mirror and sale instances must differ');
+ const mirror=counter.hand.find(c=>c.instanceId===mirrorInstanceId);
+ const def=catalog.get(mirror?.definitionId);
+ if(!mirror||!def?.effects.some(e=>e.type==='redirectAttack'&&
+    e.when==='onDefense'&&e.params.mode==='reflect'&&e.params.scope==='any'))
+   fail('Only a real Super Mirror may reflect the sale');
+ // Validate seller's actual trade and offered item, including strict ownership
+ // and source-defined price. No transfer happens in this preview.
+ // Avoid using previewUncontestedSale: it checks the ORIGINAL BUYER's
+ // resources/hand cap, neither of which is relevant after a mirror.
+ if(seller.id!==state.activePlayerId||seller.id===counter.id)
+   fail('Only current seller can be reflected');
+ const trade=seller.hand.find(c=>c.instanceId===selection.saleInstanceId);
+ const item=seller.hand.find(c=>c.instanceId===selection.soldInstanceId);
+ const tradeDef=catalog.get(trade?.definitionId);
+ const itemDef=catalog.get(item?.definitionId);
+ if(!trade||!item||trade.instanceId===item.instanceId||
+    !tradeDef||tradeDef.family!=='trade'||
+    !tradeDef.effects.some(e=>e.type==='forceSale'&&
+      e.when==='onDeclare'&&e.params.kind==='sell'))
+   fail('Sale requires valid Sell card and offered item');
+ if(!itemDef||itemDef.family==='trade')
+   fail('Cannot sell an unverified trade artifact');
+ const payment=planForcedSalePayment({price:itemDef.stats.price,buyer:seller});
+ if(payment.buyerEliminated||payment.unpaid)
+   fail('Lethal reflected sale requires original verification');
+ if(!Number.isSafeInteger(counter.money+payment.sellerCredit))
+   fail('Mirror owner money overflow');
+ return Object.freeze({
+  originalSellerId:seller.id,mirrorOwnerId:counter.id,
+  saleInstanceId:trade.instanceId,soldInstanceId:item.instanceId,
+  mirrorInstanceId:mirror.instanceId,itemDefinitionId:item.definitionId,
+  price:itemDef.stats.price,payment
+ });
+}
+/**
+ * Model one no-follow-up-mirror outcome. Both the Sell card and the mirror
+ * are spent once and refilled once; the offered item stays in original hand.
+ * Source-backed facts and internal fixture timing are distinguished in docs.
+ */
+function settleSingleMirrorSaleFixture(state,catalog,selection,{
+ mirrorInstanceId,labOnly=false,fixtureDrawDefinitionId,authorizedSeatId
+}={}){
+ if(labOnly!==true)fail('Only available in lab fixture mode');
+ if(!(catalog instanceof Map)||!catalog.has(fixtureDrawDefinitionId))
+   fail('Unknown fixture draw card');
+ if(authorizedSeatId!==selection?.sellerId)
+   fail('Sender seat is not authenticated');
+ const plan=previewSingleMirrorSale(state,catalog,selection,{mirrorInstanceId});
+ const staged={...state,revision:state.revision+1,phase:'resolving',
+   activePlayerId:null,pending:{
+    type:'singleMirrorSale',originalAttackerId:plan.originalSellerId
+   }};
+ const result=runEffectQueueFixture(staged,catalog,[
+   {type:'spend',playerId:plan.originalSellerId,instanceIds:[plan.saleInstanceId]},
+   {type:'spend',playerId:plan.mirrorOwnerId,instanceIds:[plan.mirrorInstanceId]},
+   {type:'reflectedSale',originalSellerId:plan.originalSellerId,
+    mirrorOwnerId:plan.mirrorOwnerId,soldInstanceId:plan.soldInstanceId},
+   {type:'refill'},
+   {type:'advance',afterId:plan.originalSellerId}
+ ],{labOnly:true,fixtureDrawDefinitionId});
+ return {...result,plan:Object.freeze({
+  kind:'singleMirrorSale',price:plan.price,
+  itemDefinitionId:plan.itemDefinitionId
+ })};
+}
+
+return {previewSingleMirrorSale,settleSingleMirrorSaleFixture};
+})();
+
+const __v2_module_10 = (() => {
+"use strict";
+const {previewUncontestedSale} = __v2_module_8;
+const {previewSingleMirrorSale} = __v2_module_9;
+const {runEffectQueueFixture} = __v2_module_7;
+
+/**
+ * LAB-ONLY G4: bridge authenticated two-step trade commands to the reusable
+ * single-outcome sale engine. The original client's repeated mirror timing,
+ * hand-cap and lethal settlement are NOT inferred here.
+ */
+
+
+
+function fail(msg){throw new Error(msg);}
+function selection(p){
+ return {sellerId:p.originalAttackerId,targetId:p.targetId,
+   saleInstanceId:p.saleInstanceId,soldInstanceId:p.soldInstanceId};
+}
+function turnPreview(state,p){
+ return {...state,phase:'turn',activePlayerId:p.originalAttackerId,pending:null};
+}
+/** Validate at least one researched resolution BEFORE the other seat is asked. */
+function validateSaleDeclarationFixture(state,catalog){
+ if(state?.schemaVersion!==2||state.phase!=='tradeDefense'||
+    state.pending?.type!=='sale'||state.pending.defense!==null)
+   fail('No newly declared sale');
+ const p=state.pending,asTurn=turnPreview(state,p),s=selection(p);
+ let hasOutcome=false;
+ try{previewUncontestedSale(asTurn,catalog,s);hasOutcome=true;}catch{}
+ const buyer=state.players.find(x=>x.id===p.targetId);
+ for(const card of buyer?.hand??[]){
+  try{
+   previewSingleMirrorSale(asTurn,catalog,s,{mirrorInstanceId:card.instanceId});
+   hasOutcome=true;break;
+  }catch{}
+ }
+ if(!hasOutcome)
+   fail('No source-verified sale response available for these resources');
+ return true;
+}
+/**
+ * Deal only a recorded pass OR a single Super Mirror; importantly, use
+ * current state revision, already-recorded command fingerprints and the
+ * original sale item ID. No extra auto-created command / rollback hazard.
+ */
+function resolveStagedSaleFixture(state,catalog,{
+ labOnly=false,fixtureDrawDefinitionId
+}={}){
+ if(labOnly!==true)fail('Only available in lab fixture mode');
+ if(!(catalog instanceof Map)||!catalog.has(fixtureDrawDefinitionId))
+   fail('Unknown fixture draw card');
+ if(state?.schemaVersion!==2||state.phase!=='resolving'||
+    state.pending?.type!=='sale'||!state.pending.defense)
+   fail('No sale response waiting for resolution');
+ const p=state.pending,s=selection(p),response=p.defense;
+ if(response.playerId!==p.targetId)fail('Invalid trade response seat');
+ if(!Object.hasOwn(response,'mirrorInstanceId'))
+   fail('Missing trade response type');
+ const asTurn=turnPreview(state,p);
+ let plan,queue;
+ if(response.mirrorInstanceId===null){
+   plan=previewUncontestedSale(asTurn,catalog,s);
+   queue=[
+     {type:'spend',playerId:s.sellerId,instanceIds:[s.saleInstanceId]},
+     {type:'uncontestedSale',sellerId:s.sellerId,buyerId:s.targetId,
+       soldInstanceId:s.soldInstanceId},
+     {type:'refill'},{type:'advance',afterId:s.sellerId}
+   ];
+ }else{
+   plan=previewSingleMirrorSale(asTurn,catalog,s,{
+     mirrorInstanceId:response.mirrorInstanceId
+   });
+   queue=[
+     {type:'spend',playerId:s.sellerId,instanceIds:[s.saleInstanceId]},
+     {type:'spend',playerId:s.targetId,instanceIds:[response.mirrorInstanceId]},
+     {type:'reflectedSale',originalSellerId:s.sellerId,mirrorOwnerId:s.targetId,
+       soldInstanceId:s.soldInstanceId},
+     {type:'refill'},{type:'advance',afterId:s.sellerId}
+   ];
+ }
+ const result=runEffectQueueFixture(state,catalog,queue,{
+   labOnly:true,fixtureDrawDefinitionId
+ });
+ return {...result,plan:Object.freeze({
+   type:'sale',reaction:response.mirrorInstanceId?'singleMirror':'accepted',
+   itemDefinitionId:plan.itemDefinitionId,price:plan.price
+ })};
+}
+
+return {validateSaleDeclarationFixture,resolveStagedSaleFixture};
+})();
+
+const __v2_module_11 = (() => {
 "use strict";
 const {combineElements} = __v2_module_0;
 
@@ -1567,11 +1923,11 @@ function queuedAttackCosts(attackContext,actorId) {
 return {compileOrderedWeaponAttack,queuedAttackCosts};
 })();
 
-const __v2_module_9 = (() => {
+const __v2_module_12 = (() => {
 "use strict";
 const {sumLegalArmor, calculateHit, MAX_HAND_SIZE} = __v2_module_0;
 const {runEffectQueueFixture} = __v2_module_7;
-const {compileOrderedWeaponAttack,queuedAttackCosts} = __v2_module_8;
+const {compileOrderedWeaponAttack,queuedAttackCosts} = __v2_module_11;
 
 /**
  * V2 G3, PART 1: pure compile/resolve for reference-backed BASIC weapon combat.
@@ -1712,10 +2068,10 @@ function resolveBasicFixture(state,catalog,options={}) {
 return {compileBasicWeaponAttack,compileBasicResolution,resolveBasicFixture};
 })();
 
-const __v2_module_10 = (() => {
+const __v2_module_13 = (() => {
 "use strict";
-const {compileBasicWeaponAttack} = __v2_module_9;
-const {queuedAttackCosts} = __v2_module_8;
+const {compileBasicWeaponAttack} = __v2_module_12;
+const {queuedAttackCosts} = __v2_module_11;
 const {runEffectQueueFixture} = __v2_module_7;
 
 /**
@@ -1854,12 +2210,12 @@ function resolveWallFixture(state,catalog,opts={}) {
 return {isWallDefense,compileWallResolution,resolveWallFixture};
 })();
 
-const __v2_module_11 = (() => {
+const __v2_module_14 = (() => {
 "use strict";
 const {planRedirectRoute} = __v2_module_3;
-const {compileBasicWeaponAttack,resolveBasicFixture} = __v2_module_9;
-const {isWallDefense,resolveWallFixture} = __v2_module_10;
-const {queuedAttackCosts} = __v2_module_8;
+const {compileBasicWeaponAttack,resolveBasicFixture} = __v2_module_12;
+const {isWallDefense,resolveWallFixture} = __v2_module_13;
+const {queuedAttackCosts} = __v2_module_11;
 const {runEffectQueueFixture} = __v2_module_7;
 
 /**
@@ -1978,7 +2334,7 @@ function resolveRedirectFixture(state,catalog,{
 return {resolveRedirectFixture};
 })();
 
-const __v2_module_12 = (() => {
+const __v2_module_15 = (() => {
 "use strict";
 const {calculateHit,sumLegalArmor} = __v2_module_0;
 const {planRedirectRoute} = __v2_module_3;
@@ -2246,12 +2602,13 @@ function resolveSoloMiracleFixture(state,catalog,options={}) {
 return {compileSoloMiracleResolution,resolveSoloMiracleFixture};
 })();
 
-const __v2_module_13 = (() => {
+const __v2_module_16 = (() => {
 "use strict";
 const {applyStagingCommand} = __v2_module_5;
-const {resolveRedirectFixture} = __v2_module_11;
-const {resolveSoloMiracleFixture,compileSoloMiracleResolution} = __v2_module_12;
-const {compileOrderedWeaponAttack} = __v2_module_8;
+const {validateSaleDeclarationFixture,resolveStagedSaleFixture} = __v2_module_10;
+const {resolveRedirectFixture} = __v2_module_14;
+const {resolveSoloMiracleFixture,compileSoloMiracleResolution} = __v2_module_15;
+const {compileOrderedWeaponAttack} = __v2_module_11;
 const {runEffectQueueFixture} = __v2_module_7;
 const {drawRandom32} = __v2_module_2;
 const {MAX_HAND_SIZE} = __v2_module_0;
@@ -2267,6 +2624,7 @@ const {MAX_HAND_SIZE} = __v2_module_0;
  * This module is LAB-ONLY. It uses an audited-incomplete fixture card draw
  * and must not be used for production card probability or online play.
  */
+
 
 
 
@@ -2386,6 +2744,8 @@ function resolveStagedFixture(state,catalog,{
     return resolvePrayFixture(state,catalog,{labOnly,fixtureDrawDefinitionId});
   if(state.pending?.type==='discard')
     return resolveDiscardFixture(state,catalog,{labOnly,fixtureDrawDefinitionId});
+  if(state.pending?.type==='sale')
+    return resolveStagedSaleFixture(state,catalog,{labOnly,fixtureDrawDefinitionId});
   const family=attackFamily(state,catalog);
   if(family==='miracle')
     return resolveSoloMiracleFixture(state,catalog,{labOnly:true,fixtureDrawDefinitionId,deflectRng});
@@ -2429,6 +2789,8 @@ function submitAndResolveFixture(state,command,catalog,{
       compileSoloMiracleResolution(preview,catalog);
     }
   }
+  if(stage.state.phase==='tradeDefense'&&command.type==='declareSale')
+    validateSaleDeclarationFixture(stage.state,catalog);
   if(stage.state.phase!=='resolving')
     return {state:stage.state,applied:true,duplicate:false,autoResolved:false,
       events:[],plan:null};
@@ -2441,11 +2803,11 @@ function submitAndResolveFixture(state,command,catalog,{
 return {resolvePrayFixture,resolveDiscardFixture,resolveStagedFixture,submitAndResolveFixture};
 })();
 
-const __v2_module_14 = (() => {
+const __v2_module_17 = (() => {
 "use strict";
 const {migrateLegacyCatalog} = __v2_module_4;
 const {createStagingRoom,viewStagingRoom} = __v2_module_5;
-const {submitAndResolveFixture} = __v2_module_13;
+const {submitAndResolveFixture} = __v2_module_16;
 const {VERIFIED_BASIC_CARDS} = __v2_module_1;
 
 /**
@@ -2745,9 +3107,9 @@ function createV2LabController({
 return {createV2LabController};
 })();
 
-const __v2_module_15 = (() => {
+const __v2_module_18 = (() => {
 "use strict";
-const {createV2LabController} = __v2_module_14;
+const {createV2LabController} = __v2_module_17;
 
 /**
  * Minimal accessible and touch-friendly offline V2 hotseat UI.
@@ -2916,9 +3278,9 @@ function mountV2Lab(root,controller=createV2LabController()){
 return {renderV2LabMarkup,mountV2Lab};
 })();
 
-const __v2_lab_test_controller = __v2_module_14;
+const __v2_lab_test_controller = __v2_module_17;
 
-const __v2_lab_test_ui = __v2_module_15;
+const __v2_lab_test_ui = __v2_module_18;
 
 __v2_lab_test_ui.mountV2Lab(document.getElementById("v2-root"));
 </script>
