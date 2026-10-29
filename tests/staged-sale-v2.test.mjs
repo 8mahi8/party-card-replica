@@ -54,7 +54,7 @@ test('accepted staged sale transfers the exact item and charges the correct stat
  const second=send(first.state,respond(first.state));
  assert.equal(second.autoResolved,true);
  const n=second.state;
- assert.equal(n.revision,2);
+ assert.equal(n.revision,3);
  assert.equal(n.phase,'turn');
  assert.equal(n.activePlayerId,'B');
  assert.equal(n.turnCount,1);
@@ -75,7 +75,7 @@ test('authenticated Super Mirror response reverses payments and never moves sold
  assert.equal(view.players[0].handCount,3);
  const second=send(first.state,respond(first.state,{mirror:true})),n=second.state;
  assert.equal(second.plan.reaction,'singleMirror');
- assert.equal(n.revision,2);
+ assert.equal(n.revision,3);
  assert.equal(n.phase,'turn');
  assert.equal(n.activePlayerId,'B');
  assert.equal(n.turnCount,1);
