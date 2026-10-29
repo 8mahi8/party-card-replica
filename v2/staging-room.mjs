@@ -455,7 +455,13 @@ export function viewStagingRoom(state,viewerId,catalog=null) {
     pending:state.pending?{
       type:state.pending.type,sourceId:state.pending.sourceId??state.pending.originalAttackerId,
       targetId:state.pending.targetId,
-      ...(state.pending.attackContext?.hitCount>1?{
+      ...(state.pending.mirageRoute?{
+        mirageRound:state.pending.mirageRoute.roundIndex+1,
+        mirageRounds:state.pending.mirageRoute.roundCount,
+        mirageTargetHit:state.pending.mirageRoute.subHitIndex+1,
+        mirageTargetHits:state.pending.mirageRoute.hitsPerTarget,
+        mirageHitsResolved:state.pending.mirageRoute.hitNumber
+      }:state.pending.attackContext?.hitCount>1?{
         strikeNumber:(state.pending.strikeIndex??0)+1,
         strikeCount:state.pending.attackContext?.hitCount??1
       }:{}),
