@@ -18,6 +18,8 @@ const MAX_HAND=18;
 const ALLOWED_KEYS={
   pray:new Set(['commandId','expectedRevision','actorId','type']),
   discard:new Set(['commandId','expectedRevision','actorId','type','orderedInstanceIds']),
+  declareSale:new Set(['commandId','expectedRevision','actorId','type','targetId','saleInstanceId','soldInstanceId']),
+  respondSale:new Set(['commandId','expectedRevision','actorId','type','mirrorInstanceId']),
   playCards:new Set(['commandId','expectedRevision','actorId','type','targetId','orderedInstanceIds']),
   playSequence:new Set(['commandId','expectedRevision','actorId','type','targetId','orderedPlays']),
   castLearned:new Set(['commandId','expectedRevision','actorId','type','targetId','learnedDefinitionId']),
@@ -49,7 +51,10 @@ function fingerprint(command) {
     targetId:['playCards','playSequence','castLearned'].includes(command.type)?command.targetId:null,
     orderedPlays:command.orderedPlays??null,
     orderedInstanceIds:command.orderedInstanceIds??null,
-    learnedDefinitionId:command.learnedDefinitionId??null
+    learnedDefinitionId:command.learnedDefinitionId??null,
+    saleInstanceId:command.saleInstanceId??null,
+    soldInstanceId:command.soldInstanceId??null,
+    mirrorInstanceId:command.mirrorInstanceId??null
   });
 }
 function takeLegalSelection(player,instanceIds,catalog,mode,{allowEmpty=false}={}) {
@@ -213,7 +218,46 @@ export function applyStagingCommand(state,command,catalog,{authorizedSeatId}={})
   let pending;
   let phase;
   let activePlayerId;
-  if(command.type==='discard'){
+  if(command.type==='declareSale'){
+    if(state.phase!=='turn'||actor.hp<=0)throw new Error('Not a living trade turn');
+    id(command.targetId,'target ID');
+    const target=seat(state,command.targetId);
+    if(target.id===actor.id||target.hp<=0)throw new Error('Invalid sale target');
+    id(command.saleInstanceId,'Sell card ID');
+    id(command.soldInstanceId,'offered item ID');
+    if(command.saleInstanceId===command.soldInstanceId)
+      throw new Error('Sell card and offered item must differ');
+    const trade=actor.hand.find(c=>c.instanceId===command.saleInstanceId);
+    const offer=actor.hand.find(c=>c.instanceId===command.soldInstanceId);
+    if(!trade||!offer)throw new Error('Sale card not held');
+    const tradeDef=catalog.get(trade.definitionId),offeredDef=catalog.get(offer.definitionId);
+    if(tradeDef?.family!=='trade'||!tradeDef.effects.some(e=>
+       e.when==='onDeclare'&&e.type==='forceSale'&&e.params.kind==='sell'))
+      throw new Error('Selected card cannot declare Sell');
+    if(!offeredDef||offeredDef.family==='trade')
+      throw new Error('Unverified trade item cannot be sold');
+    pending={type:'sale',originalAttackerId:actor.id,targetId:target.id,
+      saleInstanceId:trade.instanceId,soldInstanceId:offer.instanceId,
+      offeredDefinitionId:offer.definitionId,price:offeredDef.stats.price,
+      defense:null};
+    phase='tradeDefense';activePlayerId=target.id;
+  }else if(command.type==='respondSale'){
+    if(state.phase!=='tradeDefense'||state.pending?.type!=='sale'||
+       state.pending.targetId!==actor.id||actor.hp<=0)
+      throw new Error('Not the trade defending seat');
+    let mirrorInstanceId=null;
+    if(command.mirrorInstanceId!==undefined){
+      id(command.mirrorInstanceId,'Mirror instance ID');
+      const mirror=actor.hand.find(c=>c.instanceId===command.mirrorInstanceId);
+      const def=catalog.get(mirror?.definitionId);
+      if(!mirror||!def?.effects.some(e=>e.when==='onDefense'&&
+          e.type==='redirectAttack'&&e.params.mode==='reflect'&&e.params.scope==='any'))
+        throw new Error('Only Super Mirror can reflect this trade');
+      mirrorInstanceId=mirror.instanceId;
+    }
+    pending={...state.pending,defense:{playerId:actor.id,mirrorInstanceId}};
+    phase='resolving';activePlayerId=null;
+  }else if(command.type==='discard'){
     if(state.phase!=='turn'||actor.hp<=0)
       throw new Error('Cannot discard outside a living turn');
     // Discard uses PHYSICAL card instances; learned spells cannot be thrown.
@@ -269,7 +313,7 @@ export function applyStagingCommand(state,command,catalog,{authorizedSeatId}={})
     // G3 will decide damage and possible self-defeat.
     phase=target.id===actor.id?'resolving':'defense';
     activePlayerId=target.id===actor.id?null:target.id;
-  } else {
+  } else if(command.type==='defend'||command.type==='defendSequence') {
     if(state.phase!=='defense'||!state.pending||
        state.pending.targetId!==actor.id)throw new Error('Not the defending seat');
     const sequence=command.type==='defendSequence'
@@ -314,7 +358,12 @@ export function viewStagingRoom(state,viewerId) {
     pending:state.pending?{
       type:state.pending.type,sourceId:state.pending.sourceId??state.pending.originalAttackerId,
       targetId:state.pending.targetId,
-      stage:state.pending.defense?'awaitingResolution':'awaitingDefense'
+      stage:state.pending.type==='sale'?
+        (state.pending.defense?'awaitingResolution':'awaitingTradeResponse'):
+        (state.pending.defense?'awaitingResolution':'awaitingDefense'),
+      ...(state.pending.type==='sale'?{offer:{
+        definitionId:state.pending.offeredDefinitionId,price:state.pending.price
+      }}:{})
     }:null
   };
 }
