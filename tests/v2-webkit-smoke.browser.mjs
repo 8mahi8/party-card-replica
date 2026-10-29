@@ -210,7 +210,7 @@ async function testShortHandDockTouch(base){
    const rect=await last.boundingBox();
    const dock=await frame.locator('.stage-scroll').boundingBox();
    const bar=await frame.locator('.stage-docked .action-bar').boundingBox();
-   passed(Boolean(rect&&dock&&bar&&rect.top>=dock.top-2 &&
+   passed(Boolean(rect&&dock&&bar&&rect.y>=dock.y-2 &&
       rect.y+rect.height<=bar.y-3),
       'last card can be fully scrolled above the action bar: '+JSON.stringify({rect,dock,bar}));
    const previous=await frame.locator('.stage-scroll').evaluate(el=>el.scrollTop);
