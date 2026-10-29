@@ -14,6 +14,7 @@ import {createInstance, selectInstances} from './foundation.mjs';
 import {previewBuyOfferFixture} from './trade-buy.mjs';
 import {previewExchangeFixture} from './trade-exchange.mjs';
 import {previewSelfSaleFixture} from './trade-self-sale.mjs';
+import {dreamVisibleDefinitionIdFixture} from './dream-appearance.mjs';
 
 const ID=/^[a-zA-Z0-9._:-]{1,80}$/;
 const MAX_PLAYERS=9;
@@ -441,14 +442,15 @@ export function applyStagingCommand(state,command,catalog,{authorizedSeatId}={})
  * Only a trustworthy server/host may call this for the authenticated seat.
  * Never transmit internal state or processed command payloads to opponents.
  */
-export function viewStagingRoom(state,viewerId) {
+export function viewStagingRoom(state,viewerId,catalog=null) {
   const p=seat(state,viewerId);
   return {
     schemaVersion:2,rulesetId:state.rulesetId,revision:state.revision,
     phase:state.phase,activePlayerId:state.activePlayerId,
     players:state.players.map(q=>({
       id:q.id,hp:q.hp,mp:q.mp,money:q.money,handCount:q.hand.length,
-      ...(q.id===p.id?{hand:q.hand.map(x=>({instanceId:x.instanceId,definitionId:x.definitionId})),learned:[...q.learned]}:{})
+      ...(q.id===p.id?{hand:q.hand.map(x=>({instanceId:x.instanceId,
+         definitionId:dreamVisibleDefinitionIdFixture(q,x,catalog)})),learned:[...q.learned]}:{})
     })),
     pending:state.pending?{
       type:state.pending.type,sourceId:state.pending.sourceId??state.pending.originalAttackerId,
