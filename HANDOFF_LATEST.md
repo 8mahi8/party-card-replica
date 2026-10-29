@@ -5,6 +5,15 @@
 
 > **この文書は引き継ぎ入口であり、実装の真実は常に開発ブランチの最新コードとGitHub Actions。** コミットSHA・テスト件数・カード数は作業のたびに変わる。本文の日付や数値を確認せず永久に正しいと扱わないこと。
 
+## 2026-10-30 G6配布｜iPad向けオンライン単体HTML生成・GitHub保存【現行最新】
+
+- **本タスクの実装**：`v2/demo/bundle-modules.mjs`に既存31モジュールの宣言順をまとめ、既存オフラインビルダーと新`v2/demo/build-online.mjs`で共用。オンラインのローカルホストとFirebase輸送層を追加して、`v2/demo/firebase-online-lab.html`のESMエントリを**単体HTML**へ自動内蔵。Firebase compat SDKの外部スクリプト2本は残る。毎回手で再結合不要。`v2/demo/firebase-online-standalone.html`を開発ブランチに保存（Actionsによるコミット`e0adb7963e4167ffe8d44d8ce24fc7cf024b76f6`、約276k文字）。
+- **実測テスト**：Node **899/899 PASS**（run `40935224335`）。`tests/g6-online-bundle-v2.test.mjs`新規2件で1ファイルの構文・決定性・ESM相対importなしを確認。WebKit CI run [`40935224345`](https://github.com/8mahi8/party-card-replica/actions/runs/40935224345)で**生成された1ファイル版**をlocalhostから2ページ実行し、模擬Firebaseでルーム作成/参加/A攻撃/B空防御→HP30をタップ試験成功。既存WebKit 339件とChromium 28件も継続。HTMLのZIP artifact [`g6-online-standalone-html`](https://github.com/8mahi8/party-card-replica/actions/runs/40935224345/artifacts/12924716292)を保存。
+- **公開経路調査**：GitHub PagesはリポジトリAPIと想定URLがどちらもHTTP 404（run `40935432804`）。現時点ではHTTPS試遊URLとして案内不可。第三者HTML代理配信はHTTP 200でHTMLを返すが、WebKitで起動確認がタイムアウト（runs `40935814977`, `40936269151`, `40936520261`）しており**採用しない**。正確な理由未確定。コードのビルド/ローカルWebKit成功と外部公開を混同しない。
+- **次に必要なこと**：GitHubリポジトリ `Settings → Pages` で `Deploy from a branch`、`refactor/v2-foundation-review-20261027`、`/(root)`を選択してPagesを有効化（公式ドキュメント準拠）。現行接続コネクタにはGitHub Pages設定変更操作がないため、この作業で設定は変更していない。その後HTTPSで`/v2/demo/firebase-online-standalone.html`の表示を確認し、学校の**2台のiPad Safari**で試遊。学校Google Sitesへの埋込HTMLを変更する必要はない。
+- **資料**：[`docs/V2_G6_PORTABLE_PREVIEW_2026-10-30.md`](docs/V2_G6_PORTABLE_PREVIEW_2026-10-30.md)。単発CI 3本は繰り返しのPR更新で作動しないよう手動起動に変更。Firebase RTDB Security Rules・認証・`main`・Google Sites版の変更なし。
+- **未完成**：原作カード全353種/500枠の正規山札、ホストブラウザ再読込後の復元、学校iPad実機接続、Google Sitesでの本配布。現行は研究用・固定カード補充。
+
 ## 2026-10-30 G6最新｜**本物のFirebaseを介した2ブラウザ対戦成功**【現在の到達点】
 
 - **重大な実通信バグを発見・修正**：Firebase RTDBに`{command:{orderedInstanceIds:[]}}`をオブジェクトで保存すると、空配列が欠落し、「防御しない」操作が`Invalid ordered card selection`で拒否されていた。localhostのmock DBでは再現せず、本物のFirebaseに接続したから判明。修正は`v2/firebase-two-seat-transport-fixture.mjs`で`commandJson:JSON.stringify(command)`に変更し、ホスト側でparseして既存エンジンへ渡す方式。原作ルール・Firebase Rules・匿名認証を変更していない。互換で旧`message.command`も読める。
