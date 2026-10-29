@@ -12,6 +12,7 @@ import {planForcedSalePayment} from './trade-payment.mjs';
 import {planIncomingHandTransfer} from './hand-overflow.mjs';
 import {previewBuyOfferFixture,previewBuyChoiceFixture} from './trade-buy.mjs';
 import {previewExchangeFixture} from './trade-exchange.mjs';
+import {planZeroHpRecoveryFixture} from './zero-hp-recovery.mjs';
 
 function fail(message){throw new Error(message);}
 function who(state,id){
@@ -114,10 +115,23 @@ export function runEffectQueueFixture(state,catalog,queue,{
      if(!positiveCount(effect.damage)||!positiveCount(effect.hpAfter)||
         effect.hpAfter>p.hp||typeof effect.instantDefeat!=='boolean')
        fail('Malformed hit effect');
-     p.hp=effect.hpAfter;
+     const recovery=planZeroHpRecoveryFixture({player:p,catalog,
+       hpAfter:effect.hpAfter});
+     p.hp=recovery.hpAfter;
      events.push({type:'damage',targetId:p.id,damage:effect.damage,
        instantDefeat:effect.instantDefeat,hpAfter:effect.hpAfter,
        ...(effect.stopped===undefined?{}:{stopped:effect.stopped})});
+     if(recovery.kind==='revived'){
+       const index=p.hand.findIndex(x=>x.instanceId===recovery.consumedInstanceId);
+       if(index<0)fail('Passive charm disappeared during resolution');
+       p.hand.splice(index,1);
+       // Source-backed used-artifact replacement, drawn only at the
+       // existing shared refill point in this isolated laboratory.
+       spent[p.id]=(spent[p.id]??0)+1;
+       events.push({type:'revive',playerId:p.id,revivedHp:10,
+         consumedInstanceId:recovery.consumedInstanceId,
+         consumedDefinitionId:recovery.consumedDefinitionId});
+     }
    } else if(effect.type==='exchange'){
      // All Exchange allocations are server-side staged and self-directed.
      // There is no opposing defense and no change of total HP+MP+money.
