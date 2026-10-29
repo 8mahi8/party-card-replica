@@ -116,6 +116,11 @@ export function convertLegacyCard(card,{ruleset=PARTIAL_CARD_SOURCE}={}) {
       attack=card.attackBonus;
       modes.push('addAttack');
       effects.push(mk('onDeclare','addAttack',{scope:'weapon',stacking:'single'}));
+    }else if(card.effect==='sun_revive'){
+      if(card.discardPolicy!=='forbidden')
+        throw new Error('Passive Sun Charm discard policy mismatch');
+      modes.push('passive');
+      effects.push(mk('onZeroHp','reviveAtZeroHp',{hp:10}));
     }else throw new Error('Unmapped support item effect');
   }
   return defineCard({
