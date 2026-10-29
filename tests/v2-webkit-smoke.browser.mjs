@@ -1556,6 +1556,80 @@ async function testRepeatedWeaponTouch(base){
  finally{page=null;await context.close();}
 }
 
+
+async function testMirageFourHitTouch(base){
+ const context=await browser.newContext({
+  viewport:{width:390,height:844},screen:{width:390,height:844},
+  deviceScaleFactor:2,isMobile:true,hasTouch:true,locale:'ja-J'
+ });
+ try{
+  page=await context.newPage();
+  await page.goto(base+'/embed-harness.html',{waitUntil:'load'});
+  await page.locator('#game-embed').evaluate(el=>{el.style.height='430px';});
+  const frame=page.frameLocator('#game-embed');
+  const embedded=page.frames().find(f=>f!==page.mainFrame());
+  if(!embedded)throw new Error('Missing Mirage iframe');
+  await embedded.evaluate(()=>{
+   const old=document.getElementById('v2-root');
+   const next=document.createElement('div');next.id='v2-root';
+   old.replaceWith(next);
+   const lab=__v2_lab_test_controller.createV2LabController({
+     hands:{A:['w050','m012','m012'],B:['d003']}
+   });
+   window.__mirageLab=lab;
+   __v2_lab_test_ui.mountV2Lab(next,lab);
+  });
+  const tap=sel=>frame.locator(sel).first().tap();
+  const get=()=>embedded.evaluate(()=>window.__mirageLab.labSnapshot());
+  await tap('[data-action=reveal]');
+  const cards=frame.locator('[data-card=hand]');
+  passed(await cards.count()===3,'Mirage + Nokobunbun hand is visible in mobile iframe');
+  passed((await cards.nth(1).textContent()).includes('蜃気楼')&&
+     (await cards.nth(2).textContent()).includes('蜃気楼'),
+     'both physical Mirage miracle instances stay separately selectable');
+  await cards.nth(0).tap();await cards.nth(1).tap();await cards.nth(2).tap();
+  await tap('[data-action=submit]');
+  await frame.locator('.compact-pass').waitFor();
+  passed(await frame.locator('[data-card=hand]').count()===0,
+    'Mirage declaration never leaks the defender hand on handoff');
+  await tap('[data-action=reveal]');
+  await tap('[data-card=hand]');
+  await tap('[data-action=submit]');
+  await frame.locator('.compact-pass').waitFor();
+  const first=await get();
+  passed(first.players[1].hp===40&&first.pending.strikeIndex===1&&
+    first.players[0].mp===0&&first.players[0].hand.length===0,
+    'hit1 blocked and two MP5 casts paid only once, no premature refill');
+  await tap('[data-action=reveal]');
+  passed((await frame.locator('.stage-heading h1').textContent()).includes('2/4発目'),
+     'second independent defense shows 2/4 without hiding opponent identity');
+  await screenshot('webkit-mirage-2of4');
+  await tap('[data-action=submit]');
+  await frame.locator('.compact-pass').waitFor();
+  const second=await get();
+  passed(second.players[1].hp===37&&second.pending.strikeIndex===2,
+    'second hit is separately calculated for three damage');
+  await tap('[data-action=reveal]');
+  passed((await frame.locator('.stage-heading h1').textContent()).includes('3/4発目'),
+    'third independent defense displays 3/4 correctly');
+  await tap('[data-action=submit]');
+  await frame.locator('.compact-pass').waitFor();
+  await tap('[data-action=reveal]');
+  passed((await frame.locator('.stage-heading h1').textContent()).includes('4/4発目'),
+    'fourth and final defense displays 4/4 correctly');
+  await tap('[data-action=submit]');
+  await frame.locator('.compact-pass').waitFor();
+  const settled=await get();
+  passed(settled.players[1].hp===31&&settled.players[0].hand.length===3&&
+    settled.players[1].hand.length===1,
+    'four hits settle to HP31; attacker refills3, defender1 only at end');
+  passed(settled.turnCount===1&&settled.phase==='turn'&&settled.activePlayerId==='B',
+    'four-hit sweep advances exactly one turn and does not create a fifth hit');
+  await screenshot('webkit-mirage-four-hit-settled');
+ }catch(error){await screenshot('webkit-mirage-four-hit-failure');throw error;}
+ finally{page=null;await context.close();}
+}
+
 async function testFullHandSaleTouch(base){
  const context=await browser.newContext({
   viewport:{width:390,height:844},screen:{width:390,height:844},
@@ -1661,6 +1735,7 @@ try{
   await testExpandedVanillaWeaponTouch(base);
   await testAbsorbingWeaponTouch(base);
   await testRepeatedWeaponTouch(base);
+  await testMirageFourHitTouch(base);
   console.log('WEBKIT_SMOKE_SUCCESS checks='+checks+' engine=Playwright WebKit'+
     ' fixed-height frames=1024x460,390x430');
 }catch(error){
