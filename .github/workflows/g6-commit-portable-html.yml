@@ -1,0 +1,46 @@
+name: G6 one-off commit portable HTML to development branch
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/g6-commit-portable-html.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  package:
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify only the approved development branch is the target
+        env:
+          TARGET_BRANCH: ${{ github.head_ref }}
+        run: |
+          test "$TARGET_BRANCH" = 'refactor/v2-foundation-review-20261027'
+      - name: Generate portable HTML and validate JavaScript
+        run: |
+          node v2/demo/build-online.mjs
+          node v2/demo/build-online.mjs --check
+          node --test tests/g6-online-bundle-v2.test.mjs
+      - name: Commit generated file to the same development branch
+        env:
+          TARGET_BRANCH: ${{ github.head_ref }}
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add v2/demo/firebase-online-standalone.html
+          if git diff --cached --quiet; then
+            echo 'G6_PORTABLE_HTML_ALREADY_CURRENT'
+          else
+            git commit -m 'build(g6): save deterministic iPad online standalone HTML'
+            git push origin "HEAD:$TARGET_BRANCH"
+            echo 'G6_PORTABLE_HTML_PUSH_SUCCESS'
+          fi
