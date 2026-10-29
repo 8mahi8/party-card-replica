@@ -455,8 +455,8 @@ export function viewStagingRoom(state,viewerId,catalog=null) {
     pending:state.pending?{
       type:state.pending.type,sourceId:state.pending.sourceId??state.pending.originalAttackerId,
       targetId:state.pending.targetId,
-      ...(state.pending.strikeIndex!==undefined?{
-        strikeNumber:state.pending.strikeIndex+1,
+      ...(state.pending.attackContext?.hitCount>1?{
+        strikeNumber:(state.pending.strikeIndex??0)+1,
         strikeCount:state.pending.attackContext?.hitCount??1
       }:{}),
       stage:state.pending.type==='buy'?
