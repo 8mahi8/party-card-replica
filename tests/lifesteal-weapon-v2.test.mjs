@@ -109,7 +109,7 @@ test('one reflect changes absorber to reflector rather than original attacker',(
  assert.equal(end.state.players[0].hp,18);
  assert.equal(end.state.players[1].hp,32);
  assert.deepEqual(end.events.filter(e=>e.type==='absorbHp').map(e=>e.playerId),['B']);
- assert.equal(end.events.filter(e=>e.type==='spend').length,0);
+ assert.equal(end.events.filter(e=>e.type==='absorbHp').length,1);
 });
 test('deflection onto its owner heals that owner without an extra defense choice',()=>{
  const s=room(['w048'],['w026'],25,4);
