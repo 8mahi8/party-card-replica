@@ -48,7 +48,7 @@ function fingerprint(command) {
     actorId:command.actorId,
     type:command.type,
     expectedRevision:command.expectedRevision,
-    targetId:['playCards','playSequence','castLearned'].includes(command.type)?command.targetId:null,
+    targetId:['playCards','playSequence','castLearned','declareSale'].includes(command.type)?command.targetId:null,
     orderedPlays:command.orderedPlays??null,
     orderedInstanceIds:command.orderedInstanceIds??null,
     learnedDefinitionId:command.learnedDefinitionId??null,
