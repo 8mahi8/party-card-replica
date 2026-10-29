@@ -1111,9 +1111,75 @@ return {planZeroHpRecoveryFixture};
 
 const __v2_module_10 = (() => {
 "use strict";
+const {planForcedSalePayment} = __v2_module_5;
+
+/**
+ * Self-directed Sell in the G4 offline lab.
+ *
+ * Evidence from 2015 self-Sell play and 2023 UI reports:
+ * - The target may be the acting player.
+ * - The selected item remains in the player's hand.
+ * - The Sell artifact is consumed; HP+MP+money total is unchanged.
+ *
+ * Since the actor is both payer and recipient, the money paid is credited
+ * back to the same actor; any money shortage is collected from MP then HP.
+ * The resulting math is therefore a special 1:1 reallocation.
+ *
+ * Unresolved: hallucination clearing (no hallucination system yet), selling
+ * at HP-zero, full-hand cap interactions, and any older-client differences.
+ * Do not call this an authoritative online rule.
+ *
+ * https://ameblo.jp/godfield-tactics/entry-12100951333.html
+ * https://detail.chiebukuro.yahoo.co.jp/qa/question_detail/q14275381654
+ */
+
+function fail(message){throw new Error(message);}
+function previewSelfSaleFixture(state,catalog,{
+ sellerId,saleInstanceId,soldInstanceId
+}={}){
+ if(state?.schemaVersion!==2||state.phase!=='turn'||
+    state.activePlayerId!==sellerId||!(catalog instanceof Map))
+   fail('Self Sale requires the current V2 research turn');
+ const actor=state.players?.find(p=>p.id===sellerId);
+ if(!actor||actor.hp<=0)fail('Self Sale requires a living player');
+ if(typeof saleInstanceId!=='string'||typeof soldInstanceId!=='string'||
+    saleInstanceId===soldInstanceId)
+   fail('Self Sale requires distinct physical cards');
+ const sale=actor.hand.find(c=>c.instanceId===saleInstanceId);
+ const item=actor.hand.find(c=>c.instanceId===soldInstanceId);
+ const saleDef=catalog.get(sale?.definitionId),itemDef=catalog.get(item?.definitionId);
+ if(!sale||!item||saleDef?.family!=='trade'||
+    !saleDef.effects.some(e=>e.when==='onDeclare'&&
+      e.type==='forceSale'&&e.params.kind==='sell')||!itemDef)
+   fail('Self Sale requires authentic held Sell and offered item');
+ const payment=planForcedSalePayment({price:itemDef.stats.price,buyer:actor});
+ if(payment.buyerEliminated||payment.unpaid)
+   fail('Lethal self Sale requires original verification');
+ const money=payment.buyerAfter.money+payment.sellerCredit;
+ if(!Number.isSafeInteger(money))fail('Self Sale money overflow');
+ const before=actor.hp+actor.mp+actor.money;
+ const after=payment.buyerAfter.hp+payment.buyerAfter.mp+money;
+ if(!Number.isSafeInteger(before)||!Number.isSafeInteger(after)||before!==after)
+   fail('Self Sale must preserve total resources');
+ return Object.freeze({
+   type:'selfSale',sellerId,
+   saleInstanceId,soldInstanceId,itemDefinitionId:item.definitionId,
+   price:itemDef.stats.price,payment,
+   after:Object.freeze({hp:payment.buyerAfter.hp,
+     mp:payment.buyerAfter.mp,money}),
+   total:before
+ });
+}
+
+return {previewSelfSaleFixture};
+})();
+
+const __v2_module_11 = (() => {
+"use strict";
 const {createInstance, selectInstances} = __v2_module_2;
 const {previewBuyOfferFixture} = __v2_module_7;
 const {previewExchangeFixture} = __v2_module_8;
+const {previewSelfSaleFixture} = __v2_module_10;
 
 /**
  * V2 G2: authoritatively *stage* a combat interaction.
@@ -1127,6 +1193,7 @@ const {previewExchangeFixture} = __v2_module_8;
  * Only a trusted transport should supply the authorizedSeatId context. A
  * client-controlled actorId alone never authenticates a sender.
  */
+
 
 
 
@@ -1422,7 +1489,7 @@ function applyStagingCommand(state,command,catalog,{authorizedSeatId}={}) {
     if(state.phase!=='turn'||actor.hp<=0)throw new Error('Not a living trade turn');
     id(command.targetId,'target ID');
     const target=seat(state,command.targetId);
-    if(target.id===actor.id||target.hp<=0)throw new Error('Invalid sale target');
+    if(target.hp<=0)throw new Error('Invalid sale target');
     id(command.saleInstanceId,'Sell card ID');
     id(command.soldInstanceId,'offered item ID');
     if(command.saleInstanceId===command.soldInstanceId)
@@ -1436,11 +1503,21 @@ function applyStagingCommand(state,command,catalog,{authorizedSeatId}={}) {
       throw new Error('Selected card cannot declare Sell');
     if(!offeredDef)
       throw new Error('Unknown offered card definition');
-    pending={type:'sale',originalAttackerId:actor.id,targetId:target.id,
+    if(target.id===actor.id){
+      // Self Sell does not require an opponent defense. Validate the
+      // source-backed nonlethal math before staging an instant resolution.
+      previewSelfSaleFixture(state,catalog,{
+        sellerId:actor.id,saleInstanceId:trade.instanceId,
+        soldInstanceId:offer.instanceId
+      });
+    }
+    pending={type:target.id===actor.id?'selfSale':'sale',
+      originalAttackerId:actor.id,targetId:target.id,
       saleInstanceId:trade.instanceId,soldInstanceId:offer.instanceId,
       offeredDefinitionId:offer.definitionId,price:offeredDef.stats.price,
       defense:null};
-    phase='tradeDefense';activePlayerId=target.id;
+    phase=target.id===actor.id?'resolving':'tradeDefense';
+    activePlayerId=target.id===actor.id?null:target.id;
   }else if(command.type==='respondSale'){
     if(state.phase!=='tradeDefense'||state.pending?.type!=='sale'||
        state.pending.targetId!==actor.id||actor.hp<=0)
@@ -1578,7 +1655,7 @@ function viewStagingRoom(state,viewerId) {
 return {createStagingRoom,applyStagingCommand,viewStagingRoom};
 })();
 
-const __v2_module_11 = (() => {
+const __v2_module_12 = (() => {
 "use strict";
 const {createInstance} = __v2_module_2;
 const {MAX_HAND_SIZE,MAX_LEARNED_MIRACLES} = __v2_module_0;
@@ -1587,6 +1664,7 @@ const {planIncomingHandTransfer} = __v2_module_6;
 const {previewBuyOfferFixture,previewBuyChoiceFixture} = __v2_module_7;
 const {previewExchangeFixture} = __v2_module_8;
 const {planZeroHpRecoveryFixture} = __v2_module_9;
+const {previewSelfSaleFixture} = __v2_module_10;
 
 /**
  * Common, deterministic, JSON-only effect queue interpreter for the G3 lab.
@@ -1596,6 +1674,7 @@ const {planZeroHpRecoveryFixture} = __v2_module_9;
  * refill/advance effects. Never substitute a partial reference-deck draw for
  * real weighted draws in production.
  */
+
 
 
 
@@ -1748,6 +1827,32 @@ function runEffectQueueFixture(state,catalog,queue,{
      player.money=plan.after.money;
      events.push({type:'exchange',playerId:player.id,before:plan.before,
        after:plan.after,total:plan.total});
+   } else if(effect.type==='selfSale'){
+     if(Object.keys(effect).length!==2||!Object.hasOwn(effect,'playerId'))
+       fail('Malformed self Sale effect');
+     const pending=state.pending;
+     if(pending?.type!=='selfSale'||pending.originalAttackerId!==effect.playerId||
+        pending.targetId!==effect.playerId)
+       fail('Self Sale must match the authenticated room');
+     const actor=who(state,effect.playerId),current=who(s,effect.playerId);
+     const consumed=queue.filter(q=>q.type==='spend'&&q.playerId===effect.playerId);
+     if(consumed.length!==1||
+        consumed[0].instanceIds?.length!==1||
+        consumed[0].instanceIds[0]!==pending.saleInstanceId)
+       fail('Self Sale requires spending exactly one authentic Sell card');
+     const asTurn={...state,phase:'turn',activePlayerId:effect.playerId,pending:null};
+     const plan=previewSelfSaleFixture(asTurn,catalog,{
+       sellerId:effect.playerId,saleInstanceId:pending.saleInstanceId,
+       soldInstanceId:pending.soldInstanceId
+     });
+     if(!current.hand.some(c=>c.instanceId===plan.soldInstanceId))
+       fail('Self Sale offered item must remain held');
+     current.hp=plan.after.hp;
+     current.mp=plan.after.mp;
+     current.money=plan.after.money;
+     events.push({type:'selfSale',playerId:effect.playerId,
+       itemDefinitionId:plan.itemDefinitionId,
+       price:plan.price,total:plan.total});
    } else if(effect.type==='uncontestedSale'){
      // Source-verified transfer and debit only. A real live trade must first
      // implement Super Mirror counterplay; this effect is lab-fixture ONLY.
@@ -1955,10 +2060,10 @@ function runEffectQueueFixture(state,catalog,queue,{
 return {runEffectQueueFixture};
 })();
 
-const __v2_module_12 = (() => {
+const __v2_module_13 = (() => {
 "use strict";
 const {previewBuyOfferFixture,previewBuyChoiceFixture} = __v2_module_7;
-const {runEffectQueueFixture} = __v2_module_11;
+const {runEffectQueueFixture} = __v2_module_12;
 const {MAX_HAND_SIZE} = __v2_module_0;
 
 /**
@@ -2026,9 +2131,9 @@ function settleUncontestedBuyFixture(state,catalog,{
 return {settleUncontestedBuyFixture};
 })();
 
-const __v2_module_13 = (() => {
+const __v2_module_14 = (() => {
 "use strict";
-const {runEffectQueueFixture} = __v2_module_11;
+const {runEffectQueueFixture} = __v2_module_12;
 const {planForcedSalePayment} = __v2_module_5;
 const {MAX_HAND_SIZE} = __v2_module_0;
 
@@ -2123,10 +2228,10 @@ function settleUncontestedSaleFixture(state,catalog,selection,{
 return {previewUncontestedSale,settleUncontestedSaleFixture};
 })();
 
-const __v2_module_14 = (() => {
+const __v2_module_15 = (() => {
 "use strict";
 const {planForcedSalePayment} = __v2_module_5;
-const {runEffectQueueFixture} = __v2_module_11;
+const {runEffectQueueFixture} = __v2_module_12;
 
 /**
  * G4 source-backed SINGLE Super Mirror vs "Sell" research fixture.
@@ -2236,7 +2341,7 @@ function settleSingleMirrorSaleFixture(state,catalog,selection,{
 return {previewSingleMirrorSale,settleSingleMirrorSaleFixture};
 })();
 
-const __v2_module_15 = (() => {
+const __v2_module_16 = (() => {
 "use strict";
 const {planForcedSalePayment} = __v2_module_5;
 
@@ -2307,12 +2412,12 @@ function inspectForcedSaleLethalityFixture(state,catalog,{
 return {inspectForcedSaleLethalityFixture};
 })();
 
-const __v2_module_16 = (() => {
+const __v2_module_17 = (() => {
 "use strict";
-const {previewUncontestedSale} = __v2_module_13;
-const {previewSingleMirrorSale} = __v2_module_14;
-const {inspectForcedSaleLethalityFixture} = __v2_module_15;
-const {runEffectQueueFixture} = __v2_module_11;
+const {previewUncontestedSale} = __v2_module_14;
+const {previewSingleMirrorSale} = __v2_module_15;
+const {inspectForcedSaleLethalityFixture} = __v2_module_16;
+const {runEffectQueueFixture} = __v2_module_12;
 
 /**
  * LAB-ONLY G4: bridge authenticated two-step trade commands to the reusable
@@ -2409,10 +2514,10 @@ function resolveStagedSaleFixture(state,catalog,{
 return {validateSaleDeclarationFixture,resolveStagedSaleFixture};
 })();
 
-const __v2_module_17 = (() => {
+const __v2_module_18 = (() => {
 "use strict";
 const {previewBuyOfferFixture,previewBuyChoiceFixture} = __v2_module_7;
-const {runEffectQueueFixture} = __v2_module_11;
+const {runEffectQueueFixture} = __v2_module_12;
 const {MAX_HAND_SIZE} = __v2_module_0;
 
 /**
@@ -2477,7 +2582,7 @@ function resolveStagedBuyFixture(state,catalog,{
 return {resolveStagedBuyFixture};
 })();
 
-const __v2_module_18 = (() => {
+const __v2_module_19 = (() => {
 "use strict";
 const {combineElements} = __v2_module_0;
 
@@ -2684,11 +2789,11 @@ function queuedAttackCosts(attackContext,actorId) {
 return {compileOrderedWeaponAttack,queuedAttackCosts};
 })();
 
-const __v2_module_19 = (() => {
+const __v2_module_20 = (() => {
 "use strict";
 const {sumLegalArmor, calculateHit, MAX_HAND_SIZE} = __v2_module_0;
-const {runEffectQueueFixture} = __v2_module_11;
-const {compileOrderedWeaponAttack,queuedAttackCosts} = __v2_module_18;
+const {runEffectQueueFixture} = __v2_module_12;
+const {compileOrderedWeaponAttack,queuedAttackCosts} = __v2_module_19;
 
 /**
  * V2 G3, PART 1: pure compile/resolve for reference-backed BASIC weapon combat.
@@ -2829,11 +2934,11 @@ function resolveBasicFixture(state,catalog,options={}) {
 return {compileBasicWeaponAttack,compileBasicResolution,resolveBasicFixture};
 })();
 
-const __v2_module_20 = (() => {
+const __v2_module_21 = (() => {
 "use strict";
-const {compileBasicWeaponAttack} = __v2_module_19;
-const {queuedAttackCosts} = __v2_module_18;
-const {runEffectQueueFixture} = __v2_module_11;
+const {compileBasicWeaponAttack} = __v2_module_20;
+const {queuedAttackCosts} = __v2_module_19;
+const {runEffectQueueFixture} = __v2_module_12;
 
 /**
  * G3 weapon-stop resolver: the defensive miracle Wall stops any neutral
@@ -2971,13 +3076,13 @@ function resolveWallFixture(state,catalog,opts={}) {
 return {isWallDefense,compileWallResolution,resolveWallFixture};
 })();
 
-const __v2_module_21 = (() => {
+const __v2_module_22 = (() => {
 "use strict";
 const {planRedirectRoute} = __v2_module_3;
-const {compileBasicWeaponAttack,resolveBasicFixture} = __v2_module_19;
-const {isWallDefense,resolveWallFixture} = __v2_module_20;
-const {queuedAttackCosts} = __v2_module_18;
-const {runEffectQueueFixture} = __v2_module_11;
+const {compileBasicWeaponAttack,resolveBasicFixture} = __v2_module_20;
+const {isWallDefense,resolveWallFixture} = __v2_module_21;
+const {queuedAttackCosts} = __v2_module_19;
+const {runEffectQueueFixture} = __v2_module_12;
 
 /**
  * V2 G3 Part 2: source-backed basic redirect / deflect resolver.
@@ -3095,11 +3200,11 @@ function resolveRedirectFixture(state,catalog,{
 return {resolveRedirectFixture};
 })();
 
-const __v2_module_22 = (() => {
+const __v2_module_23 = (() => {
 "use strict";
 const {calculateHit,sumLegalArmor} = __v2_module_0;
 const {planRedirectRoute} = __v2_module_3;
-const {runEffectQueueFixture} = __v2_module_11;
+const {runEffectQueueFixture} = __v2_module_12;
 
 /**
  * V2 G3: narrow solo attack miracles with ordered defensive reactions.
@@ -3363,15 +3468,15 @@ function resolveSoloMiracleFixture(state,catalog,options={}) {
 return {compileSoloMiracleResolution,resolveSoloMiracleFixture};
 })();
 
-const __v2_module_23 = (() => {
+const __v2_module_24 = (() => {
 "use strict";
-const {applyStagingCommand} = __v2_module_10;
-const {validateSaleDeclarationFixture,resolveStagedSaleFixture} = __v2_module_16;
-const {resolveStagedBuyFixture} = __v2_module_17;
-const {resolveRedirectFixture} = __v2_module_21;
-const {resolveSoloMiracleFixture,compileSoloMiracleResolution} = __v2_module_22;
-const {compileOrderedWeaponAttack} = __v2_module_18;
-const {runEffectQueueFixture} = __v2_module_11;
+const {applyStagingCommand} = __v2_module_11;
+const {validateSaleDeclarationFixture,resolveStagedSaleFixture} = __v2_module_17;
+const {resolveStagedBuyFixture} = __v2_module_18;
+const {resolveRedirectFixture} = __v2_module_22;
+const {resolveSoloMiracleFixture,compileSoloMiracleResolution} = __v2_module_23;
+const {compileOrderedWeaponAttack} = __v2_module_19;
+const {runEffectQueueFixture} = __v2_module_12;
 const {drawRandom32} = __v2_module_2;
 const {MAX_HAND_SIZE} = __v2_module_0;
 
@@ -3509,6 +3614,17 @@ function resolveStagedFixture(state,catalog,{
     return resolveDiscardFixture(state,catalog,{labOnly,fixtureDrawDefinitionId});
   if(state.pending?.type==='sale')
     return resolveStagedSaleFixture(state,catalog,{labOnly,fixtureDrawDefinitionId});
+  if(state.pending?.type==='selfSale'){
+    const p=state.pending;
+    return {...runEffectQueueFixture(state,catalog,[
+      {type:'spend',playerId:p.originalAttackerId,instanceIds:[p.saleInstanceId]},
+      {type:'selfSale',playerId:p.originalAttackerId},
+      {type:'refill'},
+      {type:'advance',afterId:p.originalAttackerId}
+    ],{labOnly:true,fixtureDrawDefinitionId}),
+    plan:Object.freeze({type:'selfSale',
+      itemDefinitionId:p.offeredDefinitionId,price:p.price})};
+  }
   if(state.pending?.type==='buy')
     return resolveStagedBuyFixture(state,catalog,{labOnly,fixtureDrawDefinitionId});
   if(state.pending?.type==='exchange'){
@@ -3578,11 +3694,11 @@ function submitAndResolveFixture(state,command,catalog,{
 return {resolvePrayFixture,resolveDiscardFixture,resolveStagedFixture,submitAndResolveFixture};
 })();
 
-const __v2_module_24 = (() => {
+const __v2_module_25 = (() => {
 "use strict";
 const {migrateLegacyCatalog} = __v2_module_4;
-const {createStagingRoom,viewStagingRoom} = __v2_module_10;
-const {submitAndResolveFixture} = __v2_module_23;
+const {createStagingRoom,viewStagingRoom} = __v2_module_11;
+const {submitAndResolveFixture} = __v2_module_24;
 const {VERIFIED_BASIC_CARDS} = __v2_module_1;
 
 /**
@@ -3615,6 +3731,9 @@ const EXCHANGE_TRIAL_HANDS=Object.freeze({
 });
 const REVIVAL_TRIAL_HANDS=Object.freeze({
  A:Object.freeze(['w016','d001']),B:Object.freeze(['i005','d001'])
+});
+const SELF_SALE_TRIAL_HANDS=Object.freeze({
+ A:Object.freeze(['t001','w003','d001']),B:Object.freeze(['d005','i002'])
 });
 
 function safeMessage(error){
@@ -3718,7 +3837,7 @@ function createV2LabController({
   let selected=[],visible=false,targetId=otherSeat(state,state.activePlayerId);
   let notice='手番プレイヤーだけが「手札を見る」を押してください';
   let commandSerial=0;
-  let tradeTrial=false,buyTrial=false,exchangeTrial=false,revivalTrial=false,exchangeDraft=null;
+  let tradeTrial=false,buyTrial=false,exchangeTrial=false,revivalTrial=false,selfSaleTrial=false,exchangeDraft=null;
 
   const active=()=>state.activePlayerId;
   function pendingActor(){
@@ -3741,7 +3860,7 @@ function createV2LabController({
           catalog.get(actor?.hand.find(c=>c.instanceId===x.instanceId)?.definitionId)
             ?.discardPolicy==='ordinary'),
       cardSetComplete:summary.complete,
-      cardSetCount:summary.unique,tradeTrial,buyTrial,exchangeTrial,revivalTrial,
+      cardSetCount:summary.unique,tradeTrial,buyTrial,exchangeTrial,revivalTrial,selfSaleTrial,
       exchangeAllocation:visible&&state.phase==='turn'&&exchangeDraft?
         {...exchangeDraft}:null
     };
@@ -3903,7 +4022,7 @@ function createV2LabController({
            ?.effects.some(e=>e.when==='onDeclare'&&e.type==='forceSale'&&e.params.kind==='sell')){
         if(selected.length!==2||selected.some(x=>!x.instanceId))
           throw new Error('「売る」と売り渡す神器の順に2枚選んでください');
-        if(targetId===actor.id)throw new Error('自分への売却は原作確認まで研究版では扱いません');
+        // Source-backed self Sell is a distinct no-defense lab settlement.
         command={commandId:n,expectedRevision:state.revision,actorId:actor.id,
           type:'declareSale',targetId,saleInstanceId:selected[0].instanceId,
           soldInstanceId:selected[1].instanceId};
@@ -3967,7 +4086,7 @@ function createV2LabController({
       seats:Object.entries(TRADE_TRIAL_HANDS).map(([id,handDefinitionIds])=>({id,handDefinitionIds:[...handDefinitionIds]})),
       firstSeatId:'A',rulesetId:'partial-reference-v2-lab'
     },catalog);
-    tradeTrial=true;buyTrial=false;exchangeTrial=false;revivalTrial=false;exchangeDraft=null;selected=[];visible=false;targetId='B';commandSerial=0;
+    tradeTrial=true;buyTrial=false;exchangeTrial=false;revivalTrial=false;exchangeDraft=null;selected=[];visible=false;targetId='B';selfSaleTrial=false;commandSerial=0;
     notice='取引研究モードです。P1が「売る」→商品を選び、P2が応答します';
     return view();
   }
@@ -3978,7 +4097,7 @@ function createV2LabController({
       })),
       firstSeatId:'A',rulesetId:'partial-reference-v2-lab'
     },catalog);
-    tradeTrial=false;buyTrial=true;exchangeTrial=false;revivalTrial=false;exchangeDraft=null;selected=[];visible=false;targetId='B';commandSerial=0;
+    tradeTrial=false;buyTrial=true;exchangeTrial=false;revivalTrial=false;exchangeDraft=null;selected=[];visible=false;targetId='B';selfSaleTrial=false;commandSerial=0;
     notice='買う研究モードです。P1が「買う」を選び、P2が応答します';
     return view();
   }
@@ -3990,7 +4109,7 @@ function createV2LabController({
       firstSeatId:'A',rulesetId:'partial-reference-v2-lab'
     },catalog);
     tradeTrial=false;buyTrial=false;exchangeTrial=true;revivalTrial=false;exchangeDraft=null;
-    selected=[];visible=false;targetId='B';commandSerial=0;
+    selected=[];visible=false;targetId='B';selfSaleTrial=false;commandSerial=0;
     notice='両替研究モードです。HP・MP・¥の合計を保って振り分けてください';
     return view();
   }
@@ -4004,8 +4123,20 @@ function createV2LabController({
     // This low-HP starting condition is only a laboratory demonstration.
     state.players.find(p=>p.id==='B').hp=5;
     tradeTrial=false;buyTrial=false;exchangeTrial=false;revivalTrial=true;
-    exchangeDraft=null;selected=[];visible=false;targetId='B';commandSerial=0;
+    exchangeDraft=null;selected=[];visible=false;targetId='B';selfSaleTrial=false;commandSerial=0;
     notice='太陽のお守り研究モードです。P1が攻撃し、P2は防御せず復活を確認します';
+    return view();
+  }
+  function loadSelfSaleTrial(){
+    state=createStagingRoom({
+      seats:Object.entries(SELF_SALE_TRIAL_HANDS).map(([id,handDefinitionIds])=>({
+        id,handDefinitionIds:[...handDefinitionIds]
+      })),firstSeatId:'A',rulesetId:'partial-reference-v2-lab'
+    },catalog);
+    tradeTrial=false;buyTrial=false;exchangeTrial=false;revivalTrial=false;
+    selfSaleTrial=true;exchangeDraft=null;selected=[];visible=false;
+    targetId='A';commandSerial=0;
+    notice='自己売却研究モード。P1が「売る」と商品を選び、対象を自分にして確定します';
     return view();
   }
   function reset(){
@@ -4013,12 +4144,12 @@ function createV2LabController({
       seats:handEntries.map(p=>({id:p.id,handDefinitionIds:[...p.handDefinitionIds]})),
       firstSeatId,rulesetId:'partial-reference-v2-lab'
     },catalog);
-    tradeTrial=false;buyTrial=false;exchangeTrial=false;revivalTrial=false;exchangeDraft=null;selected=[];visible=false;targetId=otherSeat(state,firstSeatId);
+    tradeTrial=false;buyTrial=false;exchangeTrial=false;revivalTrial=false;selfSaleTrial=false;exchangeDraft=null;selected=[];visible=false;targetId=otherSeat(state,firstSeatId);
     notice='新しい検証試合。手番プレイヤーに渡してください';
     commandSerial=0;
     return view();
   }
-  return {view,reveal,toggle,setTarget,submit,reset,loadTradeTrial,loadBuyTrial,loadExchangeTrial,loadRevivalTrial,
+  return {view,reveal,toggle,setTarget,submit,reset,loadTradeTrial,loadBuyTrial,loadExchangeTrial,loadRevivalTrial,loadSelfSaleTrial,
     // Test-only state snapshot: never send to another player or persist online.
     labSnapshot:()=>JSON.parse(JSON.stringify(state))};
 }
@@ -4026,9 +4157,9 @@ function createV2LabController({
 return {createV2LabController};
 })();
 
-const __v2_module_25 = (() => {
+const __v2_module_26 = (() => {
 "use strict";
-const {createV2LabController} = __v2_module_24;
+const {createV2LabController} = __v2_module_25;
 
 /**
  * Minimal accessible and touch-friendly offline V2 hotseat UI.
@@ -4081,7 +4212,7 @@ function renderV2LabMarkup(data,{resetArmed=false}={}){
      '<p>'+esc(data.notice)+'</p><p class="hint">端末を'+esc(seatLabel(data.actorId))+
      'へ渡してから手札を表示してください</p>'+
      '<button type="button" class="primary wide" data-action="reveal">自分の手札を見る</button>'+
-     (data.phase==='turn'&&data.actorId==='A'&&!data.tradeTrial&&!data.buyTrial&&!data.exchangeTrial&&!data.revivalTrial?
+     (data.phase==='turn'&&data.actorId==='A'&&!data.tradeTrial&&!data.buyTrial&&!data.exchangeTrial&&!data.revivalTrial&&!data.selfSaleTrial?
       '<button type="button" class="quiet wide scenario-launch" data-action="trade-demo">'+
       '売るの研究配置で始める</button>'+
       '<button type="button" class="quiet wide scenario-launch" data-action="buy-demo">'+
@@ -4089,7 +4220,9 @@ function renderV2LabMarkup(data,{resetArmed=false}={}){
       '<button type="button" class="quiet wide scenario-launch" data-action="exchange-demo">'+
       '両替の研究配置で始める</button>'+
       '<button type="button" class="quiet wide scenario-launch" data-action="revival-demo">'+
-      '太陽のお守りの復活を試す</button>':'')+
+      '太陽のお守りの復活を試す</button>'+
+      '<button type="button" class="quiet wide scenario-launch" data-action="self-sale-demo">'+
+      '自分に「売る」を試す</button>':'')+
      '</section>'+footer;
  }
  if(data.revivalTrial&&data.phase==='defense'){
@@ -4184,7 +4317,7 @@ function renderV2LabMarkup(data,{resetArmed=false}={}){
    :data.phase==='turn'
    ?(isExchange?'HP・MP・¥の合計を変えずに振り分けます。HP0は原作確認待ちです'
    :isBuying?'「買う」だけを1枚選択。相手が許した後、商品を見て購入判断します'
-   :isSelling?'「売る」→売り渡す神器の順に2枚選択。自己取引は未検証です'
+   :isSelling?'「売る」→売り渡す神器の順に2枚選択。自分にも売れます（幻覚解除は研究中）'
    :selectedWeapon?'武器は「捨てる」対象外です。攻撃に使うか、他のカードを選んでください'
    :soloPlusMiracle
      ?'火の玉・流星を先頭に選ぶと単独奇跡。続けられるのは直後の精霊のみ'
@@ -4267,6 +4400,8 @@ function mountV2Lab(root,controller=createV2LabController()){
        controller.loadExchangeTrial();resetArmed=false;handoff=true;
      }else if(action==='revival-demo'){
        controller.loadRevivalTrial();resetArmed=false;handoff=true;
+     }else if(action==='self-sale-demo'){
+       controller.loadSelfSaleTrial();resetArmed=false;handoff=true;
      }else if(action==='reset'){
        if(!resetArmed)resetArmed=true;
        else{controller.reset();resetArmed=false;handoff=true;}
@@ -4331,9 +4466,9 @@ function mountV2Lab(root,controller=createV2LabController()){
 return {renderV2LabMarkup,mountV2Lab};
 })();
 
-const __v2_lab_test_controller = __v2_module_24;
+const __v2_lab_test_controller = __v2_module_25;
 
-const __v2_lab_test_ui = __v2_module_25;
+const __v2_lab_test_ui = __v2_module_26;
 
 __v2_lab_test_ui.mountV2Lab(document.getElementById("v2-root"));
 </script>
