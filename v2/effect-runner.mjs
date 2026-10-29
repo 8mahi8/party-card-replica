@@ -145,6 +145,9 @@ export function runEffectQueueFixture(state,catalog,queue,{
      const item=seller.hand[saleIndex],definition=catalog.get(item.definitionId);
      if(!definition||definition.family==='trade')
        fail('Unverified trade item cannot be sold');
+     if(buyer.learned.length>0 &&
+        buyer.hand.length+buyer.learned.length>=MAX_HAND_SIZE)
+       fail('Learned miracle overflow at hand cap needs original verification');
      const incoming=planIncomingHandTransfer(buyer.hand,s.rngSeed);
      const payment=planForcedSalePayment({price:definition.stats.price,buyer});
      // The buyer-death transfer, seller payout and hand ownership timing
