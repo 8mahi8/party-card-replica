@@ -64,11 +64,13 @@ export function resolveRedirectFixture(state,catalog,{
    const compiled=p.attackContext??compileBasicWeaponAttack(state,catalog);
    if(compiled.mirageCount>0&&(
      selected.some(({def})=>def.effects.some(e=>e.when==='onDefense'&&
-       (e.type==='redirectAttack'||e.type==='stopAttack')))||
+       ((e.type==='redirectAttack'&&e.params.scope!=='miracle')||
+        (e.type==='stopAttack'&&e.params.scope==='neutralWeapon'))))||
      (p.defense.learnedDefinitionId!==undefined&&
        catalog.get(p.defense.learnedDefinitionId)?.effects.some(e=>
          e.when==='onDefense'&&
-         (e.type==='redirectAttack'||e.type==='stopAttack')))))
+         ((e.type==='redirectAttack'&&e.params.scope!=='miracle')||
+          (e.type==='stopAttack'&&e.params.scope==='neutralWeapon'))))))
      bad('Multiplayer Mirage redirect or Wall stopping needs original verification');
  }
  const redirected=selected.filter(x=>x.def.effects.some(e=>e.type==='redirectAttack'&&e.when==='onDefense'&&
