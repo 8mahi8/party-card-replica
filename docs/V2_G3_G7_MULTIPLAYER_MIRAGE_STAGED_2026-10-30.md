@@ -24,7 +24,7 @@
 - 純ターゲットルーターの`tests/mirage-target-route-v2.test.mjs`に**1件追加**。最初の対象指定時も不正seedを拒否し、有効なseedは初回に消費しない。
 - **終了処理を共通化**：`v2/effect-runner.mjs`の通常攻撃と多人数Mirageの両方から`refillSettled`と`advanceSettled`を呼ぶ。二重実装を撤去して、今後の全体攻撃カードも同じ終了処理へ接続できるようにした。
 - 通常1対1、G4取引、既存ブラウザスモークの回帰を同時に実行。**研究用の対戦経路は通常UI／main／学校サイトで有効化していない**。
-- CI実測は[PR #1](https://github.com/8mahi8/party-card-replica/pull/1)と[GitHub Actions](https://github.com/8mahi8/party-card-replica/actions)を参照。研究機能を導入した初期ソースのテストは新規14件を含む全861件が成功したのち、9席×3周×2発＝48個の連続防御も加えた。最終Nodeの想定は**869件**（従来847＋新規21＋ルーター1）。
+- CI実測は[PR #1](https://github.com/8mahi8/party-card-replica/pull/1)と[GitHub Actions](https://github.com/8mahi8/party-card-replica/actions)を参照。研究機能を導入した初期ソースのテストは新規14件を含む全861件が成功したのち、9席×3周×2発＝48個の連続防御も加えた。**コードコミット `dd3175d55c4fe842bfb57b75b1cdae681efabc1e` でNode869/869 PASS（run `40914014771`）、Chromium28/28 PASS（run `40914014763`）、WebKit321/321 PASS（run `40914014792`）を実測**。WebKitが通ったのは既存2人Labのタップ・31モジュールバンドル整合性であり、研究用3〜9人をiPad/UIで手操作した証明ではない。
 
 ## 未解決課題と次の担当の仕事
 
