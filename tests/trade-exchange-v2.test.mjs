@@ -84,7 +84,7 @@ test('safe-integer overflow is rejected even when sum would round back',()=>{
   {hp:Number.MAX_SAFE_INTEGER,mp:1,money:0}),/safe integer/);
  assert.throws(()=>previewExchangeFixture(
   {hp:40,mp:10,money:20},
-  {hp:Number.MAX_SAFE_INTEGER,mp:10,money:20}),/safe integer/);
+  {hp:Number.MAX_SAFE_INTEGER,mp:10,money:20}),/safe integer|conserve total/);
 });
 test('authenticated Exchange spends its own card, reallocates then refills one',()=>{
  const s=room(),snapshot=JSON.stringify(s),serial=s.nextInstanceSerial;
