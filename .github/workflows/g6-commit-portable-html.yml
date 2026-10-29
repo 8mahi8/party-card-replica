@@ -26,22 +26,24 @@ jobs:
           TARGET_BRANCH: ${{ github.head_ref || github.ref_name }}
         run: |
           test "$TARGET_BRANCH" = 'refactor/v2-foundation-review-20261027'
-      - name: Generate portable HTML and validate JavaScript
+      - name: Generate both V2 trial HTML bundles and validate their sources
         run: |
+          node v2/demo/build.mjs
           node v2/demo/build-online.mjs
+          node v2/demo/build.mjs --check
           node v2/demo/build-online.mjs --check
           node --test tests/g6-online-bundle-v2.test.mjs
-      - name: Commit generated file to the same development branch
+      - name: Commit both generated HTML files to the same development branch
         env:
           TARGET_BRANCH: ${{ github.head_ref || github.ref_name }}
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add v2/demo/firebase-online-standalone.html
+          git add v2/demo/firebase-online-standalone.html v2/demo/standalone.html
           if git diff --cached --quiet; then
             echo 'G6_PORTABLE_HTML_ALREADY_CURRENT'
           else
-            git commit -m 'build(g6): save deterministic iPad online standalone HTML'
+            git commit -m 'build(g6): refresh synchronized offline and online trial HTML'
             git push origin "HEAD:$TARGET_BRANCH"
             echo 'G6_PORTABLE_HTML_PUSH_SUCCESS'
           fi
