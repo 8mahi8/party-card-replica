@@ -60,7 +60,7 @@ export function resolveRedirectFixture(state,catalog,{
  if(!redirected.length) {
    if(isWallDefense(state,catalog)){
      const attack=p.attackContext??compileBasicWeaponAttack(state,catalog);
-     if(attack.hitCount===2)
+     if((attack.hitCount??1)>1)
        bad('Wall versus repeated strikes needs original stop timing verification');
      return resolveWallFixture(state,catalog,{labOnly:true,fixtureDrawDefinitionId});
    }
@@ -104,7 +104,7 @@ export function resolveRedirectFixture(state,catalog,{
  result.pending={
    ...result.pending,sourceId:route.source,targetId:route.target,
    attackContext,defense:null,
-   ...(attackContext.hitCount===2&&(p.strikeIndex??0)===0?
+   ...((attackContext.hitCount??1)>1&&(p.strikeIndex??0)===0?
      {repeatTargetId:p.repeatTargetId??p.targetId}:{})
  };
  if(immediate) {
