@@ -44,6 +44,8 @@ input{min-height:42px;max-width:185px;padding:7px;font-size:18px;letter-spacing:
 .phase-area{display:flex;flex-direction:column;align-items:stretch;justify-content:center;text-align:center;gap:4px;padding:5px;background:#f4fff9aa;border-radius:8px;border:1px solid #77b9b2}
 #phase{font-size:14px;font-weight:900;color:#087d72}
 #battleHint{font-size:11px;line-height:1.35;color:#376e65;min-height:27px}
+#incomingAttack{font-size:11px;line-height:1.4;color:#a23c37;font-weight:800;padding:4px 5px;border:1px solid #d4a19a;border-radius:5px;background:#fff4e5}
+#incomingAttack[hidden]{display:none}
 #combatRoute{font-size:11px;font-weight:800;color:#176d68;min-height:14px}
 #combatRoute:empty{display:none}
 #selectionTotal{font-size:11px;color:#356a62;min-height:14px;line-height:1.35}
@@ -100,7 +102,7 @@ main{padding:0 6px 8px}.brandline{margin:0 -6px}
 <div id="scores" class="scores" aria-label="プレイヤーのHP・MP・所持金"></div>
 <div class="arena">
 <div class="selected-tray"><header>選択中の神器 · タップ順</header><div id="selectionPreview"><span class="empty">カードをタップして選択</span></div><div id="selectionTotal" aria-live="polite"></div></div>
-<div class="phase-area"><div id="phase"></div><div id="combatRoute"></div><div id="battleHint">手札の神器をタップ</div></div>
+<div class="phase-area"><div id="phase"></div><div id="combatRoute"></div><div id="incomingAttack" aria-live="polite" hidden></div><div id="battleHint">手札の神器をタップ</div></div>
 </div>
 <div id="actions" hidden>
 <button id="attack" class="primary">攻撃する</button>
@@ -2167,11 +2169,40 @@ function applyStagingCommand(state,command,catalog,{authorizedSeatId}={}) {
   return {state:next,applied:true,duplicate:false};
 }
 /**
+ * Project only the cards the attacker has ALREADY declared for this defense.
+ * This is a public combat announcement, not a projection of the attacker's
+ * unused hand or a prediction of the final damage/effect.
+ *
+ * Scoped to the fixed 2-player G6 lab until other rulesets' reveal timing is
+ * researched (Dream, Mirage, reflected attacks and learned miracles).
+ */
+function declaredAttackFixture(state,catalog){
+ const p=state.pending;
+ if(state.rulesetId!=='partial-reference-v2-lab'||
+   state.players.length!==2||state.phase!=='defense'||
+   p?.type!=='attack'||!(catalog instanceof Map))return null;
+ const attacker=state.players.find(q=>q.id===p.originalAttackerId);
+ if(!attacker)return null;
+ const ids=Array.isArray(p.attackInstanceIds)?p.attackInstanceIds:[];
+ if(!ids.length)return null;
+ const declared=[];
+ for(const instanceId of ids){
+  const card=attacker.hand.find(q=>q.instanceId===instanceId);
+  const def=catalog.get(card?.definitionId);
+  if(!def)return null;
+  declared.push({definitionId:def.id,printedAttack:def.stats.attack,
+    element:def.element});
+ }
+ return {cards:declared,
+   printedAttackTotal:declared.reduce((sum,c)=>sum+c.printedAttack,0)};
+}
+/**
  * Only a trustworthy server/host may call this for the authenticated seat.
  * Never transmit internal state or processed command payloads to opponents.
  */
 function viewStagingRoom(state,viewerId,catalog=null) {
   const p=seat(state,viewerId);
+  const announcement=declaredAttackFixture(state,catalog);
   return {
     schemaVersion:2,rulesetId:state.rulesetId,revision:state.revision,
     phase:state.phase,activePlayerId:state.activePlayerId,
@@ -2183,6 +2214,7 @@ function viewStagingRoom(state,viewerId,catalog=null) {
     pending:state.pending?{
       type:state.pending.type,sourceId:state.pending.sourceId??state.pending.originalAttackerId,
       targetId:state.pending.targetId,
+      ...(announcement?{declaredAttack:announcement}:{}),
       ...(state.pending.mirageRoute?{
         mirageRound:state.pending.mirageRoute.roundIndex+1,
         mirageRounds:state.pending.mirageRoute.roundCount,
@@ -5773,6 +5805,11 @@ function render(){
   turn?{source:view.activePlayerId,target:view.players.find(p=>p.id!==view.activePlayerId)?.id}:null;
  $('combatRoute').textContent=route?.source&&route?.target?
   '攻撃対象  '+showSeatLabel(route.source)+' → '+showSeatLabel(route.target):'';
+ const announced=defense?view.pending?.declaredAttack:null;
+ $('incomingAttack').hidden=!announced?.cards?.length;
+ $('incomingAttack').textContent=announced?.cards?.length?
+   '相手の攻撃：'+announced.cards.map(c=>names.get(c.definitionId)||c.definitionId).join(' ＋ ')+
+   ' ／ 攻'+announced.printedAttackTotal+'（記載値）':'';
  $('handCount').textContent=selected.length+'枚 / 横にスライド';
  const preview=$('selectionPreview');preview.replaceChildren();
  const cardsById=new Map(selected.map(c=>[c.instanceId,c]));
