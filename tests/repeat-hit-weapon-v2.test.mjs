@@ -198,3 +198,26 @@ test('repeated self-target attack is gated instead of guessing HP0 progression',
  assert.throws(()=>attack(s,'A'),/self-directed|repeat/i);
  assert.equal(JSON.stringify(s),before);
 });
+
+test('unverified Wall stop timing cannot silently erase a second strike',()=>{
+ const start=room(['w050'],['m001']);
+ const a=attack(start),unchanged=JSON.stringify(a.state);
+ assert.throws(()=>defense(a.state,[0]),/Wall versus repeated strikes/);
+ assert.equal(JSON.stringify(a.state),unchanged);
+});
+test('unverified miracle stacking on a repeated weapon is rejected atomically',()=>{
+ const s=room(['w050','m005']),before=JSON.stringify(s);
+ assert.throws(()=>attack(s),/Repeat hits with miracles/);
+ assert.equal(JSON.stringify(s),before);
+});
+test('second strike progress is public, but defender hand remains private',async()=>{
+ const {viewStagingRoom}=await import('../v2/staging-room.mjs');
+ const a=attack(room(['w050'],['d003']));
+ const b=defense(a.state);
+ const view=viewStagingRoom(b.state,'A',catalog);
+ assert.equal(view.pending.strikeNumber,2);
+ assert.equal(view.pending.strikeCount,2);
+ const their=view.players.find(p=>p.id==='B');
+ assert.equal(their.hand,undefined);
+ assert.equal(their.handCount,1);
+});
