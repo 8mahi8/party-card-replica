@@ -1,9 +1,9 @@
 name: G6 one-off live Firebase 2-seat probe (development only)
 
 on:
-  # The one-off live probe passed in CI run 40934112303. Avoid repeated writes
-  # to the shared Firebase project on normal development PR updates.
-  # Re-enable a one-off trigger deliberately if this probe needs repeating.
+  pull_request:
+    paths:
+      - '.github/workflows/g6-live-firebase-probe.yml'
   workflow_dispatch:
 
 permissions:
