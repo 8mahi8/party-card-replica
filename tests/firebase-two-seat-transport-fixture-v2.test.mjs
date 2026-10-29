@@ -7,7 +7,7 @@ import {migrateLegacyCatalog} from '../v2/legacy-adapter.mjs';
 
 const {byId:catalog}=migrateLegacyCatalog();
 const clone=x=>x===undefined?undefined:JSON.parse(JSON.stringify(x));
-function createFakeDb(){
+function createFakeDb({beforeUpdate=async()=>{}}={}){
  let data={},watchers=[];
  function pathGet(path){
   let cur=data;
@@ -34,6 +34,7 @@ function createFakeDb(){
    off(event,fn){watchers=watchers.filter(w=>w.path!==path||w.event!==event||w.fn!==fn);},
    async set(value){pathSet(path,value);notify([path]);},
    async update(patch){
+    await beforeUpdate(path,patch);
     for(const [key,value] of Object.entries(patch))pathSet(path+'/'+key,value);
     notify(Object.keys(patch).map(key=>path+'/'+key));
    },
@@ -147,5 +148,65 @@ test('all transport writes are confined to godfieldV2LabRooms and no rules are t
  const guest=await join(db);
  assert.deepEqual(Object.keys(db.at('')),[LAB_ROOT]);
  assert.equal(db.at('shokokuRooms1v1'),null);
+ guest.close();host.close();
+});
+
+test('host and guest updates publish in command order even when first DB write is delayed',async()=>{
+ let release,started=0;
+ const gate=new Promise(resolve=>{release=resolve});
+ const db=createFakeDb({beforeUpdate:async path=>{
+  if(path!==LAB_ROOT+'/'+code)return;
+  started++;
+  if(started===1)await gate;
+ }});
+ const host=await makeHost(db),guest=await join(db);
+ const a=host.read();
+ const hostWrite=host.submit(command(a,'A','playCards',[a.players[0].hand[0].instanceId]));
+ await until(()=>started===1);
+ // The defender acts after the host has applied the attack locally, while
+ // the host's first Firebase publication is still pending.
+ await db.ref(LAB_ROOT+'/'+code+'/commands/B').set({
+  senderId:'guest-tab',
+  command:{commandId:'race-defense',expectedRevision:1,actorId:'B',
+   type:'defend',orderedInstanceIds:[]}
+ });
+ await tick();await tick();await tick();
+ assert.equal(started,1,'newer revision must not overtake a pending publish');
+ release();
+ await hostWrite;
+ await until(()=>db.at(LAB_ROOT+'/'+code+'/acks/B')?.id==='race-defense');
+ const out=db.at(LAB_ROOT+'/'+code);
+ assert.equal(out.views.A.revision,2);
+ assert.equal(out.views.B.revision,2);
+ assert.equal(out.views.B.players[1].hp,30);
+ assert.equal(out.acks.B.ok,true);
+ guest.close();host.close();
+});
+test('failed guest Firebase publish is not a false negative command receipt; same-ID retry restores view',async()=>{
+ let failNext=false;
+ const errors=[];
+ const db=createFakeDb({beforeUpdate:async path=>{
+  if(path===LAB_ROOT+'/'+code && failNext){
+   failNext=false;
+   throw Error('temporary DB failure');
+  }
+ }});
+ const host=await makeHost(db,{onError:e=>errors.push(String(e.message))});
+ const a=host.read();
+ await host.submit(command(a,'A','playCards',[a.players[0].hand[0].instanceId]));
+ const guest=await join(db);
+ const b=db.at(LAB_ROOT+'/'+code+'/views/B');
+ const cmd=command(b,'B','defend');
+ failNext=true;
+ await guest.submit(cmd);
+ await until(()=>errors.length>0);
+ assert.equal(host.read().revision,2,'defense was committed in host memory');
+ assert.equal(db.at(LAB_ROOT+'/'+code+'/views/B').revision,1,'DB view is still old');
+ assert.equal(db.at(LAB_ROOT+'/'+code+'/acks/B'),null,'do not claim the committed defense failed');
+ await guest.submit(cmd);
+ await until(()=>db.at(LAB_ROOT+'/'+code+'/acks/B')?.duplicate===true);
+ assert.equal(db.at(LAB_ROOT+'/'+code+'/acks/B').ok,true);
+ assert.equal(db.at(LAB_ROOT+'/'+code+'/views/B').revision,2);
+ assert.equal(db.at(LAB_ROOT+'/'+code+'/views/B').players[1].hp,30);
  guest.close();host.close();
 });
