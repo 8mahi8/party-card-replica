@@ -132,6 +132,17 @@ try{
  await b.locator('#joinCode').fill(room);
  await b.locator('#join').tap();
  await b.locator('#hand button').first().waitFor();
+ // Wrong card selection should show a rule error and let the host reselect.
+ await a.locator('#hand button').nth(1).tap();
+ await a.waitForFunction(()=>document.querySelector('#attack')?.disabled===false);
+ await a.locator('#attack').tap();
+ await a.waitForFunction(()=>document.querySelector('#status')?.textContent
+   .includes('操作エラー'));
+ check(await a.locator('#retryPanel').isHidden(),
+  'rejected host card choice must not require network retry');
+ check(await a.locator('#hand button').nth(1).isEnabled(),
+  'host can choose another card after invalid selection');
+ await a.locator('#hand button').nth(1).tap();
  await a.locator('#hand button').first().tap();
  try{
   await a.waitForFunction(()=>document.querySelector('#attack')?.disabled===false,
