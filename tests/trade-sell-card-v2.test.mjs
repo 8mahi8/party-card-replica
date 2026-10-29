@@ -132,3 +132,42 @@ test('hotseat UI can choose two identical Sell definitions by distinct instance 
  assert.deepEqual(lab.labSnapshot().players[1].hand.map(x=>x.definitionId),
   ['i002','d001','t001']);
 });
+
+test('a Sell artifact received as merchandise can be used on the buyer next turn',()=>{
+ const lab=createV2LabController({
+  hands:{A:['t001','t001','d001'],B:['i002','d005']}
+ });
+ // Turn A: sell the SECOND physical Sell artifact to B.
+ const a=lab.reveal();
+ lab.toggle({instanceId:a.hand[0].instanceId});
+ lab.toggle({instanceId:a.hand[1].instanceId});
+ assert.equal(lab.submit().ok,true);
+ lab.reveal();
+ assert.equal(lab.submit().ok,true);
+ let state=lab.labSnapshot();
+ const acquired=state.players[1].hand.find(x=>x.definitionId==='t001');
+ assert.ok(acquired);
+ assert.equal(acquired.instanceId,a.hand[1].instanceId);
+ // Turn B: use exactly this acquired Sell to sell physical d005 to A.
+ const b=lab.reveal();
+ assert.equal(b.actorId,'B');
+ assert.equal(b.hand.find(x=>x.instanceId===acquired.instanceId).tradeAction,'sell');
+ const item=b.hand.find(x=>x.definitionId==='d005');
+ lab.toggle({instanceId:acquired.instanceId});
+ lab.toggle({instanceId:item.instanceId});
+ lab.setTarget('A');
+ const second=lab.submit();
+ assert.equal(second.ok,true,second.error);
+ assert.equal(second.view.phase,'tradeDefense');
+ assert.equal(second.view.actorId,'A');
+ const answer=lab.reveal();
+ assert.equal(answer.pending.offer.definitionId,'d005');
+ assert.equal(lab.submit().ok,true);
+ state=lab.labSnapshot();
+ assert.equal(state.turnCount,2);
+ assert.equal(state.phase,'turn');
+ assert.equal(state.activePlayerId,'A');
+ assert.equal(state.players[0].hand.some(x=>x.instanceId===item.instanceId),true);
+ assert.equal(state.players[1].hand.some(x=>x.instanceId===acquired.instanceId),false);
+ assert.equal(state.players[1].hand.some(x=>x.instanceId===item.instanceId),false);
+});
