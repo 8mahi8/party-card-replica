@@ -461,6 +461,13 @@ export function viewStagingRoom(state,viewerId,catalog=null) {
         mirageTargetHit:state.pending.mirageRoute.subHitIndex+1,
         mirageTargetHits:state.pending.mirageRoute.hitsPerTarget,
         mirageHitsResolved:state.pending.mirageRoute.hitNumber
+      }:state.pending.miragePreview&&
+        state.rulesetId==='mirage-multiplayer-research-fixture-v2'&&
+        state.players.length>2?{
+          mirageRound:1,mirageRounds:state.pending.miragePreview.rounds,
+          mirageTargetHit:1,
+          mirageTargetHits:state.pending.miragePreview.hitsPerTarget,
+          mirageHitsResolved:0
       }:state.pending.attackContext?.hitCount>1?{
         strikeNumber:(state.pending.strikeIndex??0)+1,
         strikeCount:state.pending.attackContext?.hitCount??1
