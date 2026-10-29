@@ -93,3 +93,23 @@ test('three-seat Mirage fixture passes through two remote-like defenders',()=>{
  assert.equal(v.players[0].mp,5);
  checkPrivate(v,'A');checkPrivate(B.read(),'B');checkPrivate(C.read(),'C');
 });
+
+test('defender sees only the already declared attacker artifact, never the unused hand',()=>{
+ const {host}=setup({A:['w016','w027','d001'],B:['d003','w027']});
+ const A=host.connectSeatFixture('A'),B=host.connectSeatFixture('B');
+ assert.equal(B.read().pending,null);
+ const first=A.read(),cardId=first.players[0].hand[0].instanceId;
+ A.submit(attack(A,[cardId]));
+ const defender=B.read();
+ assert.deepEqual(defender.pending.declaredAttack,{
+  cards:[{definitionId:'w016',printedAttack:10,element:'none'}],
+  printedAttackTotal:10
+ });
+ assert.equal(defender.players[0].hand,undefined,'the unused attacking hand remains secret');
+ assert.equal(defender.pending.declaredAttack.cards[0].instanceId,undefined);
+ assert(!JSON.stringify(defender).includes('w027') ||
+  defender.players[1].hand.some(c=>c.definitionId==='w027'),
+  'the attacker\'s unused physical definition is never newly disclosed');
+ B.submit(defend(B));
+ assert.equal(B.read().pending,null,'announcement disappears when defense resolves');
+});
