@@ -308,7 +308,7 @@ const add=(id,referenceName,attack,price,weight=1,{element='none',reaction,react
 const shield=(id,referenceName,guard,price,weight,{element='none',attackBonus,stopScope,reaction,reactionScope}={})=>
   Object.freeze({id,referenceName,kind:'armor',category:'armor_normal',element,guard,price,weight,...(attackBonus===undefined?{}:{attackBonus}),...(stopScope===undefined?{}:{stopScope}),...(reaction===undefined?{}:{reaction,reactionScope})});
 
-/** Read-only 92-card subset. Do not normalize and sample as the full deck. */
+/** Read-only 93-card subset. Do not normalize and sample as the full deck. */
 const VERIFIED_BASIC_CARDS = Object.freeze([
   main('w001','銅のこん棒',1,1,3),
   main('w002','銀のこん棒',1,10,1),
@@ -406,6 +406,8 @@ const VERIFIED_BASIC_CARDS = Object.freeze([
   // Godfield trade list: 買う is ¥5 and 20 / 500 source slots.
   // The complete deck and mirror timing remain unverified.
   Object.freeze({id:'t002',referenceName:'買う',kind:'trade',category:'trade',element:'none',tradeAction:'buy',price:5,weight:20}),
+  // Source-backed 1:1 resource reallocation, ¥5 / 20 out of 500 slots.
+  Object.freeze({id:'t003',referenceName:'両替',kind:'trade',category:'trade',element:'none',tradeAction:'exchange',price:5,weight:20}),
 ]);
 
 function findVerifiedBasicCard(id) {
@@ -431,7 +433,7 @@ const MODES = new Set(['mainAttack','addAttack','defend','cast','support','trade
 // Until sourced effects are implemented, explicitly gate those definitions.
 const DISCARD_POLICIES = new Set(['ordinary','forbidden','requiresSpecialResolution']);
 const EFFECT_TRIGGERS = new Set(['onDeclare','onCost','beforeHit','onDefense','afterHit','onTurnEnd']);
-const EFFECT_TYPES = new Set(['redirectAttack','stripElement','multiplyAttack','addAttack','stopAttack','waivePreviousMp','setAttackElement','forceSale','requestBuy']);
+const EFFECT_TYPES = new Set(['redirectAttack','stripElement','multiplyAttack','addAttack','stopAttack','waivePreviousMp','setAttackElement','forceSale','requestBuy','reallocateResources']);
 
 function plainObject(v) { return v !== null && typeof v === 'object' && !Array.isArray(v); }
 function nonnegative(n) { return Number.isSafeInteger(n) && n >= 0; }
@@ -455,6 +457,10 @@ function freezeEffect(effect) {
      (effect.when!=='onDeclare'||Object.keys(params).length!==1||
       !['fire','water'].includes(params.element)))
     throw new Error('Invalid setAttackElement data');
+  if(effect.type==='reallocateResources'&&
+     (effect.when!=='onDeclare'||Object.keys(params).length!==1||
+      params.kind!=='exchange'))
+    throw new Error('Invalid reallocateResources effect data');
   if(effect.type==='requestBuy'&&
      (effect.when!=='onDeclare'||Object.keys(params).length!==1||
       params.kind!=='buy'))
@@ -731,12 +737,14 @@ function convertLegacyCard(card,{ruleset=PARTIAL_CARD_SOURCE}={}) {
       modes.push('cast');effects.push(mk('onDeclare','multiplyAttack',{factor:2,scope:'weapon'}));
     } else throw new Error('Unmapped miracle role');
   } else if(card.kind==='trade') {
-    if(!['sell','buy'].includes(card.tradeAction))
+    if(!['sell','buy','exchange'].includes(card.tradeAction))
       throw new Error('Unmapped trade action');
     modes.push('trade');
     effects.push(card.tradeAction==='sell'?
       mk('onDeclare','forceSale',{kind:'sell'}):
-      mk('onDeclare','requestBuy',{kind:'buy'}));
+      card.tradeAction==='buy'?
+        mk('onDeclare','requestBuy',{kind:'buy'}):
+        mk('onDeclare','reallocateResources',{kind:'exchange'}));
   } else if(card.kind==='defense_item') {
     modes.push('defend');
     if(card.effect==='strip_element')effects.push(mk('onDefense','stripElement'));
@@ -987,8 +995,61 @@ return {previewBuyOfferFixture,previewBuyChoiceFixture};
 
 const __v2_module_8 = (() => {
 "use strict";
+
+/**
+ * G4 LAB-ONLY pure exchanger for the original "両替" trade artifact.
+ *
+ * HP : MP : money is 1:1:1; source-backed explanations:
+ * https://godfield-beginner.game-info.wiki/
+ * https://w.atwiki.jp/aniwotawiki/pages/47010.html
+ * https://macarongamemo.com/entry/godfield-artifact
+ *
+ * Original random forced exchanges may set HP=0, but a manually selected
+ * zero-HP outcome is not confirmed. That branch remains fail-closed.
+ * This routine does NOT advance a turn, spend a card, draw, or authenticate.
+ */
+function fail(message){throw new Error(message);}
+function safePool(v,label,{positive=false}={}){
+ if(!Number.isSafeInteger(v)||v<0||(positive&&v===0))
+   fail('Invalid exchange '+label);
+ return v;
+}
+function normalize(x,label,{living=false}={}){
+ if(x===null||typeof x!=='object'||Array.isArray(x)||
+    Object.keys(x).length!==3||!['hp','mp','money'].every(k=>Object.hasOwn(x,k)))
+   fail('Invalid exchange '+label);
+ return Object.freeze({
+   hp:safePool(x.hp,label+' HP',{positive:living}),
+   mp:safePool(x.mp,label+' MP'),
+   money:safePool(x.money,label+' money')
+ });
+}
+/**
+ * Pure one-to-one resource allocation. The caller's object is never mutated.
+ * Exactly 3 explicit integer pools and safe-integer conservation are required.
+ */
+function previewExchangeFixture(before,allocation){
+ const from=normalize(before,'origin',{living:true});
+ const to=normalize(allocation,'allocation',{living:true});
+ const total=from.hp+from.mp+from.money;
+ if(!Number.isSafeInteger(total))fail('Exchange total exceeds safe integer range');
+ const next=to.hp+to.mp+to.money;
+ if(!Number.isSafeInteger(next)||next!==total)
+   fail('Exchange must conserve total HP, MP and money');
+ return Object.freeze({
+   type:'exchangePreview',before:from,after:to,total,
+   changed:from.hp!==to.hp||from.mp!==to.mp||from.money!==to.money
+ });
+}
+
+return {previewExchangeFixture};
+})();
+
+const __v2_module_9 = (() => {
+"use strict";
 const {createInstance, selectInstances} = __v2_module_2;
 const {previewBuyOfferFixture} = __v2_module_7;
+const {previewExchangeFixture} = __v2_module_8;
 
 /**
  * V2 G2: authoritatively *stage* a combat interaction.
@@ -1004,6 +1065,7 @@ const {previewBuyOfferFixture} = __v2_module_7;
  */
 
 
+
 const ID=/^[a-zA-Z0-9._:-]{1,80}$/;
 const MAX_PLAYERS=9;
 const MAX_HAND=18;
@@ -1015,6 +1077,7 @@ const ALLOWED_KEYS={
   declareBuy:new Set(['commandId','expectedRevision','actorId','type','targetId','buyInstanceId']),
   respondBuy:new Set(['commandId','expectedRevision','actorId','type','mirrorInstanceId']),
   decideBuy:new Set(['commandId','expectedRevision','actorId','type','accept']),
+  exchange:new Set(['commandId','expectedRevision','actorId','type','exchangeInstanceId','allocation']),
   playCards:new Set(['commandId','expectedRevision','actorId','type','targetId','orderedInstanceIds']),
   playSequence:new Set(['commandId','expectedRevision','actorId','type','targetId','orderedPlays']),
   castLearned:new Set(['commandId','expectedRevision','actorId','type','targetId','learnedDefinitionId']),
@@ -1048,6 +1111,12 @@ function fingerprint(command) {
     orderedInstanceIds:command.orderedInstanceIds??null,
     learnedDefinitionId:command.learnedDefinitionId??null,
     buyInstanceId:command.buyInstanceId??null,
+    exchangeInstanceId:command.exchangeInstanceId??null,
+    // Stable semantic projection, not JSON object key order.
+    allocation:command.type==='exchange'?{
+      hp:command.allocation?.hp,mp:command.allocation?.mp,
+      money:command.allocation?.money
+    }:null,
     accept:command.accept??null,
     saleInstanceId:command.saleInstanceId??null,
     soldInstanceId:command.soldInstanceId??null,
@@ -1215,7 +1284,21 @@ function applyStagingCommand(state,command,catalog,{authorizedSeatId}={}) {
   let pending;
   let phase;
   let activePlayerId;
-  if(command.type==='declareBuy'){
+  if(command.type==='exchange'){
+    if(state.phase!=='turn'||actor.hp<=0)
+      throw new Error('Exchange only during a living turn');
+    id(command.exchangeInstanceId,'Exchange card ID');
+    const physical=actor.hand.find(c=>c.instanceId===command.exchangeInstanceId);
+    const def=catalog.get(physical?.definitionId);
+    if(!physical||def?.family!=='trade'||!def.effects.some(e=>
+      e.when==='onDeclare'&&e.type==='reallocateResources'&&
+      e.params.kind==='exchange'))
+      throw new Error('Selected card cannot declare Exchange');
+    const plan=previewExchangeFixture({hp:actor.hp,mp:actor.mp,money:actor.money},command.allocation);
+    pending={type:'exchange',originalAttackerId:actor.id,
+      exchangeInstanceId:physical.instanceId,allocation:{...plan.after}};
+    phase='resolving';activePlayerId=null;
+  }else if(command.type==='declareBuy'){
     if(state.phase!=='turn'||actor.hp<=0)
       throw new Error('Not a living trade turn');
     id(command.targetId,'target ID');
@@ -1431,13 +1514,14 @@ function viewStagingRoom(state,viewerId) {
 return {createStagingRoom,applyStagingCommand,viewStagingRoom};
 })();
 
-const __v2_module_9 = (() => {
+const __v2_module_10 = (() => {
 "use strict";
 const {createInstance} = __v2_module_2;
 const {MAX_HAND_SIZE,MAX_LEARNED_MIRACLES} = __v2_module_0;
 const {planForcedSalePayment} = __v2_module_5;
 const {planIncomingHandTransfer} = __v2_module_6;
 const {previewBuyOfferFixture,previewBuyChoiceFixture} = __v2_module_7;
+const {previewExchangeFixture} = __v2_module_8;
 
 /**
  * Common, deterministic, JSON-only effect queue interpreter for the G3 lab.
@@ -1447,6 +1531,7 @@ const {previewBuyOfferFixture,previewBuyChoiceFixture} = __v2_module_7;
  * refill/advance effects. Never substitute a partial reference-deck draw for
  * real weighted draws in production.
  */
+
 
 
 
@@ -1557,6 +1642,33 @@ function runEffectQueueFixture(state,catalog,queue,{
      events.push({type:'damage',targetId:p.id,damage:effect.damage,
        instantDefeat:effect.instantDefeat,hpAfter:effect.hpAfter,
        ...(effect.stopped===undefined?{}:{stopped:effect.stopped})});
+   } else if(effect.type==='exchange'){
+     // All Exchange allocations are server-side staged and self-directed.
+     // There is no opposing defense and no change of total HP+MP+money.
+     if(Object.keys(effect).length!==2||
+        !['type','playerId'].every(k=>Object.hasOwn(effect,k)))
+       fail('Malformed exchange effect');
+     const p=state.pending;
+     if(p?.type!=='exchange'||p.originalAttackerId!==effect.playerId)
+       fail('Exchange does not match staged command');
+     const original=who(state,effect.playerId);
+     const trade=original.hand.find(x=>x.instanceId===p.exchangeInstanceId);
+     const def=catalog.get(trade?.definitionId);
+     const spends=queue.filter(x=>x?.type==='spend');
+     if(!trade||def?.family!=='trade'||!def.effects.some(e=>
+       e.when==='onDeclare'&&e.type==='reallocateResources'&&
+       e.params.kind==='exchange')||
+       spends.length!==1||spends[0].playerId!==effect.playerId||
+       spends[0].instanceIds?.length!==1||
+       spends[0].instanceIds[0]!==trade.instanceId)
+       fail('Exchange requires exactly one authentic spent Exchange card');
+     const plan=previewExchangeFixture({hp:original.hp,mp:original.mp,money:original.money},p.allocation);
+     const player=who(s,effect.playerId);
+     player.hp=plan.after.hp;
+     player.mp=plan.after.mp;
+     player.money=plan.after.money;
+     events.push({type:'exchange',playerId:player.id,before:plan.before,
+       after:plan.after,total:plan.total});
    } else if(effect.type==='uncontestedSale'){
      // Source-verified transfer and debit only. A real live trade must first
      // implement Super Mirror counterplay; this effect is lab-fixture ONLY.
@@ -1764,10 +1876,10 @@ function runEffectQueueFixture(state,catalog,queue,{
 return {runEffectQueueFixture};
 })();
 
-const __v2_module_10 = (() => {
+const __v2_module_11 = (() => {
 "use strict";
 const {previewBuyOfferFixture,previewBuyChoiceFixture} = __v2_module_7;
-const {runEffectQueueFixture} = __v2_module_9;
+const {runEffectQueueFixture} = __v2_module_10;
 const {MAX_HAND_SIZE} = __v2_module_0;
 
 /**
@@ -1835,9 +1947,9 @@ function settleUncontestedBuyFixture(state,catalog,{
 return {settleUncontestedBuyFixture};
 })();
 
-const __v2_module_11 = (() => {
+const __v2_module_12 = (() => {
 "use strict";
-const {runEffectQueueFixture} = __v2_module_9;
+const {runEffectQueueFixture} = __v2_module_10;
 const {planForcedSalePayment} = __v2_module_5;
 const {MAX_HAND_SIZE} = __v2_module_0;
 
@@ -1932,10 +2044,10 @@ function settleUncontestedSaleFixture(state,catalog,selection,{
 return {previewUncontestedSale,settleUncontestedSaleFixture};
 })();
 
-const __v2_module_12 = (() => {
+const __v2_module_13 = (() => {
 "use strict";
 const {planForcedSalePayment} = __v2_module_5;
-const {runEffectQueueFixture} = __v2_module_9;
+const {runEffectQueueFixture} = __v2_module_10;
 
 /**
  * G4 source-backed SINGLE Super Mirror vs "Sell" research fixture.
@@ -2045,11 +2157,11 @@ function settleSingleMirrorSaleFixture(state,catalog,selection,{
 return {previewSingleMirrorSale,settleSingleMirrorSaleFixture};
 })();
 
-const __v2_module_13 = (() => {
+const __v2_module_14 = (() => {
 "use strict";
-const {previewUncontestedSale} = __v2_module_11;
-const {previewSingleMirrorSale} = __v2_module_12;
-const {runEffectQueueFixture} = __v2_module_9;
+const {previewUncontestedSale} = __v2_module_12;
+const {previewSingleMirrorSale} = __v2_module_13;
+const {runEffectQueueFixture} = __v2_module_10;
 
 /**
  * LAB-ONLY G4: bridge authenticated two-step trade commands to the reusable
@@ -2138,10 +2250,10 @@ function resolveStagedSaleFixture(state,catalog,{
 return {validateSaleDeclarationFixture,resolveStagedSaleFixture};
 })();
 
-const __v2_module_14 = (() => {
+const __v2_module_15 = (() => {
 "use strict";
 const {previewBuyOfferFixture,previewBuyChoiceFixture} = __v2_module_7;
-const {runEffectQueueFixture} = __v2_module_9;
+const {runEffectQueueFixture} = __v2_module_10;
 const {MAX_HAND_SIZE} = __v2_module_0;
 
 /**
@@ -2206,7 +2318,7 @@ function resolveStagedBuyFixture(state,catalog,{
 return {resolveStagedBuyFixture};
 })();
 
-const __v2_module_15 = (() => {
+const __v2_module_16 = (() => {
 "use strict";
 const {combineElements} = __v2_module_0;
 
@@ -2413,11 +2525,11 @@ function queuedAttackCosts(attackContext,actorId) {
 return {compileOrderedWeaponAttack,queuedAttackCosts};
 })();
 
-const __v2_module_16 = (() => {
+const __v2_module_17 = (() => {
 "use strict";
 const {sumLegalArmor, calculateHit, MAX_HAND_SIZE} = __v2_module_0;
-const {runEffectQueueFixture} = __v2_module_9;
-const {compileOrderedWeaponAttack,queuedAttackCosts} = __v2_module_15;
+const {runEffectQueueFixture} = __v2_module_10;
+const {compileOrderedWeaponAttack,queuedAttackCosts} = __v2_module_16;
 
 /**
  * V2 G3, PART 1: pure compile/resolve for reference-backed BASIC weapon combat.
@@ -2558,11 +2670,11 @@ function resolveBasicFixture(state,catalog,options={}) {
 return {compileBasicWeaponAttack,compileBasicResolution,resolveBasicFixture};
 })();
 
-const __v2_module_17 = (() => {
+const __v2_module_18 = (() => {
 "use strict";
-const {compileBasicWeaponAttack} = __v2_module_16;
-const {queuedAttackCosts} = __v2_module_15;
-const {runEffectQueueFixture} = __v2_module_9;
+const {compileBasicWeaponAttack} = __v2_module_17;
+const {queuedAttackCosts} = __v2_module_16;
+const {runEffectQueueFixture} = __v2_module_10;
 
 /**
  * G3 weapon-stop resolver: the defensive miracle Wall stops any neutral
@@ -2700,13 +2812,13 @@ function resolveWallFixture(state,catalog,opts={}) {
 return {isWallDefense,compileWallResolution,resolveWallFixture};
 })();
 
-const __v2_module_18 = (() => {
+const __v2_module_19 = (() => {
 "use strict";
 const {planRedirectRoute} = __v2_module_3;
-const {compileBasicWeaponAttack,resolveBasicFixture} = __v2_module_16;
-const {isWallDefense,resolveWallFixture} = __v2_module_17;
-const {queuedAttackCosts} = __v2_module_15;
-const {runEffectQueueFixture} = __v2_module_9;
+const {compileBasicWeaponAttack,resolveBasicFixture} = __v2_module_17;
+const {isWallDefense,resolveWallFixture} = __v2_module_18;
+const {queuedAttackCosts} = __v2_module_16;
+const {runEffectQueueFixture} = __v2_module_10;
 
 /**
  * V2 G3 Part 2: source-backed basic redirect / deflect resolver.
@@ -2824,11 +2936,11 @@ function resolveRedirectFixture(state,catalog,{
 return {resolveRedirectFixture};
 })();
 
-const __v2_module_19 = (() => {
+const __v2_module_20 = (() => {
 "use strict";
 const {calculateHit,sumLegalArmor} = __v2_module_0;
 const {planRedirectRoute} = __v2_module_3;
-const {runEffectQueueFixture} = __v2_module_9;
+const {runEffectQueueFixture} = __v2_module_10;
 
 /**
  * V2 G3: narrow solo attack miracles with ordered defensive reactions.
@@ -3092,15 +3204,15 @@ function resolveSoloMiracleFixture(state,catalog,options={}) {
 return {compileSoloMiracleResolution,resolveSoloMiracleFixture};
 })();
 
-const __v2_module_20 = (() => {
+const __v2_module_21 = (() => {
 "use strict";
-const {applyStagingCommand} = __v2_module_8;
-const {validateSaleDeclarationFixture,resolveStagedSaleFixture} = __v2_module_13;
-const {resolveStagedBuyFixture} = __v2_module_14;
-const {resolveRedirectFixture} = __v2_module_18;
-const {resolveSoloMiracleFixture,compileSoloMiracleResolution} = __v2_module_19;
-const {compileOrderedWeaponAttack} = __v2_module_15;
-const {runEffectQueueFixture} = __v2_module_9;
+const {applyStagingCommand} = __v2_module_9;
+const {validateSaleDeclarationFixture,resolveStagedSaleFixture} = __v2_module_14;
+const {resolveStagedBuyFixture} = __v2_module_15;
+const {resolveRedirectFixture} = __v2_module_19;
+const {resolveSoloMiracleFixture,compileSoloMiracleResolution} = __v2_module_20;
+const {compileOrderedWeaponAttack} = __v2_module_16;
+const {runEffectQueueFixture} = __v2_module_10;
 const {drawRandom32} = __v2_module_2;
 const {MAX_HAND_SIZE} = __v2_module_0;
 
@@ -3240,6 +3352,16 @@ function resolveStagedFixture(state,catalog,{
     return resolveStagedSaleFixture(state,catalog,{labOnly,fixtureDrawDefinitionId});
   if(state.pending?.type==='buy')
     return resolveStagedBuyFixture(state,catalog,{labOnly,fixtureDrawDefinitionId});
+  if(state.pending?.type==='exchange'){
+    const p=state.pending;
+    return {...runEffectQueueFixture(state,catalog,[
+      {type:'spend',playerId:p.originalAttackerId,instanceIds:[p.exchangeInstanceId]},
+      {type:'exchange',playerId:p.originalAttackerId},
+      {type:'refill'},
+      {type:'advance',afterId:p.originalAttackerId}
+    ],{labOnly:true,fixtureDrawDefinitionId}),
+      plan:Object.freeze({type:'exchange',allocation:{...p.allocation}})};
+  }
   const family=attackFamily(state,catalog);
   if(family==='miracle')
     return resolveSoloMiracleFixture(state,catalog,{labOnly:true,fixtureDrawDefinitionId,deflectRng});
@@ -3297,11 +3419,11 @@ function submitAndResolveFixture(state,command,catalog,{
 return {resolvePrayFixture,resolveDiscardFixture,resolveStagedFixture,submitAndResolveFixture};
 })();
 
-const __v2_module_21 = (() => {
+const __v2_module_22 = (() => {
 "use strict";
 const {migrateLegacyCatalog} = __v2_module_4;
-const {createStagingRoom,viewStagingRoom} = __v2_module_8;
-const {submitAndResolveFixture} = __v2_module_20;
+const {createStagingRoom,viewStagingRoom} = __v2_module_9;
+const {submitAndResolveFixture} = __v2_module_21;
 const {VERIFIED_BASIC_CARDS} = __v2_module_1;
 
 /**
@@ -3690,9 +3812,9 @@ function createV2LabController({
 return {createV2LabController};
 })();
 
-const __v2_module_22 = (() => {
+const __v2_module_23 = (() => {
 "use strict";
-const {createV2LabController} = __v2_module_21;
+const {createV2LabController} = __v2_module_22;
 
 /**
  * Minimal accessible and touch-friendly offline V2 hotseat UI.
@@ -3939,9 +4061,9 @@ function mountV2Lab(root,controller=createV2LabController()){
 return {renderV2LabMarkup,mountV2Lab};
 })();
 
-const __v2_lab_test_controller = __v2_module_21;
+const __v2_lab_test_controller = __v2_module_22;
 
-const __v2_lab_test_ui = __v2_module_22;
+const __v2_lab_test_ui = __v2_module_23;
 
 __v2_lab_test_ui.mountV2Lab(document.getElementById("v2-root"));
 </script>
