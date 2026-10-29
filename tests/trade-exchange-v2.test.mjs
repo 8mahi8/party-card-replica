@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import {RESEARCH_CATALOG_CONTRACT} from './helpers/research-catalog-contract.mjs';
 import {migrateLegacyCatalog} from '../v2/legacy-adapter.mjs';
 import {previewExchangeFixture} from '../v2/trade-exchange.mjs';
 import {createStagingRoom,viewStagingRoom} from '../v2/staging-room.mjs';
@@ -28,8 +29,8 @@ test('Exchange definition uses price ¥5 and research probability 20 / 500',()=>
  assert.equal(card.drawWeight,20);
  assert.deepEqual(card.effects.map(e=>[e.when,e.type,e.params.kind]),
    [['onDeclare','reallocateResources','exchange']]);
- assert.equal(summary.unique,94);
- assert.equal(summary.slots,270);
+ assert.equal(summary.unique,RESEARCH_CATALOG_CONTRACT.unique);
+ assert.equal(summary.slots,RESEARCH_CATALOG_CONTRACT.slots);
  assert.equal(summary.complete,false);
 });
 test('pure preview conserves exact HP:MP:money 1:1 and cannot mutate callers',()=>{
