@@ -59,7 +59,7 @@ test('planner chooses exactly one of the existing 18 using one seeded RNG sample
 });
 test('different seeds can eject any of the 18 old card positions, never outside the hand',()=>{
  const s=room(18),occupied=new Set();
- for(let seed=1;seed<=1000;seed++){
+ for(let seed=1;seed<=20000;seed++){
   const plan=planIncomingHandTransfer(s.players[1].hand,seed);
   assert.ok(plan.evictedIndex>=0&&plan.evictedIndex<18);
   occupied.add(plan.evictedIndex);
