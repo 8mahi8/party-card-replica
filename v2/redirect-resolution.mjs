@@ -62,9 +62,13 @@ export function resolveRedirectFixture(state,catalog,{
    state.rulesetId==='mirage-multiplayer-research-fixture-v2';
  if(researchMulti){
    const compiled=p.attackContext??compileBasicWeaponAttack(state,catalog);
-   if(compiled.mirageCount>0&&selected.some(({def})=>
-     def.effects.some(e=>e.when==='onDefense'&&
-       (e.type==='redirectAttack'||e.type==='stopAttack'))))
+   if(compiled.mirageCount>0&&(
+     selected.some(({def})=>def.effects.some(e=>e.when==='onDefense'&&
+       (e.type==='redirectAttack'||e.type==='stopAttack')))||
+     (p.defense.learnedDefinitionId!==undefined&&
+       catalog.get(p.defense.learnedDefinitionId)?.effects.some(e=>
+         e.when==='onDefense'&&
+         (e.type==='redirectAttack'||e.type==='stopAttack')))))
      bad('Multiplayer Mirage redirect or Wall stopping needs original verification');
  }
  const redirected=selected.filter(x=>x.def.effects.some(e=>e.type==='redirectAttack'&&e.when==='onDefense'&&
