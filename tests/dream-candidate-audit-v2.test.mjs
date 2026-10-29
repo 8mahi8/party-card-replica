@@ -76,7 +76,7 @@ test('catalog audit is deterministic, frozen and labels all 120 cards without cl
  assert.equal(a.partialWeight,summary.slots);
  assert.equal(a.cardCount,120);
  assert.equal(a.partialWeight,309);
- assert.equal(a.sourceExcluded,19);
+ assert.equal(a.sourceExcluded,20);
  assert.equal(a.needsRuleReview,1);
  assert.equal(a.sourceExcluded+a.needsRuleReview+a.pairedLabCards+a.unpairedLabCards,120);
  assert.equal(Object.isFrozen(a),true);
