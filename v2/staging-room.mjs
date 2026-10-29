@@ -234,8 +234,8 @@ export function applyStagingCommand(state,command,catalog,{authorizedSeatId}={})
     if(tradeDef?.family!=='trade'||!tradeDef.effects.some(e=>
        e.when==='onDeclare'&&e.type==='forceSale'&&e.params.kind==='sell'))
       throw new Error('Selected card cannot declare Sell');
-    if(!offeredDef||offeredDef.family==='trade')
-      throw new Error('Unverified trade item cannot be sold');
+    if(!offeredDef)
+      throw new Error('Unknown offered card definition');
     pending={type:'sale',originalAttackerId:actor.id,targetId:target.id,
       saleInstanceId:trade.instanceId,soldInstanceId:offer.instanceId,
       offeredDefinitionId:offer.definitionId,price:offeredDef.stats.price,
