@@ -85,7 +85,9 @@ export function previewBuyChoiceFixture(state,catalog,offer,{accept}={}){
  const fresh=previewBuyOfferFixture(state,catalog,{
    buyerId:offer.buyerId,targetId:offer.targetId
  });
- if(JSON.stringify(offer)!==JSON.stringify(fresh))
+ const keys=Object.keys(fresh);
+ if(Object.keys(offer).length!==keys.length||
+    keys.some(key=>!Object.hasOwn(offer,key)||offer[key]!==fresh[key]))
    fail('Stale or forged Buy offer');
  const {buyer,seller}=ready(state,catalog,offer.buyerId,offer.targetId);
  if(!accept)
