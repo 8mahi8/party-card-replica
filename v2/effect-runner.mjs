@@ -11,6 +11,7 @@ import {MAX_HAND_SIZE,MAX_LEARNED_MIRACLES} from '../src/rules.mjs';
 import {planForcedSalePayment} from './trade-payment.mjs';
 import {planIncomingHandTransfer} from './hand-overflow.mjs';
 import {previewBuyOfferFixture,previewBuyChoiceFixture} from './trade-buy.mjs';
+import {previewExchangeFixture} from './trade-exchange.mjs';
 
 function fail(message){throw new Error(message);}
 function who(state,id){
@@ -117,6 +118,33 @@ export function runEffectQueueFixture(state,catalog,queue,{
      events.push({type:'damage',targetId:p.id,damage:effect.damage,
        instantDefeat:effect.instantDefeat,hpAfter:effect.hpAfter,
        ...(effect.stopped===undefined?{}:{stopped:effect.stopped})});
+   } else if(effect.type==='exchange'){
+     // All Exchange allocations are server-side staged and self-directed.
+     // There is no opposing defense and no change of total HP+MP+money.
+     if(Object.keys(effect).length!==2||
+        !['type','playerId'].every(k=>Object.hasOwn(effect,k)))
+       fail('Malformed exchange effect');
+     const p=state.pending;
+     if(p?.type!=='exchange'||p.originalAttackerId!==effect.playerId)
+       fail('Exchange does not match staged command');
+     const original=who(state,effect.playerId);
+     const trade=original.hand.find(x=>x.instanceId===p.exchangeInstanceId);
+     const def=catalog.get(trade?.definitionId);
+     const spends=queue.filter(x=>x?.type==='spend');
+     if(!trade||def?.family!=='trade'||!def.effects.some(e=>
+       e.when==='onDeclare'&&e.type==='reallocateResources'&&
+       e.params.kind==='exchange')||
+       spends.length!==1||spends[0].playerId!==effect.playerId||
+       spends[0].instanceIds?.length!==1||
+       spends[0].instanceIds[0]!==trade.instanceId)
+       fail('Exchange requires exactly one authentic spent Exchange card');
+     const plan=previewExchangeFixture(original,p.allocation);
+     const player=who(s,effect.playerId);
+     player.hp=plan.after.hp;
+     player.mp=plan.after.mp;
+     player.money=plan.after.money;
+     events.push({type:'exchange',playerId:player.id,before:plan.before,
+       after:plan.after,total:plan.total});
    } else if(effect.type==='uncontestedSale'){
      // Source-verified transfer and debit only. A real live trade must first
      // implement Super Mirror counterplay; this effect is lab-fixture ONLY.
