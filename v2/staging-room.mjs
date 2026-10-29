@@ -11,6 +11,7 @@
  * client-controlled actorId alone never authenticates a sender.
  */
 import {createInstance, selectInstances} from './foundation.mjs';
+import {previewBuyOfferFixture} from './trade-buy.mjs';
 
 const ID=/^[a-zA-Z0-9._:-]{1,80}$/;
 const MAX_PLAYERS=9;
@@ -20,6 +21,9 @@ const ALLOWED_KEYS={
   discard:new Set(['commandId','expectedRevision','actorId','type','orderedInstanceIds']),
   declareSale:new Set(['commandId','expectedRevision','actorId','type','targetId','saleInstanceId','soldInstanceId']),
   respondSale:new Set(['commandId','expectedRevision','actorId','type','mirrorInstanceId']),
+  declareBuy:new Set(['commandId','expectedRevision','actorId','type','targetId','buyInstanceId']),
+  respondBuy:new Set(['commandId','expectedRevision','actorId','type','mirrorInstanceId']),
+  decideBuy:new Set(['commandId','expectedRevision','actorId','type','accept']),
   playCards:new Set(['commandId','expectedRevision','actorId','type','targetId','orderedInstanceIds']),
   playSequence:new Set(['commandId','expectedRevision','actorId','type','targetId','orderedPlays']),
   castLearned:new Set(['commandId','expectedRevision','actorId','type','targetId','learnedDefinitionId']),
@@ -48,10 +52,12 @@ function fingerprint(command) {
     actorId:command.actorId,
     type:command.type,
     expectedRevision:command.expectedRevision,
-    targetId:['playCards','playSequence','castLearned','declareSale'].includes(command.type)?command.targetId:null,
+    targetId:['playCards','playSequence','castLearned','declareSale','declareBuy'].includes(command.type)?command.targetId:null,
     orderedPlays:command.orderedPlays??null,
     orderedInstanceIds:command.orderedInstanceIds??null,
     learnedDefinitionId:command.learnedDefinitionId??null,
+    buyInstanceId:command.buyInstanceId??null,
+    accept:command.accept??null,
     saleInstanceId:command.saleInstanceId??null,
     soldInstanceId:command.soldInstanceId??null,
     mirrorInstanceId:command.mirrorInstanceId??null
@@ -218,7 +224,63 @@ export function applyStagingCommand(state,command,catalog,{authorizedSeatId}={})
   let pending;
   let phase;
   let activePlayerId;
-  if(command.type==='declareSale'){
+  if(command.type==='declareBuy'){
+    if(state.phase!=='turn'||actor.hp<=0)
+      throw new Error('Not a living trade turn');
+    id(command.targetId,'target ID');
+    const target=seat(state,command.targetId);
+    if(target.id===actor.id||target.hp<=0)
+      throw new Error('Invalid Buy target');
+    if(!target.hand.length)
+      throw new Error('Buy from empty hand needs original verification');
+    id(command.buyInstanceId,'Buy card ID');
+    const card=actor.hand.find(c=>c.instanceId===command.buyInstanceId);
+    const def=catalog.get(card?.definitionId);
+    if(!card||def?.family!=='trade'||
+       !def.effects.some(e=>e.when==='onDeclare'&&
+         e.type==='requestBuy'&&e.params.kind==='buy'))
+      throw new Error('Selected card cannot declare Buy');
+    // Do not reveal or sample the target's card before its chance to respond.
+    pending={type:'buy',originalAttackerId:actor.id,targetId:target.id,
+      buyInstanceId:card.instanceId,defense:null,offer:null,accept:null};
+    phase='buyDefense';activePlayerId=target.id;
+  }else if(command.type==='respondBuy'){
+    if(state.phase!=='buyDefense'||state.pending?.type!=='buy'||
+       state.pending.targetId!==actor.id||actor.hp<=0)
+      throw new Error('Not the Buy defending seat');
+    if(command.mirrorInstanceId!==undefined){
+      id(command.mirrorInstanceId,'Mirror instance ID');
+      const mirror=actor.hand.find(c=>c.instanceId===command.mirrorInstanceId);
+      const def=catalog.get(mirror?.definitionId);
+      if(!mirror||!def?.effects.some(e=>e.when==='onDefense'&&
+         e.type==='redirectAttack'&&e.params.mode==='reflect'&&
+         e.params.scope==='any'))
+        throw new Error('Only Super Mirror may reflect Buy');
+      throw new Error('Buy mirror response requires original verification');
+    }
+    const p=state.pending;
+    const asTurn={...state,phase:'turn',
+      activePlayerId:p.originalAttackerId,pending:null};
+    const offer=previewBuyOfferFixture(asTurn,catalog,{
+      buyerId:p.originalAttackerId,targetId:p.targetId
+    });
+    pending={...p,defense:{playerId:actor.id,mirrorInstanceId:null},
+      offer:{itemInstanceId:offer.itemInstanceId,
+        itemDefinitionId:offer.itemDefinitionId,price:offer.price,
+        nextSeed:offer.nextSeed}};
+    phase='buyDecision';activePlayerId=p.originalAttackerId;
+  }else if(command.type==='decideBuy'){
+    if(state.phase!=='buyDecision'||state.pending?.type!=='buy'||
+       state.pending.originalAttackerId!==actor.id||
+       state.pending.defense?.mirrorInstanceId!==null||
+       state.pending.defense?.playerId!==state.pending.targetId||
+       !state.pending.offer)
+      throw new Error('Not the Buy decision seat');
+    if(typeof command.accept!=='boolean')
+      throw new Error('Buy decision must be explicit');
+    pending={...state.pending,accept:command.accept};
+    phase='resolving';activePlayerId=null;
+  }else if(command.type==='declareSale'){
     if(state.phase!=='turn'||actor.hp<=0)throw new Error('Not a living trade turn');
     id(command.targetId,'target ID');
     const target=seat(state,command.targetId);
@@ -358,9 +420,16 @@ export function viewStagingRoom(state,viewerId) {
     pending:state.pending?{
       type:state.pending.type,sourceId:state.pending.sourceId??state.pending.originalAttackerId,
       targetId:state.pending.targetId,
-      stage:state.pending.type==='sale'?
+      stage:state.pending.type==='buy'?
+        (state.phase==='buyDefense'?'awaitingTradeResponse':
+         state.phase==='buyDecision'?'awaitingPurchaseDecision':'awaitingResolution'):
+        state.pending.type==='sale'?
         (state.pending.defense?'awaitingResolution':'awaitingTradeResponse'):
         (state.pending.defense?'awaitingResolution':'awaitingDefense'),
+      ...(state.pending.type==='buy'&&state.phase==='buyDecision'&&
+        state.pending.originalAttackerId===p.id&&state.pending.offer?
+        {offer:{definitionId:state.pending.offer.itemDefinitionId,
+          price:state.pending.offer.price}}:{}),
       ...(state.pending.type==='sale'?{offer:{
         definitionId:state.pending.offeredDefinitionId,price:state.pending.price
       }}:{})
