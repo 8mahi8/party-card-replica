@@ -110,10 +110,16 @@ export function compileBasicResolution(state,catalog) {
   // source-backed pure rules helper (also used for solo miracles).
   const armor=sumLegalArmor(element,physicalShields,{rainbowCurtain:stripElement});
   const hit=calculateHit({attack,element,armor,hp:defender.hp,rainbowCurtain:stripElement});
+  // Exact lethality-vs-charm ordering is not confirmed for absorbing weapons.
+  if(attackContext.absorbsHp && !isSelf && hit.hpAfter===0 &&
+     defender.hand.some(c=>catalog.get(c.definitionId)?.effects.some(e=>
+       e.when==='onZeroHp'&&e.type==='reviveAtZeroHp')))
+    fail('Absorption against a fatal Sun Charm recovery requires original timing verification');
   const queue=Object.freeze([
     ...(p.attackContext?[]:queuedAttackCosts(attackContext,attacker.id)),
     ...(isSelf?[]:[Object.freeze({type:'spend',playerId:defender.id,instanceIds:Object.freeze(defending.map(x=>x.instance.instanceId))})]),
-    Object.freeze({type:'hit',targetId:defender.id,damage:hit.damage,hpAfter:hit.hpAfter,instantDefeat:hit.instantDefeat}),
+    Object.freeze({type:'hit',targetId:defender.id,damage:hit.damage,hpAfter:hit.hpAfter,instantDefeat:hit.instantDefeat,
+       ...(attackContext.absorbsHp?{lifeSteal:true}:{})}),
     Object.freeze({type:'refill',order:'seating',maxHand:MAX_HAND_SIZE}),
     Object.freeze({type:'advance',afterId:attacker.id})
   ]);
