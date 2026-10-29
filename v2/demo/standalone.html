@@ -1187,9 +1187,48 @@ return {planForcedSalePayment};
 
 const __v2_module_7 = (() => {
 "use strict";
+const {drawRandom32} = __v2_module_2;
+const {MAX_HAND_SIZE} = __v2_module_0;
+
+/**
+ * G4 research primitive: incoming traded artifact when the receiver has
+ * already reached the original hand limit (18).
+ *
+ * Sources:
+ * https://w.atwiki.jp/aniwotawiki/pages/47010.html
+ * https://note.com/md_stardustman/n/nfc5dfb559f95
+ * Both report that an incoming 19th artifact randomly ejects one of the
+ * receiver's EXISTING 18. The precise original PRNG is not documented;
+ * xorshift32 remains a LAB-only, deterministic test surrogate.
+ */
+
+
+function planIncomingHandTransfer(hand,seed){
+ if(!Array.isArray(hand)||hand.length>MAX_HAND_SIZE)
+   throw new Error('Invalid receiver hand size');
+ if(!Number.isSafeInteger(seed)||seed<=0||seed>0xffffffff)
+   throw new Error('Invalid RNG seed');
+ const ids=hand.map(x=>x?.instanceId);
+ if(ids.some(x=>typeof x!=='string'||!x.length)||new Set(ids).size!==ids.length)
+   throw new Error('Invalid receiver card instance IDs');
+ if(hand.length<MAX_HAND_SIZE)
+   return Object.freeze({willOverflow:false,evictedInstanceId:null,
+     evictedIndex:null,nextSeed:seed});
+ const draw=drawRandom32(seed);
+ const index=Math.floor(draw.value*MAX_HAND_SIZE);
+ return Object.freeze({willOverflow:true,evictedInstanceId:ids[index],
+   evictedIndex:index,nextSeed:draw.nextSeed});
+}
+
+return {planIncomingHandTransfer};
+})();
+
+const __v2_module_8 = (() => {
+"use strict";
 const {createInstance} = __v2_module_2;
 const {MAX_HAND_SIZE,MAX_LEARNED_MIRACLES} = __v2_module_0;
 const {planForcedSalePayment} = __v2_module_6;
+const {planIncomingHandTransfer} = __v2_module_7;
 
 /**
  * Common, deterministic, JSON-only effect queue interpreter for the G3 lab.
@@ -1199,6 +1238,7 @@ const {planForcedSalePayment} = __v2_module_6;
  * refill/advance effects. Never substitute a partial reference-deck draw for
  * real weighted draws in production.
  */
+
 
 
 
@@ -1336,8 +1376,7 @@ function runEffectQueueFixture(state,catalog,queue,{
      const item=seller.hand[saleIndex],definition=catalog.get(item.definitionId);
      if(!definition||definition.family==='trade')
        fail('Unverified trade item cannot be sold');
-     if(buyer.hand.length>=MAX_HAND_SIZE)
-       fail('Buyer hand cap needs original-game verification');
+     const incoming=planIncomingHandTransfer(buyer.hand,s.rngSeed);
      const payment=planForcedSalePayment({price:definition.stats.price,buyer});
      // The buyer-death transfer, seller payout and hand ownership timing
      // cannot yet be asserted from the original client's observed actions.
@@ -1346,6 +1385,15 @@ function runEffectQueueFixture(state,catalog,queue,{
      if(!Number.isSafeInteger(seller.money+payment.sellerCredit))
        fail('Seller money overflow');
      seller.hand.splice(saleIndex,1);
+     if(incoming.willOverflow){
+       const removed=buyer.hand.splice(incoming.evictedIndex,1)[0];
+       if(removed?.instanceId!==incoming.evictedInstanceId)
+         fail('Incorrect receiver overflow card');
+       s.rngSeed=incoming.nextSeed;
+       events.push({type:'handOverflow',playerId:buyer.id,
+         lostInstanceId:removed.instanceId,lostDefinitionId:removed.definitionId,
+         cause:'trade'});
+     }
      buyer.hand.push(item);
      buyer.hp=payment.buyerAfter.hp;
      buyer.mp=payment.buyerAfter.mp;
@@ -1441,9 +1489,9 @@ function runEffectQueueFixture(state,catalog,queue,{
 return {runEffectQueueFixture};
 })();
 
-const __v2_module_8 = (() => {
+const __v2_module_9 = (() => {
 "use strict";
-const {runEffectQueueFixture} = __v2_module_7;
+const {runEffectQueueFixture} = __v2_module_8;
 const {planForcedSalePayment} = __v2_module_6;
 const {MAX_HAND_SIZE} = __v2_module_0;
 
@@ -1457,8 +1505,10 @@ const {MAX_HAND_SIZE} = __v2_module_0;
  *
  * A Super Mirror can reflect a trade. Rather than silently make forced
  * sales unblockable, this research fixture models only a sale after
- * the defender has NOT countered it. Original hand-full and lethal cases
- * are gated until directly verified. No UI/online integration.
+ * the defender has NOT countered it. Lethal cases remain gated.
+ * Full-hand overflow follows sourced random existing-card loss, with only
+ * the seeded lab PRNG serving as a stand-in for the original RNG.
+ * No live UI/online integration.
  */
 
 
@@ -1492,15 +1542,16 @@ function previewUncontestedSale(state,catalog,{
    fail('Selected source is not a Sell card');
  if(!itemDef||itemDef.family==='trade')
    fail('Cannot sell an unverified trade artifact');
- if(buyer.hand.length>=MAX_HAND_SIZE)
-   fail('Buyer hand cap needs original-game verification');
+ if(buyer.hand.length>MAX_HAND_SIZE)
+   fail('Receiver hand is above original hand cap');
  const payment=planForcedSalePayment({price:itemDef.stats.price,buyer});
  if(payment.buyerEliminated||payment.unpaid)
    fail('Lethal forced sale requires original verification');
  if(!Number.isSafeInteger(seller.money+payment.sellerCredit))
    fail('Seller money overflow');
  return Object.freeze({sellerId,targetId,saleInstanceId,soldInstanceId,
-  itemDefinitionId:offer.definitionId,price:itemDef.stats.price,payment});
+  itemDefinitionId:offer.definitionId,price:itemDef.stats.price,payment,
+  willOverflow:buyer.hand.length===MAX_HAND_SIZE});
 }
 /** Simulate only an acknowledged, uncontested sale in a fixture-controlled turn. */
 function settleUncontestedSaleFixture(state,catalog,selection,{
@@ -1530,10 +1581,10 @@ function settleUncontestedSaleFixture(state,catalog,selection,{
 return {previewUncontestedSale,settleUncontestedSaleFixture};
 })();
 
-const __v2_module_9 = (() => {
+const __v2_module_10 = (() => {
 "use strict";
 const {planForcedSalePayment} = __v2_module_6;
-const {runEffectQueueFixture} = __v2_module_7;
+const {runEffectQueueFixture} = __v2_module_8;
 
 /**
  * G4 source-backed SINGLE Super Mirror vs "Sell" research fixture.
@@ -1641,11 +1692,11 @@ function settleSingleMirrorSaleFixture(state,catalog,selection,{
 return {previewSingleMirrorSale,settleSingleMirrorSaleFixture};
 })();
 
-const __v2_module_10 = (() => {
+const __v2_module_11 = (() => {
 "use strict";
-const {previewUncontestedSale} = __v2_module_8;
-const {previewSingleMirrorSale} = __v2_module_9;
-const {runEffectQueueFixture} = __v2_module_7;
+const {previewUncontestedSale} = __v2_module_9;
+const {previewSingleMirrorSale} = __v2_module_10;
+const {runEffectQueueFixture} = __v2_module_8;
 
 /**
  * LAB-ONLY G4: bridge authenticated two-step trade commands to the reusable
@@ -1734,7 +1785,7 @@ function resolveStagedSaleFixture(state,catalog,{
 return {validateSaleDeclarationFixture,resolveStagedSaleFixture};
 })();
 
-const __v2_module_11 = (() => {
+const __v2_module_12 = (() => {
 "use strict";
 const {combineElements} = __v2_module_0;
 
@@ -1941,11 +1992,11 @@ function queuedAttackCosts(attackContext,actorId) {
 return {compileOrderedWeaponAttack,queuedAttackCosts};
 })();
 
-const __v2_module_12 = (() => {
+const __v2_module_13 = (() => {
 "use strict";
 const {sumLegalArmor, calculateHit, MAX_HAND_SIZE} = __v2_module_0;
-const {runEffectQueueFixture} = __v2_module_7;
-const {compileOrderedWeaponAttack,queuedAttackCosts} = __v2_module_11;
+const {runEffectQueueFixture} = __v2_module_8;
+const {compileOrderedWeaponAttack,queuedAttackCosts} = __v2_module_12;
 
 /**
  * V2 G3, PART 1: pure compile/resolve for reference-backed BASIC weapon combat.
@@ -2086,11 +2137,11 @@ function resolveBasicFixture(state,catalog,options={}) {
 return {compileBasicWeaponAttack,compileBasicResolution,resolveBasicFixture};
 })();
 
-const __v2_module_13 = (() => {
+const __v2_module_14 = (() => {
 "use strict";
-const {compileBasicWeaponAttack} = __v2_module_12;
-const {queuedAttackCosts} = __v2_module_11;
-const {runEffectQueueFixture} = __v2_module_7;
+const {compileBasicWeaponAttack} = __v2_module_13;
+const {queuedAttackCosts} = __v2_module_12;
+const {runEffectQueueFixture} = __v2_module_8;
 
 /**
  * G3 weapon-stop resolver: the defensive miracle Wall stops any neutral
@@ -2228,13 +2279,13 @@ function resolveWallFixture(state,catalog,opts={}) {
 return {isWallDefense,compileWallResolution,resolveWallFixture};
 })();
 
-const __v2_module_14 = (() => {
+const __v2_module_15 = (() => {
 "use strict";
 const {planRedirectRoute} = __v2_module_3;
-const {compileBasicWeaponAttack,resolveBasicFixture} = __v2_module_12;
-const {isWallDefense,resolveWallFixture} = __v2_module_13;
-const {queuedAttackCosts} = __v2_module_11;
-const {runEffectQueueFixture} = __v2_module_7;
+const {compileBasicWeaponAttack,resolveBasicFixture} = __v2_module_13;
+const {isWallDefense,resolveWallFixture} = __v2_module_14;
+const {queuedAttackCosts} = __v2_module_12;
+const {runEffectQueueFixture} = __v2_module_8;
 
 /**
  * V2 G3 Part 2: source-backed basic redirect / deflect resolver.
@@ -2352,11 +2403,11 @@ function resolveRedirectFixture(state,catalog,{
 return {resolveRedirectFixture};
 })();
 
-const __v2_module_15 = (() => {
+const __v2_module_16 = (() => {
 "use strict";
 const {calculateHit,sumLegalArmor} = __v2_module_0;
 const {planRedirectRoute} = __v2_module_3;
-const {runEffectQueueFixture} = __v2_module_7;
+const {runEffectQueueFixture} = __v2_module_8;
 
 /**
  * V2 G3: narrow solo attack miracles with ordered defensive reactions.
@@ -2620,14 +2671,14 @@ function resolveSoloMiracleFixture(state,catalog,options={}) {
 return {compileSoloMiracleResolution,resolveSoloMiracleFixture};
 })();
 
-const __v2_module_16 = (() => {
+const __v2_module_17 = (() => {
 "use strict";
 const {applyStagingCommand} = __v2_module_5;
-const {validateSaleDeclarationFixture,resolveStagedSaleFixture} = __v2_module_10;
-const {resolveRedirectFixture} = __v2_module_14;
-const {resolveSoloMiracleFixture,compileSoloMiracleResolution} = __v2_module_15;
-const {compileOrderedWeaponAttack} = __v2_module_11;
-const {runEffectQueueFixture} = __v2_module_7;
+const {validateSaleDeclarationFixture,resolveStagedSaleFixture} = __v2_module_11;
+const {resolveRedirectFixture} = __v2_module_15;
+const {resolveSoloMiracleFixture,compileSoloMiracleResolution} = __v2_module_16;
+const {compileOrderedWeaponAttack} = __v2_module_12;
+const {runEffectQueueFixture} = __v2_module_8;
 const {drawRandom32} = __v2_module_2;
 const {MAX_HAND_SIZE} = __v2_module_0;
 
@@ -2821,11 +2872,11 @@ function submitAndResolveFixture(state,command,catalog,{
 return {resolvePrayFixture,resolveDiscardFixture,resolveStagedFixture,submitAndResolveFixture};
 })();
 
-const __v2_module_17 = (() => {
+const __v2_module_18 = (() => {
 "use strict";
 const {migrateLegacyCatalog} = __v2_module_4;
 const {createStagingRoom,viewStagingRoom} = __v2_module_5;
-const {submitAndResolveFixture} = __v2_module_16;
+const {submitAndResolveFixture} = __v2_module_17;
 const {VERIFIED_BASIC_CARDS} = __v2_module_1;
 
 /**
@@ -3174,9 +3225,9 @@ function createV2LabController({
 return {createV2LabController};
 })();
 
-const __v2_module_18 = (() => {
+const __v2_module_19 = (() => {
 "use strict";
-const {createV2LabController} = __v2_module_17;
+const {createV2LabController} = __v2_module_18;
 
 /**
  * Minimal accessible and touch-friendly offline V2 hotseat UI.
@@ -3388,9 +3439,9 @@ function mountV2Lab(root,controller=createV2LabController()){
 return {renderV2LabMarkup,mountV2Lab};
 })();
 
-const __v2_lab_test_controller = __v2_module_17;
+const __v2_lab_test_controller = __v2_module_18;
 
-const __v2_lab_test_ui = __v2_module_18;
+const __v2_lab_test_ui = __v2_module_19;
 
 __v2_lab_test_ui.mountV2Lab(document.getElementById("v2-root"));
 </script>
