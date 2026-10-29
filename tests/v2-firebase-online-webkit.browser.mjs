@@ -9,8 +9,11 @@ import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import assert from 'node:assert/strict';
 import {webkit} from 'playwright';
+import {execFileSync} from 'node:child_process';
 
 const ROOT=path.dirname(path.dirname(fileURLToPath(import.meta.url)));
+// Verify the same one-file HTML that friends will use for development trials.
+execFileSync(process.execPath,['v2/demo/build-online.mjs'],{cwd:ROOT,stdio:'inherit'});
 const ART=path.join(ROOT,'v2/demo/webkit-evidence');
 let checks=0;
 function check(condition,description){assert.ok(condition,description);checks++;}
@@ -109,7 +112,7 @@ try{
   };
  });
  const target='http://127.0.0.1:'+server.address().port+
-  '/v2/demo/firebase-online-lab.html';
+  '/v2/demo/firebase-online-standalone.html';
  const a=await context.newPage(),b=await context.newPage();
  const errors=[];
  for(const p of [a,b])p.on('pageerror',err=>errors.push(err.message));
