@@ -67,7 +67,7 @@ export function compileOrderedWeaponAttack(state,catalog){
   let weaponAttack=0,attackElement='none',mainCount=0,weaponCount=0;
   let aura=null,plusCount=0,additive=0,lastWasMiracle=false,hasArmorBonus=false,itemBonus=0;
   let learnedDrawCount=0;
-  let forcedAttackElement=null;
+  let forcedAttackElement=null,absorbsHp=false;
   let wandPosition=-1,auraPosition=-1;
   const casts=[],selectedKinds=[];
   const miracles=[];
@@ -94,6 +94,11 @@ export function compileOrderedWeaponAttack(state,catalog){
           forcedAttackElement=eff.params.element;
           wandPosition=position;
           continue;
+        }
+        if(eff.type==='absorbHp'&&eff.when==='afterHit'&&
+           eff.params.amount==='damage'&&def.family==='weapon'){
+          if(absorbsHp)fail('Multiple HP absorption weapons unverified');
+          absorbsHp=true;continue;
         }
         if(!['redirectAttack','stopAttack'].includes(eff.type)||eff.when!=='onDefense')
           fail('Unsupported weapon or armor effect');
@@ -177,7 +182,7 @@ export function compileOrderedWeaponAttack(state,catalog){
     attack,element:forcedAttackElement??(aura?'none':attackElement),attackKind:'weapon',
     instanceIds:Object.freeze(selected.filter(x=>x.instance).map(x=>x.instance.instanceId)),
     payableMP,learnedDrawCount,learnedMiracles:Object.freeze(learnedMiracles),
-    hasModifiers:miracles.length>0,
+    hasModifiers:miracles.length>0,absorbsHp,
     selectedKinds:Object.freeze(selectedKinds)
   });
 }
