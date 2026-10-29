@@ -8,8 +8,10 @@
  *
  * A Super Mirror can reflect a trade. Rather than silently make forced
  * sales unblockable, this research fixture models only a sale after
- * the defender has NOT countered it. Original hand-full and lethal cases
- * are gated until directly verified. No UI/online integration.
+ * the defender has NOT countered it. Lethal cases remain gated.
+ * Full-hand overflow follows sourced random existing-card loss, with only
+ * the seeded lab PRNG serving as a stand-in for the original RNG.
+ * No live UI/online integration.
  */
 import {runEffectQueueFixture} from './effect-runner.mjs';
 import {planForcedSalePayment} from './trade-payment.mjs';
@@ -44,15 +46,16 @@ export function previewUncontestedSale(state,catalog,{
    fail('Selected source is not a Sell card');
  if(!itemDef||itemDef.family==='trade')
    fail('Cannot sell an unverified trade artifact');
- if(buyer.hand.length>=MAX_HAND_SIZE)
-   fail('Buyer hand cap needs original-game verification');
+ if(buyer.hand.length>MAX_HAND_SIZE)
+   fail('Receiver hand is above original hand cap');
  const payment=planForcedSalePayment({price:itemDef.stats.price,buyer});
  if(payment.buyerEliminated||payment.unpaid)
    fail('Lethal forced sale requires original verification');
  if(!Number.isSafeInteger(seller.money+payment.sellerCredit))
    fail('Seller money overflow');
  return Object.freeze({sellerId,targetId,saleInstanceId,soldInstanceId,
-  itemDefinitionId:offer.definitionId,price:itemDef.stats.price,payment});
+  itemDefinitionId:offer.definitionId,price:itemDef.stats.price,payment,
+  willOverflow:buyer.hand.length===MAX_HAND_SIZE});
 }
 /** Simulate only an acknowledged, uncontested sale in a fixture-controlled turn. */
 export function settleUncontestedSaleFixture(state,catalog,selection,{
