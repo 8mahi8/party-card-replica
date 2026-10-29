@@ -242,7 +242,7 @@ export function applyStagingCommand(state,command,catalog,{authorizedSeatId}={})
       e.when==='onDeclare'&&e.type==='reallocateResources'&&
       e.params.kind==='exchange'))
       throw new Error('Selected card cannot declare Exchange');
-    const plan=previewExchangeFixture(actor,command.allocation);
+    const plan=previewExchangeFixture({hp:actor.hp,mp:actor.mp,money:actor.money},command.allocation);
     pending={type:'exchange',originalAttackerId:actor.id,
       exchangeInstanceId:physical.instanceId,allocation:{...plan.after}};
     phase='resolving';activePlayerId=null;
