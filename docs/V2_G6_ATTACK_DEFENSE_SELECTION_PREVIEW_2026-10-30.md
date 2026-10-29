@@ -25,4 +25,13 @@
 - `v2/demo/build-online.mjs`で単体HTMLを自動生成し、`tests/g6-online-bundle-v2.test.mjs`で保存内容と現在のビルドが一致することを検証する。
 - 重要：**本ゲームはまだ研究用の固定4枚・固定補充**。原作の9枚・全カード正規山札・発動時の詳細アニメーションは別工程。今回の表示改善を「原作の全効果に対応した攻撃力計算」とは言わない。
 
+## 実測結果・保存状態
+
+- **新UIおよび回帰テストを含むコード**：`abfa5a50937146c7d571dbb49038cfa1ad772fec`（Nodeの新規静的検査が入った時点）を含み、ビルド済み単体HTMLを再生成。生成物はbot commit `fb55f8c649ba5948d1bea8ac748388a0931f8878` で開発ブランチに保存済み。
+- **Node 905/905 PASS**：GitHub Actions run [`40971530720`](https://github.com/8mahi8/party-card-replica/actions/runs/40971530720)。一度目はHTMLの自動再生成前に古い配布ファイルを読んだため、配布一致検査1件だけ失敗。その後再生成済みHEADの全Nodeテストで成功。
+- **Playwright WebKitの新オンライン2画面 24/24 PASS**（run [`40971341208`](https://github.com/8mahi8/party-card-replica/actions/runs/40971341208)）。Aが2番目→1番目にタップして選択表示順を確認、攻10の参考値、Bが確認するP1→P2の攻撃先、防御にd003を選択して守3、選択解除で「許す」へ戻ることも確認。A攻撃→B防御→再送復旧および従来の画面回帰 **WebKit 339/339 PASS**（同run）。
+- **Chromium 28/28 PASS**：GitHub Actions run [`40971341041`](https://github.com/8mahi8/party-card-replica/actions/runs/40971341041)。
+- 配布用の最新1ファイルHTMLは開発ブランチの`v2/demo/firebase-online-standalone.html`、[ZIP artifact](https://github.com/8mahi8/party-card-replica/actions/runs/40971341208/artifacts/12941095297)、WebKitの[画像エビデンス](https://github.com/8mahi8/party-card-replica/actions/runs/40971341208/artifacts/12940582371)。画面キャプチャは生成したがAI自身の画像目視レビューは未実施。単発再生成workflowは終了後手動起動へ戻した。
+- 学校のiPad実機 / 本物のFirebase上での**今回の新UI**による通信は未検証。既存の本物のFirebase二人対戦検証はrun `40934112303`。Firebase Rules・認証、GitHub `main`、Google Sites学校埋込HTMLは変更していない。
+
 次の優先課題：生成したHTMLを**学校iPadのSafariで2台実際に触って、430px高さにボタンが入るか**を検証。外部HTTPSの配信先が不明な間は、学校Google Sitesの既存ゲームHTMLやFirebase Rulesを変更しない。
