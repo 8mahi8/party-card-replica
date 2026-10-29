@@ -35,7 +35,7 @@ test('the physical reference is attack3, ¥10, 1/500 and a typed two-hit effect'
  assert.equal(d.stats.attack,3);assert.equal(d.stats.price,10);
  assert.equal(d.drawWeight,1);
  assert.deepEqual(d.effects,[{when:'onDeclare',type:'repeatAttack',params:{count:2}}]);
- assert.equal(summary.unique,119);assert.equal(summary.slots,308);
+ assert.equal(summary.unique,120);assert.equal(summary.slots,309);
 });
 test('two separate damage events and defense prompts for one opening weapon',()=>{
  const start=room(),before=JSON.stringify(start);
