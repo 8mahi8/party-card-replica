@@ -2567,10 +2567,16 @@ function runEffectQueueFixture(state,catalog,queue,{
          originalOrigin.hand.some(card=>card.instanceId===id&&
            catalog.get(card.definitionId)?.effects.some(e=>
              e.when==='onDeclare'&&e.type==='repeatAttack'&&e.params.count===2)));
-       const mirages=selections.filter(id=>
+       const physicalMirages=selections.filter(id=>
          originalOrigin.hand.some(card=>card.instanceId===id&&
            catalog.get(card.definitionId)?.effects.some(e=>
              e.when==='onDeclare'&&e.type==='widenAttack'&&e.params.mode==='allLiving'))).length;
+       const learnedMirages=(state.pending.attackSequence??[])
+         .filter(step=>step?.learnedDefinitionId&&
+           originalOrigin.learned.includes(step.learnedDefinitionId)&&
+           catalog.get(step.learnedDefinitionId)?.effects.some(e=>
+             e.when==='onDeclare'&&e.type==='widenAttack'&&e.params.mode==='allLiving')).length;
+       const mirages=physicalMirages+learnedMirages;
        const expectedHits=(realRepeat?2:1)*Math.max(1,mirages);
        if((!realRepeat&&mirages<2)||expectedHits!==effect.attackContext.hitCount||
           mirages>3|| (mirages>0&&state.players.length!==2))
