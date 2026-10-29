@@ -52,6 +52,10 @@ test('first target C is chosen by real UI/controller, not background RNG',()=>{
  assert.equal(c.view().revealed,false);
  assert.equal(c.view().hand.length,0);
  assert.equal(c.view().pending.targetId,'C');
+ assert.equal(c.view().pending.mirageRound,1);
+ assert.equal(c.view().pending.mirageRounds,2);
+ assert.equal(c.view().pending.mirageTargetHit,1);
+ assert.equal(c.view().pending.mirageHitsResolved,0);
 });
 test('all three players can hand off and defend once per Mirage sweep',()=>{
  const c=setup();c.reveal();
