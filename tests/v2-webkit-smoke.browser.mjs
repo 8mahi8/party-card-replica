@@ -1430,6 +1430,71 @@ async function testExpandedVanillaWeaponTouch(base){
  }finally{page=null;await context.close();}
 }
 
+
+async function testAbsorbingWeaponTouch(base){
+ const context=await browser.newContext({
+  viewport:{width:390,height:844},screen:{width:390,height:844},
+  deviceScaleFactor:2,isMobile:true,hasTouch:true,locale:'ja-J'
+ });
+ try {
+  page=await context.newPage();
+  await page.goto(base+'/embed-harness.html',{waitUntil:'load'});
+  await page.locator('#game-embed').evaluate(el=>{el.style.height='430px';});
+  const frame=page.frameLocator('#game-embed');
+  const embedded=page.frames().find(f=>f!==page.mainFrame());
+  if(!embedded)throw new Error('Missing absorption test iframe');
+  async function mount(a,b){
+    await embedded.evaluate(({a,b})=>{
+      const old=document.getElementById('v2-root');
+      const fresh=document.createElement('div');fresh.id='v2-root';
+      old.replaceWith(fresh);
+      const lab=__v2_lab_test_controller.createV2LabController({hands:{A:[a],B:[b]}});
+      window.__absorbLab=lab;
+      __v2_lab_test_ui.mountV2Lab(fresh,lab);
+    },{a,b});
+  }
+  const tap=async(sel)=>frame.locator(sel).first().tap();
+  const snapshot=()=>embedded.evaluate(()=>window.__absorbLab.labSnapshot());
+  await mount('w048','d005');
+  await tap('[data-action=reveal]');
+  passed((await frame.locator('[data-card=hand]').first().textContent()).includes('ゴーストソード'),
+    'source-backed Ghost Sword appears in 390px touch UI');
+  await tap('[data-card=hand]');await tap('[data-action=submit]');
+  await frame.locator('.compact-pass').waitFor();
+  passed(await frame.locator('[data-card=hand]').count()===0,
+    'absorbing attack retains opponent hand privacy during handoff');
+  await tap('[data-action=reveal]');
+  passed((await frame.locator('[data-card=hand]').first().textContent()).includes('アイアンアーマー'),
+    'opponent can select normal armor against absorber');
+  await tap('[data-card=hand]');await tap('[data-action=submit]');
+  await frame.locator('.compact-pass').waitFor();
+  const n=await snapshot();
+  passed(n.players[0].hp===42&&n.players[1].hp===38,
+    'attack7 minus guard5 heals current attacker2 and deals2');
+  passed(n.players[0].hand.length===1&&n.players[0].hand[0].definitionId==='d001',
+    'absorbing weapon is spent and fixture refill is once only');
+  await screenshot('webkit-absorb-guard-settled');
+  await mount('w049','w027');
+  await tap('[data-action=reveal]');
+  passed((await frame.locator('[data-card=hand]').first().textContent()).includes('リアルゴーストソード'),
+    'Real Ghost Sword has a separate touch-selectable card');
+  await tap('[data-card=hand]');await tap('[data-action=submit]');
+  await frame.locator('.compact-pass').waitFor();
+  await tap('[data-action=reveal]');
+  await tap('[data-card=hand]');await tap('[data-action=submit]');
+  await frame.locator('.compact-pass').waitFor();
+  passed((await frame.locator('.compact-pass h1').textContent()).includes('P1'),
+    'reflect sends defense to original attacker');
+  await tap('[data-action=reveal]');await tap('[data-action=submit]');
+  await frame.locator('.compact-pass').waitFor();
+  const reflect=await snapshot();
+  passed(reflect.players[0].hp===28&&reflect.players[1].hp===52&&reflect.turnCount===1,
+    'reflect heals current source B for attack12 exactly once');
+  await screenshot('webkit-absorb-reflect-settled');
+ }catch(error){await screenshot('webkit-absorb-failure');throw error;}
+ finally{page=null;await context.close();}
+}
+
 async function testFullHandSaleTouch(base){
  const context=await browser.newContext({
   viewport:{width:390,height:844},screen:{width:390,height:844},
@@ -1533,6 +1598,7 @@ try{
   await testDreamAppearanceTouch(base);
   await testDreamOutgoingSaleTouch(base);
   await testExpandedVanillaWeaponTouch(base);
+  await testAbsorbingWeaponTouch(base);
   console.log('WEBKIT_SMOKE_SUCCESS checks='+checks+' engine=Playwright WebKit'+
     ' fixed-height frames=1024x460,390x430');
 }catch(error){
