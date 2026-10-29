@@ -35,6 +35,13 @@ const SELF_SALE_TRIAL_HANDS=Object.freeze({
  A:Object.freeze(['t001','w003','d001']),B:Object.freeze(['d005','i002'])
 });
 const DREAM_TRIAL_HANDS=SELF_SALE_TRIAL_HANDS;
+// The initial target is user-selected ONLY as an explicit research assumption.
+const MIRAGE_TRIAL_HANDS=Object.freeze({
+ A:Object.freeze(['w016','m012','m012','d001']),
+ B:Object.freeze(['d003']),
+ C:Object.freeze(['d001'])
+});
+const MIRAGE_RESEARCH_RULESET='mirage-multiplayer-research-fixture-v2';
 
 function safeMessage(error){
   const msg=error?.message;
@@ -50,7 +57,7 @@ function safeMessage(error){
   return typeof msg==='string' && msg.length<=230 ? msg : 'この操作は現在の実験版では使えません';
 }
 function otherSeat(state,actor){
-  return state.players.find(p=>p.id!==actor)?.id??null;
+  return state.players.find(p=>p.id!==actor&&p.hp>0)?.id??null;
 }
 function keyOf(item){
   return item?.instanceId ? 'h:'+item.instanceId
@@ -137,7 +144,7 @@ export function createV2LabController({
   let selected=[],visible=false,targetId=otherSeat(state,state.activePlayerId);
   let notice='手番プレイヤーだけが「手札を見る」を押してください';
   let commandSerial=0;
-  let tradeTrial=false,buyTrial=false,exchangeTrial=false,revivalTrial=false,selfSaleTrial=false,dreamTrial=false,exchangeDraft=null;
+  let tradeTrial=false,buyTrial=false,exchangeTrial=false,revivalTrial=false,selfSaleTrial=false,dreamTrial=false,mirageTrial=false,exchangeDraft=null;
 
   const active=()=>state.activePlayerId;
   function pendingActor(){
@@ -160,7 +167,7 @@ export function createV2LabController({
           catalog.get(actor?.hand.find(c=>c.instanceId===x.instanceId)?.definitionId)
             ?.discardPolicy==='ordinary'),
       cardSetComplete:summary.complete,
-      cardSetCount:summary.unique,tradeTrial,buyTrial,exchangeTrial,revivalTrial,selfSaleTrial,dreamTrial,
+      cardSetCount:summary.unique,tradeTrial,buyTrial,exchangeTrial,revivalTrial,selfSaleTrial,dreamTrial,mirageTrial,
       exchangeAllocation:visible&&state.phase==='turn'&&exchangeDraft?
         {...exchangeDraft}:null
     };
@@ -455,17 +462,31 @@ export function createV2LabController({
     notice='夢の研究配置です。「売る」で自分に神器を売り、見た目と実体を照合します';
     return view();
   }
+  function loadMirageTrial(){
+    state=createStagingRoom({
+      seats:Object.entries(MIRAGE_TRIAL_HANDS).map(([id,handDefinitionIds])=>({
+        id,handDefinitionIds:[...handDefinitionIds]
+      })),
+      firstSeatId:'A',rulesetId:MIRAGE_RESEARCH_RULESET,rngSeed:7
+    },catalog);
+    state.players[0].mp=20;
+    tradeTrial=false;buyTrial=false;exchangeTrial=false;revivalTrial=false;
+    selfSaleTrial=false;dreamTrial=false;mirageTrial=true;exchangeDraft=null;
+    selected=[];visible=false;targetId='B';commandSerial=0;
+    notice='3人〈蜃気楼〉研究配置。初回の攻撃先を選択し、以後は生存者から抽選します。原作の最初の対象選択は未確認です';
+    return view();
+  }
   function reset(){
     state=createStagingRoom({
       seats:handEntries.map(p=>({id:p.id,handDefinitionIds:[...p.handDefinitionIds]})),
       firstSeatId,rulesetId:'partial-reference-v2-lab'
     },catalog);
-    tradeTrial=false;buyTrial=false;exchangeTrial=false;revivalTrial=false;selfSaleTrial=false;dreamTrial=false;exchangeDraft=null;selected=[];visible=false;targetId=otherSeat(state,firstSeatId);
+    tradeTrial=false;buyTrial=false;exchangeTrial=false;revivalTrial=false;selfSaleTrial=false;dreamTrial=false;mirageTrial=false;exchangeDraft=null;selected=[];visible=false;targetId=otherSeat(state,firstSeatId);
     notice='新しい検証試合。手番プレイヤーに渡してください';
     commandSerial=0;
     return view();
   }
-  return {view,reveal,toggle,setTarget,submit,reset,loadTradeTrial,loadBuyTrial,loadExchangeTrial,loadRevivalTrial,loadSelfSaleTrial,loadDreamTrial,
+  return {view,reveal,toggle,setTarget,submit,reset,loadTradeTrial,loadBuyTrial,loadExchangeTrial,loadRevivalTrial,loadSelfSaleTrial,loadDreamTrial,loadMirageTrial,
     // Test-only state snapshot: never send to another player or persist online.
     labSnapshot:()=>JSON.parse(JSON.stringify(state))};
 }
