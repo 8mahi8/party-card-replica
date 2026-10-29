@@ -114,7 +114,13 @@ export async function createFirebaseTwoSeatHostFixture(options={}){
   read:()=>A.read(),
   async submit(command){
    if(closed)throw new Error('接続は終了しています');
-   const out=A.submit(command);
+   let out;
+   try{out=A.submit(command);}
+   catch(error){
+    const rejected=new Error(summarizeError(error));
+    rejected.commandRejected=true;
+    throw rejected;
+   }
    const receipt={id:command.commandId,ok:true,
       duplicate:out.duplicate,revision:out.revision};
    await publish({'acks/A':receipt});
