@@ -14,7 +14,7 @@
 
 **LAB-ONLY**の2コマンド状態遷移を追加：
 
-1. **`declareSale`**：攻撃手番のAが、手札の実物`saleInstanceId`（定義済み「売る」カード）と`soldInstanceId`（商品）を指定し、生存中の相手Bへ取引を宣言する。カードの重複・未所持・tradeカードの売却を防御。ルームは`phase:'tradeDefense'`となり、Bが次の能動プレイヤーに。
+1. **`declareSale`**：攻撃手番のAが、手札の実物`saleInstanceId`（定義済み「売る」カード）と`soldInstanceId`（商品）を指定し、生存中の相手Bへ取引を宣言する。カードの重複・未所持を防御。**2026-10-29追補：取引カード「売る」自体の売却は[原作の実戦解説](https://note.com/parlavigate_4/n/nfe106cef56a5)に基づき許可するよう改訂。**ルームは`phase:'tradeDefense'`となり、Bが次の能動プレイヤーに。
 2. **`respondSale`**：認証済みBだけが、「鏡なし＝受け入れる」か、実際の手札にあるスーパーミラーの`mirrorInstanceId`を指定。通常武器の反射剣、他人のミラー、偽IDを拒否。状態は`phase:'resolving'`へ。
 3. **`resolveStagedSaleFixture`**：`v2/staged-sale.mjs`。受け入れなら`previewUncontestedSale`、1回ミラーなら`previewSingleMirrorSale`を使い、それぞれの既存処理を**同じ共有`runEffectQueueFixture`**の`spend→sale/reflectedSale→refill→advance`に変換。ソースに裏付けのない致死的・上限超過の決済はエラー扱い。
 4. **入力前に成立可能性を検査**：売り手が取引を宣言した時点で、受け入れ・実際に持っているミラーの**少なくとも1つが検証済みの範囲で決済可能か**を確認。どれも成立しなければ相手を応答不能な待ち状態にしない。例えば買い手がHP1／MP0／¥0でも、ミラーにより払う側を売り手へ移せるなら取引宣言可能。
