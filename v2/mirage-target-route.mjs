@@ -60,13 +60,22 @@ function checkShape(route,players){
     route.sourceId===route.targetId||
     !eligible.includes(route.targetId))fail('Invalid route actor or target');
  const visited=route.visitedIds;
- if(!Array.isArray(visited)||!visited.includes(route.targetId)||
+ // The last recorded visit must be the currently defending seat.
+ // Every recorded visit needs a prior resolved hit (except the opening).
+ // Do not allow a forged future visit to skip an opponent's defense.
+ if(!Array.isArray(visited)||!visited.length||
+    visited[visited.length-1]!==route.targetId||
+    visited.length>route.hitNumber+1||
     new Set(visited).size!==visited.length||
     visited.some(x=>!eligible.includes(x)))fail('Invalid visited ledger');
  if(route.hitNumber>=route.roundCount*eligible.length*route.hitsPerTarget)
   fail('Route already exhausted');
  if(route.hitsPerTarget===1&&route.subHitIndex!==0)
   fail('Single hit target cannot have a second subhit');
+}
+function checkSeed(seed){
+ if(!Number.isSafeInteger(seed)||seed<=0||seed>0xffffffff)
+  fail('Invalid RNG seed');
 }
 function draw(candidates,seed){
  const rng=drawRandom32(seed);
@@ -85,8 +94,7 @@ export function beginMirageTargetRouteFixture({
  players,sourceId,firstTargetId=null,mirageCount=1,hitsPerTarget=1,rngSeed
 }={}){
  checkPlayers(players);id(sourceId);
- if(!Number.isSafeInteger(rngSeed)||rngSeed<=0||rngSeed>0xffffffff)
-  fail('Invalid RNG seed');
+ checkSeed(rngSeed);
  if(![1,2,3].includes(mirageCount)||![1,2].includes(hitsPerTarget))
   fail('Only 1-3 sweeps and 1-2 weapon hits are source-backed');
  if(!players.some(p=>p.id===sourceId&&p.hp>0))
@@ -113,6 +121,8 @@ export function beginMirageTargetRouteFixture({
  */
 export function advanceMirageTargetRouteFixture({route,players,rngSeed}={}){
  checkShape(route,players);
+ // Also validate terminal transitions, which may not consume randomness.
+ checkSeed(rngSeed);
  if(!players.some(p=>p.id===route.sourceId&&p.hp>0))
    return Object.freeze({complete:true,reason:'sourceEliminated',
       nextSeed:rngSeed,hitNumber:route.hitNumber+1});
