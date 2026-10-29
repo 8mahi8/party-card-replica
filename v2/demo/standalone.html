@@ -769,7 +769,221 @@ return {convertLegacyCard,migrateLegacyCatalog};
 
 const __v2_module_5 = (() => {
 "use strict";
+
+/**
+ * G3 research primitive: the payment side of original "売る" (forced sale).
+ *
+ * Original rule: debit buyer money first, then MP, then HP. Example:
+ * buyer HP15/MP10/¥5 buying a ¥25 card -> HP5/MP0/¥0.
+ *
+ * Evidence: https://w.atwiki.jp/aniwotawiki/pages/47010.html
+ * Independently: https://w.atwiki.jp/piong/pages/19.html
+ *
+ * This is a PURE calculation. It does not transfer cards, create money,
+ * end turns, refill hands, or decide a sale's lethal seller payout.
+ *
+ * The special case where price exceeds all three available pools kills the
+ * buyer, but original evidence does not establish whether the seller receives
+ * the full nominal price or only the available payment. Do not guess:
+ * settlement='lethal-unverified' and sellerCredit=null.
+ */
+const int=(x,label)=>{
+ if(!Number.isSafeInteger(x)||x<0)throw new Error('Invalid '+label);
+ return x;
+};
+/** Compute forced-sale debit without performing an unaudited trade. */
+function planForcedSalePayment({price,buyer}={}){
+ if(!buyer||typeof buyer!=='object'||Array.isArray(buyer))
+   throw new Error('Invalid buyer');
+ const amount=int(price,'sale price'),hp=int(buyer.hp,'buyer HP'),
+  mp=int(buyer.mp,'buyer MP'),money=int(buyer.money,'buyer money');
+ if(hp===0)throw new Error('Buyer is eliminated');
+ const moneySpent=Math.min(money,amount);
+ const mpSpent=Math.min(mp,amount-moneySpent);
+ const hpSpent=Math.min(hp,amount-moneySpent-mpSpent);
+ const unpaid=amount-moneySpent-mpSpent-hpSpent;
+ const paid=amount-unpaid;
+ const next=Object.freeze({
+  hp:hp-hpSpent,mp:mp-mpSpent,money:money-moneySpent
+ });
+ return Object.freeze({
+  kind:'forcedSale',price:amount,
+  debit:Object.freeze({money:moneySpent,mp:mpSpent,hp:hpSpent}),
+  paid,unpaid,buyerAfter:next,
+  buyerEliminated:next.hp===0,
+  settlement:unpaid>0?'lethal-unverified':'complete',
+  sellerCredit:unpaid>0?null:paid
+ });
+}
+
+return {planForcedSalePayment};
+})();
+
+const __v2_module_6 = (() => {
+"use strict";
+const {drawRandom32} = __v2_module_2;
+const {MAX_HAND_SIZE} = __v2_module_0;
+
+/**
+ * G4 research primitive: incoming traded artifact when the receiver has
+ * already reached the original hand limit (18).
+ *
+ * Sources:
+ * https://w.atwiki.jp/aniwotawiki/pages/47010.html
+ * https://note.com/md_stardustman/n/nfc5dfb559f95
+ * Both report that an incoming 19th artifact randomly ejects one of the
+ * receiver's EXISTING 18. The precise original PRNG is not documented;
+ * xorshift32 remains a LAB-only, deterministic test surrogate.
+ */
+
+
+function planIncomingHandTransfer(hand,seed){
+ if(!Array.isArray(hand)||hand.length>MAX_HAND_SIZE)
+   throw new Error('Invalid receiver hand size');
+ if(!Number.isSafeInteger(seed)||seed<=0||seed>0xffffffff)
+   throw new Error('Invalid RNG seed');
+ const ids=hand.map(x=>x?.instanceId);
+ if(ids.some(x=>typeof x!=='string'||!x.length)||new Set(ids).size!==ids.length)
+   throw new Error('Invalid receiver card instance IDs');
+ if(hand.length<MAX_HAND_SIZE)
+   return Object.freeze({willOverflow:false,evictedInstanceId:null,
+     evictedIndex:null,nextSeed:seed});
+ const draw=drawRandom32(seed);
+ const index=Math.floor(draw.value*MAX_HAND_SIZE);
+ return Object.freeze({willOverflow:true,evictedInstanceId:ids[index],
+   evictedIndex:index,nextSeed:draw.nextSeed});
+}
+
+return {planIncomingHandTransfer};
+})();
+
+const __v2_module_7 = (() => {
+"use strict";
+const {drawRandom32} = __v2_module_2;
+const {planIncomingHandTransfer} = __v2_module_6;
+const {MAX_HAND_SIZE} = __v2_module_0;
+
+/**
+ * G4, LAB-ONLY research primitive for the original "買う" trade.
+ *
+ * Documented facts:
+ * - randomly expose ONE physical artifact from the chosen opponent;
+ * - current buyer chooses whether to pay its listed price;
+ * - insufficient MONEY means "貧乏" (MP and HP cannot cover a purchase);
+ * - an unused miracle has price 0.
+ *
+ * https://w.atwiki.jp/aniwotawiki/pages/47010.html
+ * https://godfield-beginner.game-info.wiki/
+ * https://toroccowars.jp/21551/
+ *
+ * NOT a command or settlement. No Buy card is registered in this partial
+ * research deck. The original response timing / Super Mirror / empty hand /
+ * learned-slot overflow need more evidence. No public view may expose the
+ * opponent's full hand or this authoritative offer before it is revealed.
+ * xorshift32 is an explicit deterministic test surrogate, NOT original RNG.
+ */
+
+
+
+function fail(message){throw new Error(message);}
+function money(value){
+ if(!Number.isSafeInteger(value)||value<0)
+   fail('Invalid purchase money');
+ return value;
+}
+function member(state,id){
+ return state.players.find(p=>p.id===id);
+}
+function ready(state,catalog,buyerId,targetId){
+ if(!state||state.schemaVersion!==2||state.phase!=='turn'||
+    !Array.isArray(state.players)||!(catalog instanceof Map))
+   fail('Buy research requires a V2 laboratory turn');
+ if(typeof buyerId!=='string'||buyerId!==state.activePlayerId||
+    typeof targetId!=='string'||buyerId===targetId)
+   fail('Invalid research Buy target');
+ const buyer=member(state,buyerId),seller=member(state,targetId);
+ if(!buyer||!seller||buyer.hp<=0||seller.hp<=0)
+   fail('Buy requires living buyer and target');
+ money(buyer.money);money(seller.money);
+ if(!Array.isArray(buyer.hand)||!Array.isArray(seller.hand)||
+    !Array.isArray(buyer.learned)||
+    buyer.hand.length>MAX_HAND_SIZE||seller.hand.length>MAX_HAND_SIZE)
+   fail('Invalid Buy research hands');
+ if(!seller.hand.length)
+   fail('Buy from empty hand needs original verification');
+ return {buyer,seller};
+}
+/**
+ * Internal-only deterministic random offer. Never publish to opponents.
+ * A server may eventually record the sampled item and seed in a staged room,
+ * but must not trust an offer or seed supplied by a client.
+ */
+function previewBuyOfferFixture(state,catalog,{buyerId,targetId}={}){
+ const {buyer,seller}=ready(state,catalog,buyerId,targetId);
+ const seen=new Set();
+ for(const card of seller.hand){
+   if(typeof card?.instanceId!=='string'||!card.instanceId||
+      seen.has(card.instanceId)||!catalog.has(card.definitionId))
+     fail('Invalid target hand item');
+   seen.add(card.instanceId);
+ }
+ const draw=drawRandom32(state.rngSeed);
+ const selected=seller.hand[Math.floor(draw.value*seller.hand.length)];
+ const definition=catalog.get(selected.definitionId);
+ const price=money(definition.stats?.price);
+ return Object.freeze({
+   type:'buyOfferFixture',buyerId,targetId,originRevision:state.revision,
+   originSeed:state.rngSeed,
+   itemInstanceId:selected.instanceId,itemDefinitionId:selected.definitionId,
+   price,canAfford:buyer.money>=price,nextSeed:draw.nextSeed
+ });
+}
+/**
+ * Pure choice preview, with a strict recomputation of the offer. Both branches
+ * merely describe an eventual transaction; no item, money, or RNG is changed.
+ */
+function previewBuyChoiceFixture(state,catalog,offer,{accept}={}){
+ if(typeof accept!=='boolean')fail('Buy choice must be explicit');
+ if(!offer||typeof offer!=='object'||Array.isArray(offer))
+   fail('Invalid Buy offer');
+ const fresh=previewBuyOfferFixture(state,catalog,{
+   buyerId:offer.buyerId,targetId:offer.targetId
+ });
+ const keys=Object.keys(fresh);
+ if(Object.keys(offer).length!==keys.length||
+    keys.some(key=>!Object.hasOwn(offer,key)||offer[key]!==fresh[key]))
+   fail('Stale or forged Buy offer');
+ const {buyer,seller}=ready(state,catalog,offer.buyerId,offer.targetId);
+ if(!accept)
+   return Object.freeze({
+     decision:'declined',buyerId:offer.buyerId,targetId:offer.targetId,
+     price:offer.price,itemInstanceId:offer.itemInstanceId,
+     buyerMoneyAfter:buyer.money,sellerMoneyAfter:seller.money,
+     overflow:null,nextSeed:offer.nextSeed
+   });
+ if(!offer.canAfford)fail('Poor: Buy cannot spend MP or HP');
+ if(buyer.learned.length>0&&
+    buyer.hand.length+buyer.learned.length>=MAX_HAND_SIZE)
+   fail('Learned miracle overflow at hand cap needs original verification');
+ if(!Number.isSafeInteger(seller.money+offer.price))
+   fail('Seller money overflow');
+ const overflow=planIncomingHandTransfer(buyer.hand,offer.nextSeed);
+ return Object.freeze({
+   decision:'accepted',buyerId:offer.buyerId,targetId:offer.targetId,
+   price:offer.price,itemInstanceId:offer.itemInstanceId,
+   buyerMoneyAfter:buyer.money-offer.price,
+   sellerMoneyAfter:seller.money+offer.price,
+   overflow,nextSeed:overflow.nextSeed
+ });
+}
+
+return {previewBuyOfferFixture,previewBuyChoiceFixture};
+})();
+
+const __v2_module_8 = (() => {
+"use strict";
 const {createInstance, selectInstances} = __v2_module_2;
+const {previewBuyOfferFixture} = __v2_module_7;
 
 /**
  * V2 G2: authoritatively *stage* a combat interaction.
@@ -784,6 +998,7 @@ const {createInstance, selectInstances} = __v2_module_2;
  * client-controlled actorId alone never authenticates a sender.
  */
 
+
 const ID=/^[a-zA-Z0-9._:-]{1,80}$/;
 const MAX_PLAYERS=9;
 const MAX_HAND=18;
@@ -792,6 +1007,9 @@ const ALLOWED_KEYS={
   discard:new Set(['commandId','expectedRevision','actorId','type','orderedInstanceIds']),
   declareSale:new Set(['commandId','expectedRevision','actorId','type','targetId','saleInstanceId','soldInstanceId']),
   respondSale:new Set(['commandId','expectedRevision','actorId','type','mirrorInstanceId']),
+  declareBuy:new Set(['commandId','expectedRevision','actorId','type','targetId','buyInstanceId']),
+  respondBuy:new Set(['commandId','expectedRevision','actorId','type','mirrorInstanceId']),
+  decideBuy:new Set(['commandId','expectedRevision','actorId','type','accept']),
   playCards:new Set(['commandId','expectedRevision','actorId','type','targetId','orderedInstanceIds']),
   playSequence:new Set(['commandId','expectedRevision','actorId','type','targetId','orderedPlays']),
   castLearned:new Set(['commandId','expectedRevision','actorId','type','targetId','learnedDefinitionId']),
@@ -820,10 +1038,12 @@ function fingerprint(command) {
     actorId:command.actorId,
     type:command.type,
     expectedRevision:command.expectedRevision,
-    targetId:['playCards','playSequence','castLearned','declareSale'].includes(command.type)?command.targetId:null,
+    targetId:['playCards','playSequence','castLearned','declareSale','declareBuy'].includes(command.type)?command.targetId:null,
     orderedPlays:command.orderedPlays??null,
     orderedInstanceIds:command.orderedInstanceIds??null,
     learnedDefinitionId:command.learnedDefinitionId??null,
+    buyInstanceId:command.buyInstanceId??null,
+    accept:command.accept??null,
     saleInstanceId:command.saleInstanceId??null,
     soldInstanceId:command.soldInstanceId??null,
     mirrorInstanceId:command.mirrorInstanceId??null
@@ -990,7 +1210,63 @@ function applyStagingCommand(state,command,catalog,{authorizedSeatId}={}) {
   let pending;
   let phase;
   let activePlayerId;
-  if(command.type==='declareSale'){
+  if(command.type==='declareBuy'){
+    if(state.phase!=='turn'||actor.hp<=0)
+      throw new Error('Not a living trade turn');
+    id(command.targetId,'target ID');
+    const target=seat(state,command.targetId);
+    if(target.id===actor.id||target.hp<=0)
+      throw new Error('Invalid Buy target');
+    if(!target.hand.length)
+      throw new Error('Buy from empty hand needs original verification');
+    id(command.buyInstanceId,'Buy card ID');
+    const card=actor.hand.find(c=>c.instanceId===command.buyInstanceId);
+    const def=catalog.get(card?.definitionId);
+    if(!card||def?.family!=='trade'||
+       !def.effects.some(e=>e.when==='onDeclare'&&
+         e.type==='requestBuy'&&e.params.kind==='buy'))
+      throw new Error('Selected card cannot declare Buy');
+    // Do not reveal or sample the target's card before its chance to respond.
+    pending={type:'buy',originalAttackerId:actor.id,targetId:target.id,
+      buyInstanceId:card.instanceId,defense:null,offer:null,accept:null};
+    phase='buyDefense';activePlayerId=target.id;
+  }else if(command.type==='respondBuy'){
+    if(state.phase!=='buyDefense'||state.pending?.type!=='buy'||
+       state.pending.targetId!==actor.id||actor.hp<=0)
+      throw new Error('Not the Buy defending seat');
+    if(command.mirrorInstanceId!==undefined){
+      id(command.mirrorInstanceId,'Mirror instance ID');
+      const mirror=actor.hand.find(c=>c.instanceId===command.mirrorInstanceId);
+      const def=catalog.get(mirror?.definitionId);
+      if(!mirror||!def?.effects.some(e=>e.when==='onDefense'&&
+         e.type==='redirectAttack'&&e.params.mode==='reflect'&&
+         e.params.scope==='any'))
+        throw new Error('Only Super Mirror may reflect Buy');
+      throw new Error('Buy mirror response requires original verification');
+    }
+    const p=state.pending;
+    const asTurn={...state,phase:'turn',
+      activePlayerId:p.originalAttackerId,pending:null};
+    const offer=previewBuyOfferFixture(asTurn,catalog,{
+      buyerId:p.originalAttackerId,targetId:p.targetId
+    });
+    pending={...p,defense:{playerId:actor.id,mirrorInstanceId:null},
+      offer:{itemInstanceId:offer.itemInstanceId,
+        itemDefinitionId:offer.itemDefinitionId,price:offer.price,
+        nextSeed:offer.nextSeed}};
+    phase='buyDecision';activePlayerId=p.originalAttackerId;
+  }else if(command.type==='decideBuy'){
+    if(state.phase!=='buyDecision'||state.pending?.type!=='buy'||
+       state.pending.originalAttackerId!==actor.id||
+       state.pending.defense?.mirrorInstanceId!==null||
+       state.pending.defense?.playerId!==state.pending.targetId||
+       !state.pending.offer)
+      throw new Error('Not the Buy decision seat');
+    if(typeof command.accept!=='boolean')
+      throw new Error('Buy decision must be explicit');
+    pending={...state.pending,accept:command.accept};
+    phase='resolving';activePlayerId=null;
+  }else if(command.type==='declareSale'){
     if(state.phase!=='turn'||actor.hp<=0)throw new Error('Not a living trade turn');
     id(command.targetId,'target ID');
     const target=seat(state,command.targetId);
@@ -1130,9 +1406,16 @@ function viewStagingRoom(state,viewerId) {
     pending:state.pending?{
       type:state.pending.type,sourceId:state.pending.sourceId??state.pending.originalAttackerId,
       targetId:state.pending.targetId,
-      stage:state.pending.type==='sale'?
+      stage:state.pending.type==='buy'?
+        (state.phase==='buyDefense'?'awaitingTradeResponse':
+         state.phase==='buyDecision'?'awaitingPurchaseDecision':'awaitingResolution'):
+        state.pending.type==='sale'?
         (state.pending.defense?'awaitingResolution':'awaitingTradeResponse'):
         (state.pending.defense?'awaitingResolution':'awaitingDefense'),
+      ...(state.pending.type==='buy'&&state.phase==='buyDecision'&&
+        state.pending.originalAttackerId===p.id&&state.pending.offer?
+        {offer:{definitionId:state.pending.offer.itemDefinitionId,
+          price:state.pending.offer.price}}:{}),
       ...(state.pending.type==='sale'?{offer:{
         definitionId:state.pending.offeredDefinitionId,price:state.pending.price
       }}:{})
@@ -1143,226 +1426,13 @@ function viewStagingRoom(state,viewerId) {
 return {createStagingRoom,applyStagingCommand,viewStagingRoom};
 })();
 
-const __v2_module_6 = (() => {
-"use strict";
-
-/**
- * G3 research primitive: the payment side of original "売る" (forced sale).
- *
- * Original rule: debit buyer money first, then MP, then HP. Example:
- * buyer HP15/MP10/¥5 buying a ¥25 card -> HP5/MP0/¥0.
- *
- * Evidence: https://w.atwiki.jp/aniwotawiki/pages/47010.html
- * Independently: https://w.atwiki.jp/piong/pages/19.html
- *
- * This is a PURE calculation. It does not transfer cards, create money,
- * end turns, refill hands, or decide a sale's lethal seller payout.
- *
- * The special case where price exceeds all three available pools kills the
- * buyer, but original evidence does not establish whether the seller receives
- * the full nominal price or only the available payment. Do not guess:
- * settlement='lethal-unverified' and sellerCredit=null.
- */
-const int=(x,label)=>{
- if(!Number.isSafeInteger(x)||x<0)throw new Error('Invalid '+label);
- return x;
-};
-/** Compute forced-sale debit without performing an unaudited trade. */
-function planForcedSalePayment({price,buyer}={}){
- if(!buyer||typeof buyer!=='object'||Array.isArray(buyer))
-   throw new Error('Invalid buyer');
- const amount=int(price,'sale price'),hp=int(buyer.hp,'buyer HP'),
-  mp=int(buyer.mp,'buyer MP'),money=int(buyer.money,'buyer money');
- if(hp===0)throw new Error('Buyer is eliminated');
- const moneySpent=Math.min(money,amount);
- const mpSpent=Math.min(mp,amount-moneySpent);
- const hpSpent=Math.min(hp,amount-moneySpent-mpSpent);
- const unpaid=amount-moneySpent-mpSpent-hpSpent;
- const paid=amount-unpaid;
- const next=Object.freeze({
-  hp:hp-hpSpent,mp:mp-mpSpent,money:money-moneySpent
- });
- return Object.freeze({
-  kind:'forcedSale',price:amount,
-  debit:Object.freeze({money:moneySpent,mp:mpSpent,hp:hpSpent}),
-  paid,unpaid,buyerAfter:next,
-  buyerEliminated:next.hp===0,
-  settlement:unpaid>0?'lethal-unverified':'complete',
-  sellerCredit:unpaid>0?null:paid
- });
-}
-
-return {planForcedSalePayment};
-})();
-
-const __v2_module_7 = (() => {
-"use strict";
-const {drawRandom32} = __v2_module_2;
-const {MAX_HAND_SIZE} = __v2_module_0;
-
-/**
- * G4 research primitive: incoming traded artifact when the receiver has
- * already reached the original hand limit (18).
- *
- * Sources:
- * https://w.atwiki.jp/aniwotawiki/pages/47010.html
- * https://note.com/md_stardustman/n/nfc5dfb559f95
- * Both report that an incoming 19th artifact randomly ejects one of the
- * receiver's EXISTING 18. The precise original PRNG is not documented;
- * xorshift32 remains a LAB-only, deterministic test surrogate.
- */
-
-
-function planIncomingHandTransfer(hand,seed){
- if(!Array.isArray(hand)||hand.length>MAX_HAND_SIZE)
-   throw new Error('Invalid receiver hand size');
- if(!Number.isSafeInteger(seed)||seed<=0||seed>0xffffffff)
-   throw new Error('Invalid RNG seed');
- const ids=hand.map(x=>x?.instanceId);
- if(ids.some(x=>typeof x!=='string'||!x.length)||new Set(ids).size!==ids.length)
-   throw new Error('Invalid receiver card instance IDs');
- if(hand.length<MAX_HAND_SIZE)
-   return Object.freeze({willOverflow:false,evictedInstanceId:null,
-     evictedIndex:null,nextSeed:seed});
- const draw=drawRandom32(seed);
- const index=Math.floor(draw.value*MAX_HAND_SIZE);
- return Object.freeze({willOverflow:true,evictedInstanceId:ids[index],
-   evictedIndex:index,nextSeed:draw.nextSeed});
-}
-
-return {planIncomingHandTransfer};
-})();
-
-const __v2_module_8 = (() => {
-"use strict";
-const {drawRandom32} = __v2_module_2;
-const {planIncomingHandTransfer} = __v2_module_7;
-const {MAX_HAND_SIZE} = __v2_module_0;
-
-/**
- * G4, LAB-ONLY research primitive for the original "買う" trade.
- *
- * Documented facts:
- * - randomly expose ONE physical artifact from the chosen opponent;
- * - current buyer chooses whether to pay its listed price;
- * - insufficient MONEY means "貧乏" (MP and HP cannot cover a purchase);
- * - an unused miracle has price 0.
- *
- * https://w.atwiki.jp/aniwotawiki/pages/47010.html
- * https://godfield-beginner.game-info.wiki/
- * https://toroccowars.jp/21551/
- *
- * NOT a command or settlement. No Buy card is registered in this partial
- * research deck. The original response timing / Super Mirror / empty hand /
- * learned-slot overflow need more evidence. No public view may expose the
- * opponent's full hand or this authoritative offer before it is revealed.
- * xorshift32 is an explicit deterministic test surrogate, NOT original RNG.
- */
-
-
-
-function fail(message){throw new Error(message);}
-function money(value){
- if(!Number.isSafeInteger(value)||value<0)
-   fail('Invalid purchase money');
- return value;
-}
-function member(state,id){
- return state.players.find(p=>p.id===id);
-}
-function ready(state,catalog,buyerId,targetId){
- if(!state||state.schemaVersion!==2||state.phase!=='turn'||
-    !Array.isArray(state.players)||!(catalog instanceof Map))
-   fail('Buy research requires a V2 laboratory turn');
- if(typeof buyerId!=='string'||buyerId!==state.activePlayerId||
-    typeof targetId!=='string'||buyerId===targetId)
-   fail('Invalid research Buy target');
- const buyer=member(state,buyerId),seller=member(state,targetId);
- if(!buyer||!seller||buyer.hp<=0||seller.hp<=0)
-   fail('Buy requires living buyer and target');
- money(buyer.money);money(seller.money);
- if(!Array.isArray(buyer.hand)||!Array.isArray(seller.hand)||
-    !Array.isArray(buyer.learned)||
-    buyer.hand.length>MAX_HAND_SIZE||seller.hand.length>MAX_HAND_SIZE)
-   fail('Invalid Buy research hands');
- if(!seller.hand.length)
-   fail('Buy from empty hand needs original verification');
- return {buyer,seller};
-}
-/**
- * Internal-only deterministic random offer. Never publish to opponents.
- * A server may eventually record the sampled item and seed in a staged room,
- * but must not trust an offer or seed supplied by a client.
- */
-function previewBuyOfferFixture(state,catalog,{buyerId,targetId}={}){
- const {buyer,seller}=ready(state,catalog,buyerId,targetId);
- const seen=new Set();
- for(const card of seller.hand){
-   if(typeof card?.instanceId!=='string'||!card.instanceId||
-      seen.has(card.instanceId)||!catalog.has(card.definitionId))
-     fail('Invalid target hand item');
-   seen.add(card.instanceId);
- }
- const draw=drawRandom32(state.rngSeed);
- const selected=seller.hand[Math.floor(draw.value*seller.hand.length)];
- const definition=catalog.get(selected.definitionId);
- const price=money(definition.stats?.price);
- return Object.freeze({
-   type:'buyOfferFixture',buyerId,targetId,originRevision:state.revision,
-   originSeed:state.rngSeed,
-   itemInstanceId:selected.instanceId,itemDefinitionId:selected.definitionId,
-   price,canAfford:buyer.money>=price,nextSeed:draw.nextSeed
- });
-}
-/**
- * Pure choice preview, with a strict recomputation of the offer. Both branches
- * merely describe an eventual transaction; no item, money, or RNG is changed.
- */
-function previewBuyChoiceFixture(state,catalog,offer,{accept}={}){
- if(typeof accept!=='boolean')fail('Buy choice must be explicit');
- if(!offer||typeof offer!=='object'||Array.isArray(offer))
-   fail('Invalid Buy offer');
- const fresh=previewBuyOfferFixture(state,catalog,{
-   buyerId:offer.buyerId,targetId:offer.targetId
- });
- const keys=Object.keys(fresh);
- if(Object.keys(offer).length!==keys.length||
-    keys.some(key=>!Object.hasOwn(offer,key)||offer[key]!==fresh[key]))
-   fail('Stale or forged Buy offer');
- const {buyer,seller}=ready(state,catalog,offer.buyerId,offer.targetId);
- if(!accept)
-   return Object.freeze({
-     decision:'declined',buyerId:offer.buyerId,targetId:offer.targetId,
-     price:offer.price,itemInstanceId:offer.itemInstanceId,
-     buyerMoneyAfter:buyer.money,sellerMoneyAfter:seller.money,
-     overflow:null,nextSeed:offer.nextSeed
-   });
- if(!offer.canAfford)fail('Poor: Buy cannot spend MP or HP');
- if(buyer.learned.length>0&&
-    buyer.hand.length+buyer.learned.length>=MAX_HAND_SIZE)
-   fail('Learned miracle overflow at hand cap needs original verification');
- if(!Number.isSafeInteger(seller.money+offer.price))
-   fail('Seller money overflow');
- const overflow=planIncomingHandTransfer(buyer.hand,offer.nextSeed);
- return Object.freeze({
-   decision:'accepted',buyerId:offer.buyerId,targetId:offer.targetId,
-   price:offer.price,itemInstanceId:offer.itemInstanceId,
-   buyerMoneyAfter:buyer.money-offer.price,
-   sellerMoneyAfter:seller.money+offer.price,
-   overflow,nextSeed:overflow.nextSeed
- });
-}
-
-return {previewBuyOfferFixture,previewBuyChoiceFixture};
-})();
-
 const __v2_module_9 = (() => {
 "use strict";
 const {createInstance} = __v2_module_2;
 const {MAX_HAND_SIZE,MAX_LEARNED_MIRACLES} = __v2_module_0;
-const {planForcedSalePayment} = __v2_module_6;
-const {planIncomingHandTransfer} = __v2_module_7;
-const {previewBuyOfferFixture,previewBuyChoiceFixture} = __v2_module_8;
+const {planForcedSalePayment} = __v2_module_5;
+const {planIncomingHandTransfer} = __v2_module_6;
+const {previewBuyOfferFixture,previewBuyChoiceFixture} = __v2_module_7;
 
 /**
  * Common, deterministic, JSON-only effect queue interpreter for the G3 lab.
@@ -1548,12 +1618,17 @@ function runEffectQueueFixture(state,catalog,queue,{
      if(Object.keys(effect).some(k=>!keys.includes(k))||
         typeof effect.accept!=='boolean')
        fail('Invalid researched Buy effect');
-     if(state.pending?.type!=='uncontestedBuy'||
-        state.pending.originalAttackerId!==effect.buyerId||
-        state.pending.targetId!==effect.sellerId||
-        state.pending.buyInstanceId!==effect.buyInstanceId||
-        state.pending.itemInstanceId!==effect.itemInstanceId||
-        state.pending.accept!==effect.accept)
+     const pending=state.pending;
+     if(!['uncontestedBuy','buy'].includes(pending?.type)||
+        pending.originalAttackerId!==effect.buyerId||
+        pending.targetId!==effect.sellerId||
+        pending.buyInstanceId!==effect.buyInstanceId||
+        (pending.type==='buy'?
+          pending.offer?.itemInstanceId!==effect.itemInstanceId||
+          pending.defense?.playerId!==effect.sellerId||
+          pending.defense?.mirrorInstanceId!==null:
+          pending.itemInstanceId!==effect.itemInstanceId)||
+        pending.accept!==effect.accept)
        fail('Buy does not match authenticated research selection');
      if(effect.buyerId===effect.sellerId)fail('Cannot buy from self');
      const originalBuyer=who(state,effect.buyerId);
@@ -1686,7 +1761,7 @@ return {runEffectQueueFixture};
 
 const __v2_module_10 = (() => {
 "use strict";
-const {previewBuyOfferFixture,previewBuyChoiceFixture} = __v2_module_8;
+const {previewBuyOfferFixture,previewBuyChoiceFixture} = __v2_module_7;
 const {runEffectQueueFixture} = __v2_module_9;
 const {MAX_HAND_SIZE} = __v2_module_0;
 
@@ -1758,7 +1833,7 @@ return {settleUncontestedBuyFixture};
 const __v2_module_11 = (() => {
 "use strict";
 const {runEffectQueueFixture} = __v2_module_9;
-const {planForcedSalePayment} = __v2_module_6;
+const {planForcedSalePayment} = __v2_module_5;
 const {MAX_HAND_SIZE} = __v2_module_0;
 
 /**
@@ -1854,7 +1929,7 @@ return {previewUncontestedSale,settleUncontestedSaleFixture};
 
 const __v2_module_12 = (() => {
 "use strict";
-const {planForcedSalePayment} = __v2_module_6;
+const {planForcedSalePayment} = __v2_module_5;
 const {runEffectQueueFixture} = __v2_module_9;
 
 /**
@@ -2059,6 +2134,74 @@ return {validateSaleDeclarationFixture,resolveStagedSaleFixture};
 })();
 
 const __v2_module_14 = (() => {
+"use strict";
+const {previewBuyOfferFixture,previewBuyChoiceFixture} = __v2_module_7;
+const {runEffectQueueFixture} = __v2_module_9;
+const {MAX_HAND_SIZE} = __v2_module_0;
+
+/**
+ * G4 LAB-ONLY source-backed Buy state machine, NON-REFLECTED path.
+ *
+ * Buyer declares Buy -> target can pass -> a private item is revealed only
+ * to the buyer -> buyer chooses Buy or decline -> common effect queue settles.
+ *
+ * Super Mirror is source-backed as a response but its *outcome and priority*
+ * remain unverified. The LAB refuses that branch (without mutating the room),
+ * rather than inventing its reversed purchase mechanics.
+ */
+
+
+
+function fail(msg){throw new Error(msg);}
+function turn(state,p){
+ return {...state,phase:'turn',activePlayerId:p.originalAttackerId,pending:null};
+}
+function resolveStagedBuyFixture(state,catalog,{
+ labOnly=false,fixtureDrawDefinitionId
+}={}){
+ if(labOnly!==true)fail('Only available in lab fixture mode');
+ if(!(catalog instanceof Map)||!catalog.has(fixtureDrawDefinitionId))
+   fail('Unknown fixture draw card');
+ const p=state?.pending;
+ if(state?.schemaVersion!==2||state.phase!=='resolving'||
+    p?.type!=='buy'||typeof p.accept!=='boolean'||
+    p.defense?.playerId!==p.targetId||
+    p.defense?.mirrorInstanceId!==null||!p.offer)
+   fail('Buy response sequence is incomplete or unverified');
+ const basis=turn(state,p);
+ const offer=previewBuyOfferFixture(basis,catalog,{
+   buyerId:p.originalAttackerId,targetId:p.targetId
+ });
+ if(offer.itemInstanceId!==p.offer.itemInstanceId||
+    offer.itemDefinitionId!==p.offer.itemDefinitionId||
+    offer.price!==p.offer.price||offer.nextSeed!==p.offer.nextSeed)
+   fail('Staged Buy item was changed after target response');
+ // No source confirms which item is lost when a Buy action is spent from
+ // an initially full physical hand, acquired item arrives and refill occurs.
+ const buyer=state.players.find(x=>x.id===p.originalAttackerId);
+ if(p.accept&&buyer?.hand.length===MAX_HAND_SIZE)
+   fail('Full-hand Buy settlement requires original timing verification');
+ const choice=previewBuyChoiceFixture(basis,catalog,offer,{accept:p.accept});
+ const queue=[
+   {type:'spend',playerId:p.originalAttackerId,instanceIds:[p.buyInstanceId]},
+   {type:'uncontestedBuy',buyerId:p.originalAttackerId,sellerId:p.targetId,
+     buyInstanceId:p.buyInstanceId,itemInstanceId:offer.itemInstanceId,
+     accept:p.accept},
+   {type:'refill'},
+   {type:'advance',afterId:p.originalAttackerId}
+ ];
+ const output=runEffectQueueFixture(state,catalog,queue,{
+   labOnly:true,fixtureDrawDefinitionId
+ });
+ return {...output,plan:Object.freeze({type:'stagedBuy',
+   decision:choice.decision,itemDefinitionId:offer.itemDefinitionId,
+   price:offer.price})};
+}
+
+return {resolveStagedBuyFixture};
+})();
+
+const __v2_module_15 = (() => {
 "use strict";
 const {combineElements} = __v2_module_0;
 
@@ -2265,11 +2408,11 @@ function queuedAttackCosts(attackContext,actorId) {
 return {compileOrderedWeaponAttack,queuedAttackCosts};
 })();
 
-const __v2_module_15 = (() => {
+const __v2_module_16 = (() => {
 "use strict";
 const {sumLegalArmor, calculateHit, MAX_HAND_SIZE} = __v2_module_0;
 const {runEffectQueueFixture} = __v2_module_9;
-const {compileOrderedWeaponAttack,queuedAttackCosts} = __v2_module_14;
+const {compileOrderedWeaponAttack,queuedAttackCosts} = __v2_module_15;
 
 /**
  * V2 G3, PART 1: pure compile/resolve for reference-backed BASIC weapon combat.
@@ -2410,10 +2553,10 @@ function resolveBasicFixture(state,catalog,options={}) {
 return {compileBasicWeaponAttack,compileBasicResolution,resolveBasicFixture};
 })();
 
-const __v2_module_16 = (() => {
+const __v2_module_17 = (() => {
 "use strict";
-const {compileBasicWeaponAttack} = __v2_module_15;
-const {queuedAttackCosts} = __v2_module_14;
+const {compileBasicWeaponAttack} = __v2_module_16;
+const {queuedAttackCosts} = __v2_module_15;
 const {runEffectQueueFixture} = __v2_module_9;
 
 /**
@@ -2552,12 +2695,12 @@ function resolveWallFixture(state,catalog,opts={}) {
 return {isWallDefense,compileWallResolution,resolveWallFixture};
 })();
 
-const __v2_module_17 = (() => {
+const __v2_module_18 = (() => {
 "use strict";
 const {planRedirectRoute} = __v2_module_3;
-const {compileBasicWeaponAttack,resolveBasicFixture} = __v2_module_15;
-const {isWallDefense,resolveWallFixture} = __v2_module_16;
-const {queuedAttackCosts} = __v2_module_14;
+const {compileBasicWeaponAttack,resolveBasicFixture} = __v2_module_16;
+const {isWallDefense,resolveWallFixture} = __v2_module_17;
+const {queuedAttackCosts} = __v2_module_15;
 const {runEffectQueueFixture} = __v2_module_9;
 
 /**
@@ -2676,7 +2819,7 @@ function resolveRedirectFixture(state,catalog,{
 return {resolveRedirectFixture};
 })();
 
-const __v2_module_18 = (() => {
+const __v2_module_19 = (() => {
 "use strict";
 const {calculateHit,sumLegalArmor} = __v2_module_0;
 const {planRedirectRoute} = __v2_module_3;
@@ -2944,13 +3087,14 @@ function resolveSoloMiracleFixture(state,catalog,options={}) {
 return {compileSoloMiracleResolution,resolveSoloMiracleFixture};
 })();
 
-const __v2_module_19 = (() => {
+const __v2_module_20 = (() => {
 "use strict";
-const {applyStagingCommand} = __v2_module_5;
+const {applyStagingCommand} = __v2_module_8;
 const {validateSaleDeclarationFixture,resolveStagedSaleFixture} = __v2_module_13;
-const {resolveRedirectFixture} = __v2_module_17;
-const {resolveSoloMiracleFixture,compileSoloMiracleResolution} = __v2_module_18;
-const {compileOrderedWeaponAttack} = __v2_module_14;
+const {resolveStagedBuyFixture} = __v2_module_14;
+const {resolveRedirectFixture} = __v2_module_18;
+const {resolveSoloMiracleFixture,compileSoloMiracleResolution} = __v2_module_19;
+const {compileOrderedWeaponAttack} = __v2_module_15;
 const {runEffectQueueFixture} = __v2_module_9;
 const {drawRandom32} = __v2_module_2;
 const {MAX_HAND_SIZE} = __v2_module_0;
@@ -2966,6 +3110,7 @@ const {MAX_HAND_SIZE} = __v2_module_0;
  * This module is LAB-ONLY. It uses an audited-incomplete fixture card draw
  * and must not be used for production card probability or online play.
  */
+
 
 
 
@@ -3088,6 +3233,8 @@ function resolveStagedFixture(state,catalog,{
     return resolveDiscardFixture(state,catalog,{labOnly,fixtureDrawDefinitionId});
   if(state.pending?.type==='sale')
     return resolveStagedSaleFixture(state,catalog,{labOnly,fixtureDrawDefinitionId});
+  if(state.pending?.type==='buy')
+    return resolveStagedBuyFixture(state,catalog,{labOnly,fixtureDrawDefinitionId});
   const family=attackFamily(state,catalog);
   if(family==='miracle')
     return resolveSoloMiracleFixture(state,catalog,{labOnly:true,fixtureDrawDefinitionId,deflectRng});
@@ -3145,11 +3292,11 @@ function submitAndResolveFixture(state,command,catalog,{
 return {resolvePrayFixture,resolveDiscardFixture,resolveStagedFixture,submitAndResolveFixture};
 })();
 
-const __v2_module_20 = (() => {
+const __v2_module_21 = (() => {
 "use strict";
 const {migrateLegacyCatalog} = __v2_module_4;
-const {createStagingRoom,viewStagingRoom} = __v2_module_5;
-const {submitAndResolveFixture} = __v2_module_19;
+const {createStagingRoom,viewStagingRoom} = __v2_module_8;
+const {submitAndResolveFixture} = __v2_module_20;
 const {VERIFIED_BASIC_CARDS} = __v2_module_1;
 
 /**
@@ -3498,9 +3645,9 @@ function createV2LabController({
 return {createV2LabController};
 })();
 
-const __v2_module_21 = (() => {
+const __v2_module_22 = (() => {
 "use strict";
-const {createV2LabController} = __v2_module_20;
+const {createV2LabController} = __v2_module_21;
 
 /**
  * Minimal accessible and touch-friendly offline V2 hotseat UI.
@@ -3712,9 +3859,9 @@ function mountV2Lab(root,controller=createV2LabController()){
 return {renderV2LabMarkup,mountV2Lab};
 })();
 
-const __v2_lab_test_controller = __v2_module_20;
+const __v2_lab_test_controller = __v2_module_21;
 
-const __v2_lab_test_ui = __v2_module_21;
+const __v2_lab_test_ui = __v2_module_22;
 
 __v2_lab_test_ui.mountV2Lab(document.getElementById("v2-root"));
 </script>
