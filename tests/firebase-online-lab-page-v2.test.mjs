@@ -34,3 +34,13 @@ test('school-sized touch controls and safe per-seat rendering are present',()=>{
  assert.match(page,/固定補充/);
  assert.match(page,/ホスト側のタブを閉じると試合が停止/);
 });
+
+test('online UI preserves in-flight command ID and offers recovery from a lost ack',()=>{
+ assert.match(page,/id="retryPanel"/);
+ assert.match(page,/id="retry"/);
+ assert.match(page,/pendingCommand=command/);
+ assert.match(page,/await session\.submit\(pendingCommand\)/);
+ assert.match(page,/if\(!ack\|\|ack\.id!==pendingId\)return/);
+ assert.match(page,/waiting=false;pendingId=null;pendingCommand=null/);
+ assert.doesNotMatch(page,/catch\(error\)\{waiting=false;pendingId=null/);
+});
