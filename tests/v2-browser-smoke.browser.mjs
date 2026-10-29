@@ -137,8 +137,12 @@ async function testFixedHeightEmbed(){
  await poll(()=>frameValue('Boolean(d.querySelector("[data-card=hand]"))'));
  await frameClick('[data-card="hand"]',0);
  const scroll=await frameValue(
-  '(f.contentWindow.scrollTo(0,d.body.scrollHeight),f.contentWindow.scrollY)');
- check(scroll>50,'embed iframe was not scrolled before submit: '+scroll);
+  '(()=>{const pane=d.querySelector(".stage-scroll");'+
+  'if(d.getElementById("v2-root").classList.contains("v2-docked")){'+
+    'pane.scrollTop=pane.scrollHeight;return {mode:"deck",top:pane.scrollTop};}'+
+  'f.contentWindow.scrollTo(0,d.body.scrollHeight);'+
+  'return {mode:"page",top:f.contentWindow.scrollY};})()');
+ check(scroll.top>50,'embedded hand scroll failed before submit: '+JSON.stringify(scroll));
  const confirm=await frameValue(
   '(()=>{const r=d.querySelector(".confirm").getBoundingClientRect();'+
   'return {y:r.y,bottom:r.bottom,h:r.height,viewport:f.contentWindow.innerHeight};})()');
