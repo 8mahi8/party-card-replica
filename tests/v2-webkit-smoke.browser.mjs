@@ -883,6 +883,79 @@ async function testTradeTrialTouch(base){
 }
 
 
+async function testFullHandSaleTouch(base){
+ const context=await browser.newContext({
+  viewport:{width:390,height:844},screen:{width:390,height:844},
+  deviceScaleFactor:2,isMobile:true,hasTouch:true,locale:'ja-J'
+ });
+ try{
+  page=await context.newPage();
+  await page.goto(base+'/embed-harness.html',{waitUntil:'load'});
+  await page.locator('#game-embed').evaluate(el=>{el.style.height='430px';});
+  const frame=page.frameLocator('#game-embed');
+  const embedded=page.frames().find(f=>f!==page.mainFrame());
+  if(!embedded)throw new Error('Missing overflow test iframe');
+  await embedded.evaluate(()=>{
+   const previous=document.getElementById('v2-root');
+   const fresh=document.createElement('div');fresh.id='v2-root';
+   previous.replaceWith(fresh);
+   const lab=__v2_lab_test_controller.createV2LabController({
+    hands:{A:['t001','w003','d005'],B:Array(18).fill('d001')}
+   });
+   window.__overflowTestLab=lab;
+   window.__overflowOldIds=lab.labSnapshot().players[1].hand.map(c=>c.instanceId);
+   window.__overflowSeed=lab.labSnapshot().rngSeed;
+   __v2_lab_test_ui.mountV2Lab(fresh,lab);
+  });
+  await frame.locator('[data-action=reveal]').tap();
+  await frame.locator('[data-card=hand]').nth(0).tap();
+  await frame.locator('[data-card=hand]').nth(1).tap();
+  await frame.locator('[data-action=submit]').tap();
+  await frame.locator('.compact-pass').waitFor();
+  passed(await frame.locator('[data-card=hand]').count()===0,
+   'full-hand trade hides buyer cards on physical handoff');
+  await frame.locator('[data-action=reveal]').tap();
+  passed(await frame.locator('[data-card=hand]').count()===18,
+   'buyer has exactly 18 old cards before the trade');
+  passed((await frame.locator('.trade-offer').textContent()).includes('¥25'),
+   'full-hand buyer still sees sale price');
+  const offer=await frame.locator('.trade-offer').boundingBox();
+  const action=await frame.locator('[data-action=submit]').boundingBox();
+  passed(Boolean(offer&&action&&offer.y+offer.height<action.y),
+   'full-hand buyer sees the price above the fixed acceptance button');
+  await screenshot('webkit-trade-full-hand-offer');
+  await frame.locator('[data-action=submit]').tap();
+  await frame.locator('.compact-pass').waitFor();
+  await frame.locator('[data-action=reveal]').tap();
+  const seats=await frame.locator('.seat').allTextContents();
+  passed(seats[1].includes('手札18枚'),
+   'receiver keeps exactly 18 cards even after a 19th card: '+JSON.stringify(seats));
+  passed(await frame.locator('[data-card=hand]').count()===18,
+   'full receiver has 18 rendered individual cards after sale');
+  passed((await frame.locator('[data-card=hand]').last().textContent()).includes('金のこん棒'),
+   'sold item survives overflow and is found in buyer hand');
+  const detail=await embedded.evaluate(()=>{
+   const now=window.__overflowTestLab.labSnapshot();
+   const before=window.__overflowOldIds;
+   const after=now.players[1].hand.map(c=>c.instanceId);
+   return {
+    newCount:after.length,oldRemaining:after.filter(id=>before.includes(id)).length,
+    incomingStillOwned:now.players[1].hand.at(-1).definitionId==='w003',
+    seedAdvanced:now.rngSeed!==window.__overflowSeed
+   };
+  });
+  passed(detail.newCount===18&&detail.oldRemaining===17&&
+    detail.incomingStillOwned&&detail.seedAdvanced,
+    'one old item randomly replaced and RNG advanced once: '+JSON.stringify(detail));
+  await screenshot('webkit-trade-full-hand-settled');
+ }catch(error){
+  await screenshot('webkit-trade-full-hand-failure');throw error;
+ }finally{
+  page=null;await context.close();
+ }
+}
+
+
 try{
   if(!existsSync(path.join(ROOT,'v2/demo/standalone.html')))
     throw new Error('Missing checked-in standalone HTML');
@@ -903,6 +976,7 @@ try{
   await testRainbowDefenseTouch(base);
   await testDiscardTouch(base);
   await testTradeTrialTouch(base);
+  await testFullHandSaleTouch(base);
   console.log('WEBKIT_SMOKE_SUCCESS checks='+checks+' engine=Playwright WebKit'+
     ' fixed-height frames=1024x460,390x430');
 }catch(error){
