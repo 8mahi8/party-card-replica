@@ -129,6 +129,13 @@ export function runEffectQueueFixture(state,catalog,queue,{
          return def?.family==='trade'&&def.effects.some(e=>e.type==='forceSale'&&e.params.kind==='sell');
        }));
      if(!paidTradeCard)fail('Sale effect requires spending a valid Sell trade card');
+     if(state.pending?.type==='sale'&&(
+       state.pending.originalAttackerId!==effect.sellerId||
+       state.pending.targetId!==effect.buyerId||
+       state.pending.soldInstanceId!==effect.soldInstanceId||
+       state.pending.defense?.playerId!==effect.buyerId||
+       state.pending.defense?.mirrorInstanceId!==null))
+       fail('Sale does not match authenticated accepted response');
      if(effect.sellerId===effect.buyerId)fail('Cannot sell to self');
      const seller=who(s,effect.sellerId),buyer=who(s,effect.buyerId);
      if(seller.hp<=0||buyer.hp<=0)fail('Trade seat eliminated');
@@ -162,8 +169,15 @@ export function runEffectQueueFixture(state,catalog,queue,{
      const allowed=['type','originalSellerId','mirrorOwnerId','soldInstanceId'];
      if(Object.keys(effect).some(k=>!allowed.includes(k)))
        fail('Unexpected reflected sale property');
-     if(state.pending?.type!=='singleMirrorSale')
+     if(state.pending?.type!=='singleMirrorSale'&&state.pending?.type!=='sale')
        fail('Reflected sale requires researched mirror staging');
+     if(state.pending?.type==='sale'&&(
+       state.pending.originalAttackerId!==effect.originalSellerId||
+       state.pending.targetId!==effect.mirrorOwnerId||
+       state.pending.soldInstanceId!==effect.soldInstanceId||
+       state.pending.defense?.playerId!==effect.mirrorOwnerId||
+       !state.pending.defense.mirrorInstanceId))
+       fail('Reflected sale does not match authenticated response');
      if(effect.originalSellerId===effect.mirrorOwnerId)
        fail('Cannot reflect a sale to self');
      const originalSeller=who(state,effect.originalSellerId);
