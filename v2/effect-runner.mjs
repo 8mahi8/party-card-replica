@@ -72,6 +72,8 @@ export function runEffectQueueFixture(state,catalog,queue,{
      const before=p.hand.length;
      p.hand=p.hand.filter(x=>!ids.has(x.instanceId));
      if(before-p.hand.length!==ids.size)fail('Card disappeared during resolution');
+     if(p.dreamDisguises)
+       p.dreamDisguises=p.dreamDisguises.filter(x=>!ids.has(x.instanceId));
      spent[p.id]=(spent[p.id]??0)+ids.size;
      events.push({type:'spend',playerId:p.id,count:ids.size});
    } else if(effect.type==='discard'){
@@ -92,6 +94,8 @@ export function runEffectQueueFixture(state,catalog,queue,{
      const before=p.hand.length;
      p.hand=p.hand.filter(x=>!ids.has(x.instanceId));
      if(before-p.hand.length!==ids.size)fail('Discarded card not in hand');
+     if(p.dreamDisguises)
+       p.dreamDisguises=p.dreamDisguises.filter(x=>!ids.has(x.instanceId));
      events.push({type:'discard',playerId:p.id,count:ids.size});
    } else if(effect.type==='grantDraw'){
      const p=who(s,effect.playerId);
