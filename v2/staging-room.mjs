@@ -472,6 +472,7 @@ function declaredAttackFixture(state,catalog){
  */
 export function viewStagingRoom(state,viewerId,catalog=null) {
   const p=seat(state,viewerId);
+  const announcement=declaredAttackFixture(state,catalog);
   return {
     schemaVersion:2,rulesetId:state.rulesetId,revision:state.revision,
     phase:state.phase,activePlayerId:state.activePlayerId,
@@ -483,8 +484,7 @@ export function viewStagingRoom(state,viewerId,catalog=null) {
     pending:state.pending?{
       type:state.pending.type,sourceId:state.pending.sourceId??state.pending.originalAttackerId,
       targetId:state.pending.targetId,
-      ...(declaredAttackFixture(state,catalog)?
-        {declaredAttack:declaredAttackFixture(state,catalog)}:{}),
+      ...(announcement?{declaredAttack:announcement}:{}),
       ...(state.pending.mirageRoute?{
         mirageRound:state.pending.mirageRoute.roundIndex+1,
         mirageRounds:state.pending.mirageRoute.roundCount,
