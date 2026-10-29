@@ -843,6 +843,11 @@ async function testTradeTrialTouch(base){
      (await offer.textContent()).includes('金のこん棒') &&
      (await offer.textContent()).includes('¥25'),
     'buyer sees source-backed offered item and price');
+   const offerRect=await offer.boundingBox();
+   const actionRect=await frame.locator('[data-action=submit]').boundingBox();
+   passed(Boolean(offerRect&&actionRect&&
+      offerRect.y+offerRect.height<=actionRect.y-5),
+    'offer and price remain fully above sticky action bar in fixed iframe');
    passed(await frame.locator('[data-card=hand]:disabled').count()===1,
     'non-mirror armor is disabled for sale reaction');
    if(item.mirror){
