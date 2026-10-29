@@ -67,7 +67,12 @@ export function runEffectQueueFixture(state,catalog,queue,{
  validateDreamOwnershipFixture(state,catalog);
  if(interruptionOnly&&queue.some(e=>!['spend','grantDraw','mp','learn'].includes(e?.type)))
    fail('Resolution commands are not permitted while staging');
- const s=cloneRoom(state,{interruptionOnly});
+ const continuation=queue.at(-1)?.type==='continueStrike';
+ if(continuation&&(interruptionOnly||queue.filter(e=>e.type==='hit').length!==1||
+    queue.some(e=>['refill','advance'].includes(e.type))||
+    state.pending?.type!=='attack'||(state.pending.strikeIndex??0)!==0))
+   fail('Invalid first-strike continuation queue');
+ const s=cloneRoom(state,{interruptionOnly:interruptionOnly||continuation});
  const spent=Object.assign(Object.create(null),state.pending.spentByPlayer??{});
  const events=[];
  for(const effect of queue){
@@ -436,6 +441,34 @@ export function runEffectQueueFixture(state,catalog,queue,{
      events.push({type:'reflectedSale',originalSellerId:seller.id,
        mirrorOwnerId:counter.id,itemDefinitionId:itemDef.id,
        price:itemDef.stats.price,debit:payment.debit});
+   } else if(effect.type==='continueStrike'){
+     // A verified multi-hit attack opens a NEW defense window rather
+     // than doubling damage or drawing new cards during its first strike.
+     if(!continuation||effect!==queue.at(-1)||s.pending?.type!=='attack'||
+        s.pending.strikeIndex!==undefined||
+        effect.attackContext?.attackKind!=='weapon'||
+        effect.attackContext.hitCount!==2||
+        effect.attackContext.absorbsHp===true||
+        (state.pending.attackContext &&
+          (state.pending.attackContext.hitCount!==2||
+           JSON.stringify(state.pending.attackContext)!==JSON.stringify(effect.attackContext))))
+       fail('Invalid repeated strike context');
+     const origin=who(s,s.pending.originalAttackerId);
+     const target=who(s,effect.repeatTargetId);
+     if(origin.hp<=0||target.hp<=0)
+       fail('Cannot continue a hit after a player is eliminated');
+     if(state.pending.attackContext===undefined){
+       const real=state.pending.attackInstanceIds?.some(id=>
+         origin.hand.some(card=>card.instanceId===id&&
+           catalog.get(card.definitionId)?.effects.some(e=>
+             e.when==='onDeclare'&&e.type==='repeatAttack'&&e.params.count===2)));
+       if(!real)fail('A repeated attack needs the original physical weapon');
+     }
+     s.pending={...s.pending,attackContext:effect.attackContext,
+       repeatTargetId:target.id,sourceId:origin.id,targetId:target.id,
+       strikeIndex:1,defense:null};
+     s.phase='defense';s.activePlayerId=target.id;
+     events.push({type:'nextStrike',strikeIndex:1,hitCount:2,targetId:target.id});
    } else if(effect.type==='refill'){
      for(const p of s.players){
        const amount=spent[p.id]??0;
@@ -462,7 +495,7 @@ export function runEffectQueueFixture(state,catalog,queue,{
      }
    } else fail('Unknown queued effect: '+String(effect.type));
  }
- if(interruptionOnly)s.pending.spentByPlayer={...spent};
+ if(interruptionOnly||continuation)s.pending.spentByPlayer={...spent};
  validateDreamOwnershipFixture(s,catalog);
  return {state:s,events};
 }
