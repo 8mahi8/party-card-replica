@@ -12,6 +12,7 @@
  */
 import {createInstance, selectInstances} from './foundation.mjs';
 import {previewBuyOfferFixture} from './trade-buy.mjs';
+import {previewExchangeFixture} from './trade-exchange.mjs';
 
 const ID=/^[a-zA-Z0-9._:-]{1,80}$/;
 const MAX_PLAYERS=9;
@@ -24,6 +25,7 @@ const ALLOWED_KEYS={
   declareBuy:new Set(['commandId','expectedRevision','actorId','type','targetId','buyInstanceId']),
   respondBuy:new Set(['commandId','expectedRevision','actorId','type','mirrorInstanceId']),
   decideBuy:new Set(['commandId','expectedRevision','actorId','type','accept']),
+  exchange:new Set(['commandId','expectedRevision','actorId','type','exchangeInstanceId','allocation']),
   playCards:new Set(['commandId','expectedRevision','actorId','type','targetId','orderedInstanceIds']),
   playSequence:new Set(['commandId','expectedRevision','actorId','type','targetId','orderedPlays']),
   castLearned:new Set(['commandId','expectedRevision','actorId','type','targetId','learnedDefinitionId']),
@@ -57,6 +59,12 @@ function fingerprint(command) {
     orderedInstanceIds:command.orderedInstanceIds??null,
     learnedDefinitionId:command.learnedDefinitionId??null,
     buyInstanceId:command.buyInstanceId??null,
+    exchangeInstanceId:command.exchangeInstanceId??null,
+    // Stable semantic projection, not JSON object key order.
+    allocation:command.type==='exchange'?{
+      hp:command.allocation?.hp,mp:command.allocation?.mp,
+      money:command.allocation?.money
+    }:null,
     accept:command.accept??null,
     saleInstanceId:command.saleInstanceId??null,
     soldInstanceId:command.soldInstanceId??null,
@@ -224,7 +232,21 @@ export function applyStagingCommand(state,command,catalog,{authorizedSeatId}={})
   let pending;
   let phase;
   let activePlayerId;
-  if(command.type==='declareBuy'){
+  if(command.type==='exchange'){
+    if(state.phase!=='turn'||actor.hp<=0)
+      throw new Error('Exchange only during a living turn');
+    id(command.exchangeInstanceId,'Exchange card ID');
+    const physical=actor.hand.find(c=>c.instanceId===command.exchangeInstanceId);
+    const def=catalog.get(physical?.definitionId);
+    if(!physical||def?.family!=='trade'||!def.effects.some(e=>
+      e.when==='onDeclare'&&e.type==='reallocateResources'&&
+      e.params.kind==='exchange'))
+      throw new Error('Selected card cannot declare Exchange');
+    const plan=previewExchangeFixture(actor,command.allocation);
+    pending={type:'exchange',originalAttackerId:actor.id,
+      exchangeInstanceId:physical.instanceId,allocation:{...plan.after}};
+    phase='resolving';activePlayerId=null;
+  }else if(command.type==='declareBuy'){
     if(state.phase!=='turn'||actor.hp<=0)
       throw new Error('Not a living trade turn');
     id(command.targetId,'target ID');
