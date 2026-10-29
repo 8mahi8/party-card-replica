@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>ゴッドフィールド V2｜オンライン2人研究版</title>
+<style>
+:root{font-family:system-ui,-apple-system,"Hiragino Kaku Gothic ProN",sans-serif;color-scheme:dark;color:#e9eef8;background:#111827}
+*{box-sizing:border-box}body{margin:0;min-height:100dvh;background:#111827}button,input{font:inherit}button{cursor:pointer;color:inherit;touch-action:manipulation;-webkit-tap-highlight-color:transparent}button:disabled{opacity:.48;cursor:default}
+main{max-width:790px;margin:auto;padding:12px 12px 24px}h1{font-size:19px;margin:4px 0 10px}h2{font-size:15px;margin:10px 0}
+.notice{font-size:12px;line-height:1.5;background:#3e311a;border:1px solid #a68a4f;padding:9px;border-radius:9px;margin:8px 0 12px}
+.panel{border:1px solid #4a5870;background:#1b2637;border-radius:13px;padding:12px;margin:10px 0}
+.inline{display:flex;flex-wrap:wrap;gap:8px;align-items:center}.inline>*{flex:1;min-width:100px}
+button{min-height:42px;border:1px solid #567390;background:#253e5a;border-radius:9px;padding:8px 11px;font-weight:700}
+button.primary{background:#476c92;border-color:#8ab6e1}
+input{max-width:185px;min-height:42px;border:1px solid #637b92;background:#111e30;color:white;border-radius:9px;padding:8px;text-align:center;letter-spacing:.2em;font-size:18px}
+#roomLabel{font-weight:850;color:#f2d99f;font-size:17px;letter-spacing:.09em}
+#status{min-height:22px;color:#cee1ff;font-size:13px;white-space:pre-wrap}
+.scores{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+.score{padding:9px;background:#131d2c;border:1px solid #52657b;border-radius:10px;font-size:13px;line-height:1.7}
+.score.active{border-color:#f0cf7b}.score strong{display:block}
+.hand{display:grid;grid-template-columns:repeat(auto-fit,minmax(138px,1fr));gap:7px}
+.hand button{min-height:80px;text-align:left;display:flex;flex-direction:column;gap:5px;justify-content:center}
+.hand button.selected{background:#365d51;border-color:#9cddb8}
+.hand button small{color:#b7c8df;font-size:11px}
+#phase{color:#ffdfa2;font-weight:700;font-size:14px;margin:8px 0}
+#battle[hidden],#lobby[hidden],#actions[hidden]{display:none}
+#actions{display:flex;flex-wrap:wrap;gap:8px}
+#actions button{flex:1;min-width:120px}
+@media(max-width:480px){main{padding:7px}.panel{padding:9px;margin:7px 0}.hand{grid-template-columns:repeat(2,minmax(0,1fr))}.hand button{min-height:72px;font-size:12px}h1{font-size:17px}}
+</style>
+</head>
+<body><main>
+<h1>ゴッドフィールド V2｜オンライン研究版</h1>
+<div class="notice">⚠ 開発・検証専用。2人対戦のみ／カードは固定補充／原作353種の再現ではありません。ホスト側のタブを閉じると試合が停止します。学校への公開前にはiPadで実機確認が必要です。</div>
+<section id="lobby" class="panel">
+<h2>2台で接続する</h2>
+<div class="inline"><button id="create" class="primary">ルームを作る（ホスト）</button></div>
+<div class="inline" style="margin-top:9px"><input id="joinCode" inputmode="numeric" maxlength="5" placeholder="5桁の番号"><button id="join">参加する（ゲスト）</button></div>
+</section>
+<section class="panel">
+<div class="inline"><strong id="roomLabel">未接続</strong><span id="roleLabel">接続前</span></div>
+<p id="status" role="status">Firebase接続を準備しています</p>
+</section>
+<section id="battle" hidden>
+<div class="panel"><div id="scores" class="scores"></div><div id="phase"></div></div>
+<div class="panel"><h2>自分の手札（タップで選択）</h2><div id="hand" class="hand"></div></div>
+<div id="actions" class="panel" hidden>
+<button id="attack" class="primary">選んだカードで攻撃</button>
+<button id="defend" class="primary">防御を確定／防御しない</button>
+<button id="pray">祈る（武器がない時）</button>
+<button id="discard">選んだカードを捨てる</button>
+</div>
+</section>
+</main>
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
+<script type="module">
+import {migrateLegacyCatalog} from '../legacy-adapter.mjs';
+import {createStagingRoom} from '../staging-room.mjs';
+import {createFirebaseTwoSeatHostFixture,joinFirebaseTwoSeatGuestFixture}
+ from '../firebase-two-seat-transport-fixture.mjs';
+import {VERIFIED_BASIC_CARDS} from '../../src/verified-basic-cards.mjs';
+
+const $=id=>document.getElementById(id);
+const {byId:catalog}=migrateLegacyCatalog();
+const names=new Map(VERIFIED_BASIC_CARDS.map(c=>[c.id,c.referenceName]));
+const url='https://mygame-df915-default-rtdb.firebaseio.com/';
+let db=null,session=null,view=null,seat=null,joined=false,waiting=false,selection=new Set(),lastRevision=-1,pendingId=null;
+const randomId=()=>{const a=new Uint32Array(2);crypto.getRandomValues(a);return Array.from(a,x=>x.toString(36)).join('-');};
+const code=()=>{const a=new Uint32Array(1);crypto.getRandomValues(a);return String(10000+a[0]%90000);};
+const feedback=s=>{$('status').textContent=String(s);};
+function ensureDb(){
+ if(db)return db;
+ if(!window.firebase?.database)throw Error('Firebase SDKを読み込めませんでした');
+ let app;
+ try{app=firebase.app('godfield-v2-lab')}catch{app=firebase.initializeApp({databaseURL:url},'godfield-v2-lab')}
+ db=app.database();return db;
+}
+function onError(error){feedback('通信エラー: '+(error?.message||String(error)))}
+function callbacks(){
+ return {
+  onView(next){
+   if(!next)return;
+   if(next.revision!==lastRevision){selection.clear();lastRevision=next.revision;}
+   view=next;render();
+  },
+  onStatus(info){
+   if(seat==='A')joined=!!info.joined;
+   render();
+  },
+  onReceipt(ack){
+   if(!ack||ack.id!==pendingId)return;
+   waiting=false;pendingId=null;
+   if(!ack.ok)onError(ack.error);
+   else feedback('操作を反映しました');
+   render();
+  },
+  onError
+ };
+}
+function showSeatLabel(id){return id==='A'?'P1（ホスト）':'P2（ゲスト）'}
+function render(){
+ $('roomLabel').textContent=session?'ルーム '+session.roomCode:'未接続';
+ $('roleLabel').textContent=seat?showSeatLabel(seat):'接続前';
+ $('lobby').hidden=!!session;$('battle').hidden=!view;
+ if(!session)return;
+ if(!view){feedback('相手の画面情報を読み込んでいます');return}
+ const active=view.activePlayerId===seat;
+ const player=view.players.find(p=>p.id===seat);
+ $('scores').replaceChildren();
+ for(const p of view.players){
+  const e=document.createElement('div');e.className='score'+(view.activePlayerId===p.id?' active':'');
+  e.textContent=showSeatLabel(p.id)+'  HP '+p.hp+' / MP '+p.mp+' / ¥ '+p.money+' / 手札 '+p.handCount+'枚';
+  $('scores').append(e);
+ }
+ $('phase').textContent=view.phase==='finished'?'対戦終了':
+  view.phase==='defense'?'防御待ち '+showSeatLabel(view.activePlayerId):
+  view.phase==='turn'?'攻撃手番 '+showSeatLabel(view.activePlayerId):
+  '処理中…';
+ $('hand').replaceChildren();
+ for(const c of player.hand||[]){
+  const def=catalog.get(c.definitionId),btn=document.createElement('button');
+  const picked=selection.has(c.instanceId);
+  btn.type='button';btn.className=picked?'selected':'';
+  const name=names.get(c.definitionId)||c.definitionId;
+  const stats=def?.stats||{};
+  btn.textContent=name;
+  const sub=document.createElement('small');
+  sub.textContent=[stats.attack?'攻'+stats.attack:'',stats.guard?'守'+stats.guard:'',
+    stats.mpCost?'MP'+stats.mpCost:''].filter(Boolean).join(' · ')||'カード';
+  btn.append(sub);btn.setAttribute('aria-pressed',String(picked));
+  btn.disabled=!active||waiting;
+  btn.addEventListener('click',()=>{
+   if(selection.has(c.instanceId))selection.delete(c.instanceId);
+   else selection.add(c.instanceId);
+   render();
+  });
+  $('hand').append(btn);
+ }
+ const turn=view.phase==='turn',defense=view.phase==='defense',usable=active&&!waiting&&(seat!=='A'||joined);
+ $('actions').hidden=!(turn||defense);
+ $('attack').hidden=!turn;$('pray').hidden=!turn;$('discard').hidden=!turn;
+ $('defend').hidden=!defense;
+ $('attack').disabled=!usable||!selection.size;
+ $('discard').disabled=!usable||!selection.size;
+ $('pray').disabled=!usable||player.hand?.some(c=>catalog.get(c.definitionId)?.family==='weapon');
+ $('defend').disabled=!usable;
+ if(seat==='A'&&!joined)feedback('相手が5桁のルーム番号で参加するのを待っています');
+}
+async function send(type){
+ if(!session||!view||waiting||view.activePlayerId!==seat||seat==='A'&&!joined)return;
+ const ids=[...selection];
+ const command={commandId:randomId(),expectedRevision:view.revision,actorId:seat,type};
+ if(type==='playCards'||type==='defend'||type==='discard')command.orderedInstanceIds=ids;
+ if(type==='playCards')command.targetId=seat==='A'?'B':'A';
+ waiting=true;pendingId=command.commandId;feedback('操作を送信しています…');render();
+ try{await session.submit(command)}catch(error){waiting=false;pendingId=null;onError(error);render();}
+}
+$('create').addEventListener('click',async()=>{
+ $('create').disabled=true;
+ try{
+  const database=ensureDb();
+  const initialState=createStagingRoom({firstSeatId:'A',
+   seats:[{id:'A',handDefinitionIds:['w016','d001','m002','d003']},
+    {id:'B',handDefinitionIds:['w027','d003','m001','d001']}],
+   rulesetId:'partial-reference-v2-lab',rngSeed:71},catalog);
+  for(let i=0;i<5;i++){
+   try{
+    const roomCode=code();
+    seat='A';joined=false;
+    session=await createFirebaseTwoSeatHostFixture({db:database,code:roomCode,
+     hostId:randomId(),initialState,catalog,...callbacks()});
+    break;
+   }catch(e){if(!/使用中/.test(e.message)||i===4)throw e;}
+  }
+  render();feedback('ルーム番号を友達に伝えてください');
+ }catch(e){onError(e);seat=null;}finally{$('create').disabled=!!session}
+});
+$('join').addEventListener('click',async()=>{
+ $('join').disabled=true;
+ try{
+  const database=ensureDb(),roomCode=$('joinCode').value.trim();
+  const key='godfield-v2-guest-'+roomCode;
+  const guestId=sessionStorage.getItem(key)||randomId();
+  seat='B';joined=true;
+  session=await joinFirebaseTwoSeatGuestFixture({db:database,code:roomCode,guestId,...callbacks()});
+  sessionStorage.setItem(key,guestId);
+  render();feedback('接続しました。自分の順番を待ってください');
+ }catch(e){onError(e);seat=null;}finally{$('join').disabled=!!session}
+});
+$('attack').addEventListener('click',()=>send('playCards'));
+$('defend').addEventListener('click',()=>send('defend'));
+$('pray').addEventListener('click',()=>send('pray'));
+$('discard').addEventListener('click',()=>send('discard'));
+feedback('ルームを作るか、5桁の番号で参加してください');
+</script>
+</body></html>
