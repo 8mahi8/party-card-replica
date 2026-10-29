@@ -161,3 +161,20 @@ test('lethal sale still fails closed, even with a full receiver hand',()=>{
  assert.throws(()=>settle(s),/Lethal forced sale requires original verification/);
  assert.equal(JSON.stringify(s),snapshot);
 });
+
+test('learned miracle card slots at cap remain gated until original overflow ordering is known',()=>{
+ const s=room(17),original=JSON.stringify(s);
+ s.players[1].learned=['m002'];
+ const snapshot=JSON.stringify(s);
+ assert.throws(()=>previewUncontestedSale(s,catalog,trade(s)),
+  /Learned miracle overflow at hand cap/);
+ assert.throws(()=>settle(s),/Learned miracle overflow at hand cap/);
+ assert.equal(JSON.stringify(s),snapshot);
+ const below=room(16);
+ below.players[1].learned=['m002'];
+ const result=settle(below);
+ assert.equal(result.state.players[1].hand.length,17);
+ assert.deepEqual(result.state.players[1].learned,['m002']);
+ assert.equal(result.events.some(e=>e.type==='handOverflow'),false);
+ assert.equal(JSON.stringify(room(17)),original);
+});
