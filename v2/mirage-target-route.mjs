@@ -82,7 +82,7 @@ function immutableRoute(base,extra={}){
 }
 /** Create target plan for an isolated fixture; first random draw is recorded. */
 export function beginMirageTargetRouteFixture({
- players,sourceId,mirageCount=1,hitsPerTarget=1,rngSeed
+ players,sourceId,firstTargetId=null,mirageCount=1,hitsPerTarget=1,rngSeed
 }={}){
  checkPlayers(players);id(sourceId);
  if(![1,2,3].includes(mirageCount)||![1,2].includes(hitsPerTarget))
@@ -91,7 +91,11 @@ export function beginMirageTargetRouteFixture({
   fail('Source must be alive');
  const eligible=players.filter(p=>p.id!==sourceId&&p.hp>0).map(p=>p.id);
  if(!eligible.length)fail('No living targets');
- const {targetId,nextSeed}=draw(eligible,rngSeed);
+ if(firstTargetId!==null&&(!eligible.includes(firstTargetId)))
+  fail('First target must be a living opponent');
+ const choice=firstTargetId===null?draw(eligible,rngSeed)
+   :{targetId:firstTargetId,nextSeed:rngSeed};
+ const {targetId,nextSeed}=choice;
  const route=immutableRoute({
    sourceId,targetId,initialSeatIds:players.map(p=>p.id),eligibleIds:eligible,
    roundCount:mirageCount,hitsPerTarget,
