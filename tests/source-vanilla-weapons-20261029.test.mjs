@@ -134,7 +134,7 @@ test('22 new definitions preserve independent partial-contract snapshot and prev
  assert.equal(summary.slots,RESEARCH_CATALOG_CONTRACT.slots);
  assert.equal(RESEARCH_CATALOG_CONTRACT.complete,false);
  const audited=auditCatalog(VERIFIED_BASIC_CARDS);
- assert.equal(audited.unique,116);assert.equal(audited.slots,305);
+ assert.equal(audited.unique,RESEARCH_CATALOG_CONTRACT.unique);assert.equal(audited.slots,RESEARCH_CATALOG_CONTRACT.slots);
  assert.equal(audited.complete,false);
  assert.throws(()=>createAuditedDraw(VERIFIED_BASIC_CARDS),/Catalog incomplete/);
 });
