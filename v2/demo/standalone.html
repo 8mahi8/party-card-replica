@@ -2341,6 +2341,36 @@ function runEffectQueueFixture(state,catalog,queue,{
  const s=cloneRoom(state,{interruptionOnly:interruptionOnly||continuation});
  const spent=Object.assign(Object.create(null),state.pending.spentByPlayer??{});
  const events=[];
+
+ // All attack types must share exactly one refill and turn/match settlement.
+ // A staged multi-target attack may call these after its last target rather
+ // than enqueueing a premature refill after any intermediate defense.
+ function refillSettled(){
+   for(const p of s.players){
+     const amount=spent[p.id]??0;
+     if(!positiveCount(amount))fail('Invalid spent count');
+     let added=0;
+     if(p.hp>0){
+       while(added<amount&&p.hand.length<MAX_HAND_SIZE){
+         p.hand.push(createInstance(fixtureDrawDefinitionId,s.nextInstanceSerial++,catalog));
+         added++;
+       }
+     }
+     if(amount)events.push({type:'refill',playerId:p.id,added});
+   }
+ }
+ function advanceSettled(afterId){
+   const living=s.players.filter(p=>p.hp>0);
+   if(living.length<=1){
+     s.phase='finished';s.activePlayerId=null;
+     s.winnerId=living.length===1?living[0].id:null;
+     events.push({type:'matchEnd',winnerId:s.winnerId});
+   } else {
+     s.phase='turn';s.activePlayerId=nextAlive(s.players,afterId);
+     s.turnCount++;
+     events.push({type:'turnAdvance',activePlayerId:s.activePlayerId});
+   }
+ }
  for(const effect of queue){
    if(!effect||typeof effect!=='object')fail('Malformed queued effect');
    if(effect.type==='spend'){
@@ -2770,30 +2800,9 @@ function runEffectQueueFixture(state,catalog,queue,{
      } else {
        // The same settle/refill and turn-advance semantics as a single
        // attack, but only once after the last possible Mirage target.
-       for(const p of s.players){
-         const amount=spent[p.id]??0;
-         if(!positiveCount(amount))fail('Invalid spent count');
-         let added=0;
-         if(p.hp>0){
-           while(added<amount&&p.hand.length<MAX_HAND_SIZE){
-             p.hand.push(createInstance(fixtureDrawDefinitionId,
-               s.nextInstanceSerial++,catalog));
-             added++;
-           }
-         }
-         if(amount)events.push({type:'refill',playerId:p.id,added});
-       }
-       const living=s.players.filter(p=>p.hp>0);
+       refillSettled();
        s.pending=null;
-       if(living.length<=1){
-         s.phase='finished';s.activePlayerId=null;
-         s.winnerId=living.length===1?living[0].id:null;
-         events.push({type:'matchEnd',winnerId:s.winnerId});
-       } else {
-         s.phase='turn';s.activePlayerId=nextAlive(s.players,origin.id);
-         s.turnCount++;
-         events.push({type:'turnAdvance',activePlayerId:s.activePlayerId});
-       }
+       advanceSettled(origin.id);
        events.push({type:'mirageRouteComplete',reason:next.reason,
          hitNumber:next.hitNumber});
      }
@@ -2845,29 +2854,9 @@ function runEffectQueueFixture(state,catalog,queue,{
      events.push({type:'nextStrike',strikeIndex:s.pending.strikeIndex,
        hitCount:effect.attackContext.hitCount,targetId:target.id});
    } else if(effect.type==='refill'){
-     for(const p of s.players){
-       const amount=spent[p.id]??0;
-       if(!positiveCount(amount))fail('Invalid spent count');
-       let added=0;
-       if(p.hp>0){
-         while(added<amount&&p.hand.length<MAX_HAND_SIZE){
-           p.hand.push(createInstance(fixtureDrawDefinitionId,s.nextInstanceSerial++,catalog));
-           added++;
-         }
-       }
-       if(amount)events.push({type:'refill',playerId:p.id,added});
-     }
+     refillSettled();
    } else if(effect.type==='advance'){
-     const living=s.players.filter(p=>p.hp>0);
-     if(living.length<=1){
-       s.phase='finished';s.activePlayerId=null;
-       s.winnerId=living.length===1?living[0].id:null;
-       events.push({type:'matchEnd',winnerId:s.winnerId});
-     } else {
-       s.phase='turn';s.activePlayerId=nextAlive(s.players,effect.afterId);
-       s.turnCount++;
-       events.push({type:'turnAdvance',activePlayerId:s.activePlayerId});
-     }
+     advanceSettled(effect.afterId);
    } else fail('Unknown queued effect: '+String(effect.type));
  }
  if((interruptionOnly||continuation)&&s.pending)s.pending.spentByPlayer={...spent};
