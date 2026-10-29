@@ -54,6 +54,33 @@ export function renderV2LabMarkup(data,{resetArmed=false}={}){
       '取引の研究配置で始める</button>':'')+
      '</section>'+footer;
  }
+ if(data.phase==='tradeDefense'){
+   const tradeOffer=data.pending?.offer;
+   const stats=data.publicPlayers.map(p=>
+     '<div class="trade-mini-seat"><strong>'+esc(seatLabel(p.id))+'</strong>'+
+     '<span>HP <b>'+esc(p.hp)+'</b></span>'+
+     '<span>MP <b>'+esc(p.mp)+'</b></span>'+
+     '<span>¥ <b>'+esc(p.money)+'</b></span></div>'
+   ).join('');
+   const offered=tradeOffer?
+     '<section class="trade-offer" aria-label="取引の提示"><strong>売り付けられた神器：'+
+     esc(tradeOffer.label)+'</strong><span>価格 ¥'+esc(tradeOffer.price)+'</span></section>':
+     '<p class="status">取引の商品が見つかりません</p>';
+   const responseText=data.selection.length?
+     'スーパーミラーで跳ね返す':'売買を受け入れる';
+   return topLine+'<main class="trade-reply">'+
+     '<p class="trade-research-note">⚠ 取引の研究用・オフライン1台交代制／カード補充は固定</p>'+
+     '<div class="trade-mini-scores">'+stats+'</div>'+
+     offered+
+     '<h2>'+esc(seatLabel(data.actorId))+'：取引への応答</h2>'+
+     '<p class="trade-hint">スーパーミラーだけが有効。選ばなければ売買を受け入れます</p>'+
+     '<div class="hand-grid trade-hand">'+
+       (data.hand.length?data.hand.map(c=>cardButton(c,'hand')).join(''):
+         '<p class="empty">手札がありません</p>')+
+     '</div><p class="status" role="status">'+esc(data.notice)+'</p>'+
+     '<div class="action-bar"><button type="button" class="primary wide confirm" data-action="submit">'+
+     responseText+'</button></div></main>'+footer;
+ }
  const title=data.phase==='turn'?'攻撃するカードを順番に選択':
    data.phase==='tradeDefense'?'取引への応答を選択':'防御カードを順番に選択';
  const firstPicked=data.selection[0]?.instanceId
@@ -85,10 +112,9 @@ export function renderV2LabMarkup(data,{resetArmed=false}={}){
      data.learned.find(q=>q.definitionId===x.learnedDefinitionId);
    return '<span class="pick-index">'+(i+1)+'. '+esc(c?.label??'選択中')+'</span>';
  }).join('');
- const actionText=data.phase==='tradeDefense'?
-     (data.selection.length?'スーパーミラーで跳ね返す':'売買を受け入れる'):
-     data.phase==='defense'?(data.selection.length?'防御を確定':'防御しない')
-   :data.canPray&&data.selection.length===0?'祈る（神器を1枚引く）':'攻撃を確定';
+ const actionText=data.phase==='defense'?(data.selection.length?'防御を確定':'防御しない')
+   :isSelling?'取引を申し込む':
+     data.canPray&&data.selection.length===0?'祈る（神器を1枚引く）':'攻撃を確定';
  const notice='<p class="status" role="status">'+esc(data.notice)+'</p>';
  const discardOption=data.phase==='turn' && data.canDiscardSelection && !isSelling
    ?'<button type="button" class="quiet discard-option" data-action="discard">'+
