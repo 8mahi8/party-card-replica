@@ -179,7 +179,7 @@ export function renderV2LabMarkup(data,{resetArmed=false}={}){
  const actionText=data.phase==='defense'?(data.selection.length?'防御を確定':'防御しない')
    :isExchange?'両替を確定':isSelling||isBuying?'取引を申し込む':
      data.canPray&&data.selection.length===0?'祈る（神器を1枚引く）':'攻撃を確定';
- const notice='<p class="status" role="status">'+esc(data.notice)+'</p>';
+ const notice='<p class="status dock-status" role="status">'+esc(data.notice)+'</p>';
  const discardOption=data.phase==='turn' && data.canDiscardSelection && !isSelling && !isBuying && !isExchange
    ?'<button type="button" class="quiet discard-option" data-action="discard">'+
      '<strong>'+data.selection.length+'枚捨てる</strong><small>補充なし・ターン終了</small>'+
@@ -216,7 +216,7 @@ export function renderV2LabMarkup(data,{resetArmed=false}={}){
        '<p class="empty">まだ習得していません</p>')+'</div></section>'+
    '<section class="selection"><h2>選択順 <small>再タップで解除</small></h2><div class="picks">'+
    (picked||'<span class="muted">まだ選択されていません</span>')+'</div></section>'+
-   notice+'</div><div class="action-bar">'+discardOption+
+   '</div>'+notice+'<div class="action-bar">'+discardOption+
    '<button type="button" class="primary wide confirm" data-action="submit">'+
    actionText+'</button></div></main>'+footer;
 }
