@@ -1206,6 +1206,50 @@ async function testSelfSaleTouch(base){
  }finally{page=null;await context.close();}
 }
 
+
+async function testDreamAppearanceTouch(base){
+ const context=await browser.newContext({
+  viewport:{width:390,height:844},screen:{width:390,height:844},
+  deviceScaleFactor:2,isMobile:true,hasTouch:true,locale:'ja-J'
+ });
+ try{
+  page=await context.newPage();
+  await page.goto(base+'/embed-harness.html',{waitUntil:'load'});
+  await page.locator('#game-embed').evaluate(el=>{el.style.height='430px';});
+  const frame=page.frameLocator('#game-embed');
+  await frame.locator('[data-action=dream-demo]').tap();
+  await frame.locator('.compact-pass').waitFor();
+  passed(await frame.locator('[data-card]').count()===0,
+    'Dream research scenario does not reveal any private hand at handoff');
+  await frame.locator('[data-action=reveal]').tap();
+  const hand=frame.locator('[data-card=hand]');
+  passed((await hand.nth(0).textContent()).includes('売る'),
+    'Dream trial keeps trade card real and untwisted');
+  passed((await hand.nth(1).textContent()).includes('ワンダーソード') &&
+    !(await hand.nth(1).textContent()).includes('金のこん棒'),
+    'Dream owner sees a false ordinary weapon name without leaking its identity');
+  await hand.first().tap();
+  await hand.nth(1).tap();
+  await frame.locator('[data-target=A]').tap();
+  passed((await frame.locator('[data-target=A]').getAttribute('aria-pressed'))==='true',
+    'Dream-disguised physical card can be self-Sold by instance ID');
+  await screenshot('webkit-dream-false-card');
+  await frame.locator('[data-action=submit]').tap();
+  await frame.locator('.compact-pass').waitFor();
+  passed((await frame.locator('.compact-pass h1').textContent()).includes('P2'),
+    'self-Sell of Dream card resolves without phantom defense prompt');
+  await frame.locator('[data-action=reveal]').tap();
+  const scores=await frame.locator('.seat').allTextContents();
+  passed(scores[0].includes('HP 40')&&scores[0].includes('MP 5')&&
+    scores[0].includes('¥ 25'),
+    'actual 25-yen artifact price, not fake 4-yen appearance, is settled');
+  passed(scores[1].includes('HP 40')&&scores[1].includes('¥ 20'),
+    'opponent remains untouched by private self Sell');
+  await screenshot('webkit-dream-self-sold');
+ }catch(error){await screenshot('webkit-dream-failure');throw error;}
+ finally{page=null;await context.close();}
+}
+
 async function testFullHandSaleTouch(base){
  const context=await browser.newContext({
   viewport:{width:390,height:844},screen:{width:390,height:844},
@@ -1305,6 +1349,7 @@ try{
   await testExchangeTrialTouch(base);
   await testSunCharmRevivalTouch(base);
   await testSelfSaleTouch(base);
+  await testDreamAppearanceTouch(base);
   console.log('WEBKIT_SMOKE_SUCCESS checks='+checks+' engine=Playwright WebKit'+
     ' fixed-height frames=1024x460,390x430');
 }catch(error){
