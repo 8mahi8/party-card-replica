@@ -75,7 +75,7 @@ try{
  code=(await a.locator('#roomLabel').textContent()).match(/\d{5}/)[0];
  console.log('G6_LIVE_HOST_CREATED');
  const created=await dbRead(code);
- if(!created?.meta?.hostId||created?.meta?.guestId!==null)
+ if(!created?.meta?.hostId||created?.meta?.guestId!=null)
   throw Error('Live RTDB room was not created correctly');
  await b.goto(url,{waitUntil:'load',timeout:20000});
  await b.locator('#joinCode').fill(code);
