@@ -2052,6 +2052,10 @@ function viewStagingRoom(state,viewerId,catalog=null) {
     pending:state.pending?{
       type:state.pending.type,sourceId:state.pending.sourceId??state.pending.originalAttackerId,
       targetId:state.pending.targetId,
+      ...(state.pending.strikeIndex!==undefined?{
+        strikeNumber:state.pending.strikeIndex+1,
+        strikeCount:state.pending.attackContext?.hitCount??1
+      }:{}),
       stage:state.pending.type==='buy'?
         (state.phase==='buyDefense'?'awaitingTradeResponse':
          state.phase==='buyDecision'?'awaitingPurchaseDecision':'awaitingResolution'):
@@ -3283,6 +3287,8 @@ function compileOrderedWeaponAttack(state,catalog){
     }
   }
   if(!weaponCount)fail('Attack requires a weapon');
+  if(hitCount===2&&(miracles.length>0||hasArmorBonus||itemBonus||absorbsHp))
+    fail('Repeat hits with miracles, armor attack bonus or other special effects are not verified');
   if(miracles.length&&state.pending.targetId===caster.id)
     fail('Boosted self-target attack has not been verified');
   if(aura&&plusCount)fail('Aura plus additive miracle ordering unverified');
@@ -3712,8 +3718,12 @@ function resolveRedirectFixture(state,catalog,{
  const redirected=selected.filter(x=>x.def.effects.some(e=>e.type==='redirectAttack'&&e.when==='onDefense'&&
    e.params.scope!=='miracle'));
  if(!redirected.length) {
-   if(isWallDefense(state,catalog))
+   if(isWallDefense(state,catalog)){
+     const attack=p.attackContext??compileBasicWeaponAttack(state,catalog);
+     if(attack.hitCount===2)
+       bad('Wall versus repeated strikes needs original stop timing verification');
      return resolveWallFixture(state,catalog,{labOnly:true,fixtureDrawDefinitionId});
+   }
    if(p.defense.learnedDefinitionId!==undefined)
      bad('Unknown learned defensive miracle');
    return resolveBasicFixture(state,catalog,{labOnly:true,fixtureDrawDefinitionId});
@@ -4897,7 +4907,9 @@ function renderV2LabMarkup(data,{resetArmed=false}={}){
  const isExchange=data.phase==='turn' && firstPicked?.tradeAction==='exchange';
  const title=isExchange?'両替：配分を入力':
    data.phase==='turn'?'攻撃するカードを順番に選択':
-   data.phase==='tradeDefense'?'取引への応答を選択':'防御カードを順番に選択';
+   data.phase==='tradeDefense'?'取引への応答を選択':
+   '防御カードを順番に選択'+(data.pending?.strikeCount===2?
+     '（'+esc(data.pending.strikeNumber)+'/2発目）':'');
  const soloPlusMiracle=data.phase==='turn' && firstPicked?.family==='miracle' &&
    firstPicked.playModes.includes('addAttack');
  const isSelling=data.phase==='turn' && firstPicked?.tradeAction==='sell';
