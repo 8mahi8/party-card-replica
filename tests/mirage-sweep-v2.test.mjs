@@ -182,3 +182,34 @@ test('forged second Mirage continuation does not bypass attack authentication',a
  ],options),/original physical weapon or Mirage sequence/);
  assert.equal(JSON.stringify(forged),untouched);
 });
+
+test('one learned plus one hand Mirage uses same two-hit engine and grants one learned draw',()=>{
+ const s=room(['w006','m012']);s.players[0].learned.push('m012');
+ const plays=[
+  {instanceId:s.players[0].hand[0].instanceId},
+  {instanceId:s.players[0].hand[1].instanceId},
+  {learnedDefinitionId:'m012'}
+ ];
+ let result=command(s,'A','playSequence',{targetId:'B',orderedPlays:plays});
+ const hits=[];
+ while(result.state.phase==='defense'){
+  result=defense(result.state);hits.push(result.plan.hit.damage);
+ }
+ assert.deepEqual(hits,[3,3]);
+ assert.equal(result.state.players[0].mp,15);
+ assert.equal(result.state.players[1].hp,34);
+ assert.equal(result.state.players[0].hand.length,3);
+ assert.equal(result.state.players[0].learned.filter(id=>id==='m012').length,1);
+});
+test('repeating the SAME learned Mirage twice in one command is rejected atomically',()=>{
+ const s=room(['w006']);s.players[0].learned.push('m012');
+ const before=JSON.stringify(s);
+ assert.throws(()=>command(s,'A','playSequence',{
+  targetId:'B',orderedPlays:[
+   {instanceId:s.players[0].hand[0].instanceId},
+   {learnedDefinitionId:'m012'},
+   {learnedDefinitionId:'m012'}
+  ]
+ }),/Repeated learned miracle/);
+ assert.equal(JSON.stringify(s),before);
+});
