@@ -50,7 +50,7 @@ export function renderV2LabMarkup(data,{resetArmed=false}={}){
      '<p>'+esc(data.notice)+'</p><p class="hint">端末を'+esc(seatLabel(data.actorId))+
      'へ渡してから手札を表示してください</p>'+
      '<button type="button" class="primary wide" data-action="reveal">自分の手札を見る</button>'+
-     (data.phase==='turn'&&data.actorId==='A'&&!data.tradeTrial&&!data.buyTrial&&!data.exchangeTrial&&!data.revivalTrial?
+     (data.phase==='turn'&&data.actorId==='A'&&!data.tradeTrial&&!data.buyTrial&&!data.exchangeTrial&&!data.revivalTrial&&!data.selfSaleTrial?
       '<button type="button" class="quiet wide scenario-launch" data-action="trade-demo">'+
       '売るの研究配置で始める</button>'+
       '<button type="button" class="quiet wide scenario-launch" data-action="buy-demo">'+
@@ -58,7 +58,9 @@ export function renderV2LabMarkup(data,{resetArmed=false}={}){
       '<button type="button" class="quiet wide scenario-launch" data-action="exchange-demo">'+
       '両替の研究配置で始める</button>'+
       '<button type="button" class="quiet wide scenario-launch" data-action="revival-demo">'+
-      '太陽のお守りの復活を試す</button>':'')+
+      '太陽のお守りの復活を試す</button>'+
+      '<button type="button" class="quiet wide scenario-launch" data-action="self-sale-demo">'+
+      '自分に「売る」を試す</button>':'')+
      '</section>'+footer;
  }
  if(data.revivalTrial&&data.phase==='defense'){
@@ -153,7 +155,7 @@ export function renderV2LabMarkup(data,{resetArmed=false}={}){
    :data.phase==='turn'
    ?(isExchange?'HP・MP・¥の合計を変えずに振り分けます。HP0は原作確認待ちです'
    :isBuying?'「買う」だけを1枚選択。相手が許した後、商品を見て購入判断します'
-   :isSelling?'「売る」→売り渡す神器の順に2枚選択。自己取引は未検証です'
+   :isSelling?'「売る」→売り渡す神器の順に2枚選択。自分にも売れます（幻覚解除は研究中）'
    :selectedWeapon?'武器は「捨てる」対象外です。攻撃に使うか、他のカードを選んでください'
    :soloPlusMiracle
      ?'火の玉・流星を先頭に選ぶと単独奇跡。続けられるのは直後の精霊のみ'
@@ -236,6 +238,8 @@ export function mountV2Lab(root,controller=createV2LabController()){
        controller.loadExchangeTrial();resetArmed=false;handoff=true;
      }else if(action==='revival-demo'){
        controller.loadRevivalTrial();resetArmed=false;handoff=true;
+     }else if(action==='self-sale-demo'){
+       controller.loadSelfSaleTrial();resetArmed=false;handoff=true;
      }else if(action==='reset'){
        if(!resetArmed)resetArmed=true;
        else{controller.reset();resetArmed=false;handoff=true;}
