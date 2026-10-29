@@ -1221,6 +1221,131 @@ const __v2_module_11 = (() => {
 "use strict";
 
 /**
+ * V2 Dream research taxonomy / audit only. Not a draw or disguise RNG.
+ *
+ * Source: https://macarongamemo.com/entry/godfield-dream (2026-04-05)
+ * The FULL deck, usable-timing rules and candidate weights are required
+ * before the original's ~50% disguise chance can be simulated.
+ *
+ * Per the source, these known reference cards are immune to Dream's
+ * misidentification even when their generic playModes resemble others.
+ * IDs are stable definitions in the researched PARTIAL catalog, not card
+ * names or runtime battle-effect branches.
+ */
+const SOURCE_IMMUNE_IDS=Object.freeze({
+ 'w020':'source-unique-timing', // ほむら巻き
+ 'i001':'source-unique-timing', // 虹のカーテン
+ 'i002':'source-unique-timing', // スーパーミラー
+ 'i003':'source-unique-timing', // 精霊のぬいぐるみ
+ 'i004':'source-unique-timing'  // ちからの粉
+});
+function fail(m){throw new Error(m);}
+function valid(def){
+ if(!def||typeof def.id!=='string'||!Array.isArray(def.playModes)||
+    !Array.isArray(def.effects)||!def.stats||
+    !Number.isSafeInteger(def.drawWeight)||def.drawWeight<1)
+   fail('Invalid Dream candidate card definition');
+}
+/**
+ * Conservative lab signature: an upper bound on which cards may be
+ * manually disguised in a research fixture. The original can have broader
+ * groups sharing *timing* but not their reaction *effect*, e.g. stop/reflect.
+ */
+function dreamLabTimingSignatureFixture(def){
+ valid(def);
+ const effects=def.effects.filter(e=>e.when==='onDefense')
+   .map(e=>[e.type,e.params?.mode??null,e.params?.scope??null])
+   .sort((a,b)=>JSON.stringify(a).localeCompare(JSON.stringify(b)));
+ return JSON.stringify({
+  family:def.family,
+  playModes:[...def.playModes].sort(),
+  guardUsable:def.stats.guard>0,
+  defenseEffects:effects,
+  discardPolicy:def.discardPolicy
+ });
+}
+/** Not a claim of a complete original disguise candidate group. */
+function dreamSourceExclusionFixture(def){
+ valid(def);
+ if(def.family==='trade'||def.family==='miracle')
+   return 'source-trade-or-miracle';
+ return SOURCE_IMMUNE_IDS[def.id]??null;
+}
+function dreamResearchClassificationFixture(def){
+ valid(def);
+ const reason=dreamSourceExclusionFixture(def);
+ if(reason)return Object.freeze({id:def.id,status:'source-excluded',reason,
+    labTimingSignature:null});
+ if(def.playModes.includes('passive')||def.family==='item'||
+    def.playModes.some(x=>!['mainAttack','addAttack','defend','support'].includes(x)))
+   return Object.freeze({id:def.id,status:'needs-rule-review',
+     reason:'nonstandard-or-passive-timing',labTimingSignature:null});
+ return Object.freeze({id:def.id,status:'lab-classifiable',reason:null,
+   labTimingSignature:dreamLabTimingSignatureFixture(def)});
+}
+/**
+ * Catalog-wide deterministic RESEARCH REPORT. "has-paired-fixture" means
+ * multiple partial definitions share an intentionally strict signature; it
+ * does not establish source-original probabilities, eligible true pairs, or
+ * that a singleton is truly immune. No sampling / random state is used.
+ */
+function auditDreamResearchCatalogFixture(catalog){
+ if(!(catalog instanceof Map)||catalog.size===0)
+   fail('Dream research audit requires a nonempty catalog');
+ const rows=[],groupMap=new Map();
+ for(const [id,def] of catalog){
+  if(id!==def?.id)fail('Dream research catalog key mismatch');
+  const result=dreamResearchClassificationFixture(def);
+  const row={...result,drawWeight:def.drawWeight};
+  rows.push(row);
+  if(result.status==='lab-classifiable'){
+   let list=groupMap.get(result.labTimingSignature);
+   if(!list){list=[];groupMap.set(result.labTimingSignature,list);}
+   list.push(row);
+  }
+ }
+ const groups=[...groupMap.entries()].map(([signature,entries])=>Object.freeze({
+    signature,memberIds:Object.freeze(entries.map(x=>x.id)),
+    partialWeight:entries.reduce((n,x)=>n+x.drawWeight,0),
+    partialMemberCount:entries.length
+ })).sort((a,b)=>a.signature.localeCompare(b.signature));
+ const byId=new Map();
+ const groupBySignature=new Map(groups.map(x=>[x.signature,x]));
+ let excluded=0,needsReview=0,grouped=0,unpaired=0;
+ for(const row of rows){
+  if(row.status==='source-excluded')excluded++;
+  else if(row.status==='needs-rule-review')needsReview++;
+  else {
+   const group=groupBySignature.get(row.labTimingSignature);
+   if(!group)fail('Missing Dream research timing group');
+   if(group.partialMemberCount>1)grouped++;else unpaired++;
+  }
+  byId.set(row.id,Object.freeze({
+    ...row,
+    partialPeerCount:row.labTimingSignature?
+      groupBySignature.get(row.labTimingSignature).partialMemberCount-1:0
+  }));
+ }
+ const resultRows=Object.freeze([...byId.values()]);
+ const partialWeight=rows.reduce((n,x)=>n+x.drawWeight,0);
+ if(!Number.isSafeInteger(partialWeight))fail('Dream research weight overflow');
+ return Object.freeze({
+   complete:false,randomizationReady:false,
+   kind:'partial-reference-audit-only',cardCount:rows.length,
+   partialWeight,sourceExcluded:excluded,needsRuleReview:needsReview,
+   pairedLabCards:grouped,unpairedLabCards:unpaired,
+   groups:Object.freeze(groups),rows:resultRows
+ });
+}
+
+return {dreamLabTimingSignatureFixture,dreamSourceExclusionFixture,dreamResearchClassificationFixture,auditDreamResearchCatalogFixture};
+})();
+
+const __v2_module_12 = (() => {
+"use strict";
+const {dreamLabTimingSignatureFixture,dreamSourceExclusionFixture} = __v2_module_11;
+
+/**
  * V2 laboratory-only Dream (formerly hallucination) appearance boundary.
  *
  * Dream changes what a player SEES, never the definition of the physical
@@ -1235,6 +1360,7 @@ const __v2_module_11 = (() => {
  * https://note.com/rich_echium152/n/n02fdc4949096 (creator 2022 quote)
  * https://ameblo.jp/godfield-tactics/entry-12100951333.html
  */
+
 function fail(message){throw new Error(message);}
 function cardDef(catalog,id){
  const def=catalog.get(id);
@@ -1247,22 +1373,14 @@ function cardDef(catalog,id){
  * the original and never an attempt to model the full disguise distribution.
  */
 function dreamTimingSignatureFixture(def){
- if(!def||!Array.isArray(def.playModes)||!Array.isArray(def.effects))
-   fail('Invalid Dream timing definition');
- const effects=def.effects.filter(e=>e.when==='onDefense')
-   .map(e=>[e.type,e.params?.mode??null,e.params?.scope??null])
-   .sort((a,b)=>JSON.stringify(a).localeCompare(JSON.stringify(b)));
- return JSON.stringify({
-   family:def.family,
-   playModes:[...def.playModes].sort(),
-   guardUsable:def.stats.guard>0,
-   defenseEffects:effects,
-   discardPolicy:def.discardPolicy
- });
+ return dreamLabTimingSignatureFixture(def);
 }
+
 /** Shared safety rule for attachment, projection and ownership validation. */
 function allowableDreamPair(actual,visible){
  if(actual.id===visible.id)return false;
+ if(dreamSourceExclusionFixture(actual)||dreamSourceExclusionFixture(visible))
+   return false;
  if(['trade','miracle'].includes(actual.family)||
     ['trade','miracle'].includes(visible.family)||
     actual.playModes.includes('passive')||
@@ -1371,13 +1489,13 @@ function validateDreamOwnershipFixture(state,catalog){
 return {dreamTimingSignatureFixture,attachDreamAppearanceFixture,dreamVisibleDefinitionIdFixture,retireDreamAppearancesFixture,validateDreamOwnershipFixture};
 })();
 
-const __v2_module_12 = (() => {
+const __v2_module_13 = (() => {
 "use strict";
 const {createInstance, selectInstances} = __v2_module_2;
 const {previewBuyOfferFixture} = __v2_module_7;
 const {previewExchangeFixture} = __v2_module_8;
 const {previewSelfSaleFixture} = __v2_module_10;
-const {dreamVisibleDefinitionIdFixture} = __v2_module_11;
+const {dreamVisibleDefinitionIdFixture} = __v2_module_12;
 
 /**
  * V2 G2: authoritatively *stage* a combat interaction.
@@ -1855,7 +1973,7 @@ function viewStagingRoom(state,viewerId,catalog=null) {
 return {createStagingRoom,applyStagingCommand,viewStagingRoom};
 })();
 
-const __v2_module_13 = (() => {
+const __v2_module_14 = (() => {
 "use strict";
 const {createInstance} = __v2_module_2;
 const {MAX_HAND_SIZE,MAX_LEARNED_MIRACLES} = __v2_module_0;
@@ -1864,7 +1982,7 @@ const {planIncomingHandTransfer} = __v2_module_6;
 const {previewBuyOfferFixture,previewBuyChoiceFixture} = __v2_module_7;
 const {previewExchangeFixture} = __v2_module_8;
 const {planZeroHpRecoveryFixture} = __v2_module_9;
-const {retireDreamAppearancesFixture,validateDreamOwnershipFixture} = __v2_module_11;
+const {retireDreamAppearancesFixture,validateDreamOwnershipFixture} = __v2_module_12;
 const {previewSelfSaleFixture} = __v2_module_10;
 
 /**
@@ -2287,10 +2405,10 @@ function runEffectQueueFixture(state,catalog,queue,{
 return {runEffectQueueFixture};
 })();
 
-const __v2_module_14 = (() => {
+const __v2_module_15 = (() => {
 "use strict";
 const {previewBuyOfferFixture,previewBuyChoiceFixture} = __v2_module_7;
-const {runEffectQueueFixture} = __v2_module_13;
+const {runEffectQueueFixture} = __v2_module_14;
 const {MAX_HAND_SIZE} = __v2_module_0;
 
 /**
@@ -2358,9 +2476,9 @@ function settleUncontestedBuyFixture(state,catalog,{
 return {settleUncontestedBuyFixture};
 })();
 
-const __v2_module_15 = (() => {
+const __v2_module_16 = (() => {
 "use strict";
-const {runEffectQueueFixture} = __v2_module_13;
+const {runEffectQueueFixture} = __v2_module_14;
 const {planForcedSalePayment} = __v2_module_5;
 const {MAX_HAND_SIZE} = __v2_module_0;
 
@@ -2455,10 +2573,10 @@ function settleUncontestedSaleFixture(state,catalog,selection,{
 return {previewUncontestedSale,settleUncontestedSaleFixture};
 })();
 
-const __v2_module_16 = (() => {
+const __v2_module_17 = (() => {
 "use strict";
 const {planForcedSalePayment} = __v2_module_5;
-const {runEffectQueueFixture} = __v2_module_13;
+const {runEffectQueueFixture} = __v2_module_14;
 
 /**
  * G4 source-backed SINGLE Super Mirror vs "Sell" research fixture.
@@ -2568,7 +2686,7 @@ function settleSingleMirrorSaleFixture(state,catalog,selection,{
 return {previewSingleMirrorSale,settleSingleMirrorSaleFixture};
 })();
 
-const __v2_module_17 = (() => {
+const __v2_module_18 = (() => {
 "use strict";
 const {planForcedSalePayment} = __v2_module_5;
 
@@ -2639,12 +2757,12 @@ function inspectForcedSaleLethalityFixture(state,catalog,{
 return {inspectForcedSaleLethalityFixture};
 })();
 
-const __v2_module_18 = (() => {
+const __v2_module_19 = (() => {
 "use strict";
-const {previewUncontestedSale} = __v2_module_15;
-const {previewSingleMirrorSale} = __v2_module_16;
-const {inspectForcedSaleLethalityFixture} = __v2_module_17;
-const {runEffectQueueFixture} = __v2_module_13;
+const {previewUncontestedSale} = __v2_module_16;
+const {previewSingleMirrorSale} = __v2_module_17;
+const {inspectForcedSaleLethalityFixture} = __v2_module_18;
+const {runEffectQueueFixture} = __v2_module_14;
 
 /**
  * LAB-ONLY G4: bridge authenticated two-step trade commands to the reusable
@@ -2741,10 +2859,10 @@ function resolveStagedSaleFixture(state,catalog,{
 return {validateSaleDeclarationFixture,resolveStagedSaleFixture};
 })();
 
-const __v2_module_19 = (() => {
+const __v2_module_20 = (() => {
 "use strict";
 const {previewBuyOfferFixture,previewBuyChoiceFixture} = __v2_module_7;
-const {runEffectQueueFixture} = __v2_module_13;
+const {runEffectQueueFixture} = __v2_module_14;
 const {MAX_HAND_SIZE} = __v2_module_0;
 
 /**
@@ -2809,7 +2927,7 @@ function resolveStagedBuyFixture(state,catalog,{
 return {resolveStagedBuyFixture};
 })();
 
-const __v2_module_20 = (() => {
+const __v2_module_21 = (() => {
 "use strict";
 const {combineElements} = __v2_module_0;
 
@@ -3016,11 +3134,11 @@ function queuedAttackCosts(attackContext,actorId) {
 return {compileOrderedWeaponAttack,queuedAttackCosts};
 })();
 
-const __v2_module_21 = (() => {
+const __v2_module_22 = (() => {
 "use strict";
 const {sumLegalArmor, calculateHit, MAX_HAND_SIZE} = __v2_module_0;
-const {runEffectQueueFixture} = __v2_module_13;
-const {compileOrderedWeaponAttack,queuedAttackCosts} = __v2_module_20;
+const {runEffectQueueFixture} = __v2_module_14;
+const {compileOrderedWeaponAttack,queuedAttackCosts} = __v2_module_21;
 
 /**
  * V2 G3, PART 1: pure compile/resolve for reference-backed BASIC weapon combat.
@@ -3161,11 +3279,11 @@ function resolveBasicFixture(state,catalog,options={}) {
 return {compileBasicWeaponAttack,compileBasicResolution,resolveBasicFixture};
 })();
 
-const __v2_module_22 = (() => {
+const __v2_module_23 = (() => {
 "use strict";
-const {compileBasicWeaponAttack} = __v2_module_21;
-const {queuedAttackCosts} = __v2_module_20;
-const {runEffectQueueFixture} = __v2_module_13;
+const {compileBasicWeaponAttack} = __v2_module_22;
+const {queuedAttackCosts} = __v2_module_21;
+const {runEffectQueueFixture} = __v2_module_14;
 
 /**
  * G3 weapon-stop resolver: the defensive miracle Wall stops any neutral
@@ -3303,13 +3421,13 @@ function resolveWallFixture(state,catalog,opts={}) {
 return {isWallDefense,compileWallResolution,resolveWallFixture};
 })();
 
-const __v2_module_23 = (() => {
+const __v2_module_24 = (() => {
 "use strict";
 const {planRedirectRoute} = __v2_module_3;
-const {compileBasicWeaponAttack,resolveBasicFixture} = __v2_module_21;
-const {isWallDefense,resolveWallFixture} = __v2_module_22;
-const {queuedAttackCosts} = __v2_module_20;
-const {runEffectQueueFixture} = __v2_module_13;
+const {compileBasicWeaponAttack,resolveBasicFixture} = __v2_module_22;
+const {isWallDefense,resolveWallFixture} = __v2_module_23;
+const {queuedAttackCosts} = __v2_module_21;
+const {runEffectQueueFixture} = __v2_module_14;
 
 /**
  * V2 G3 Part 2: source-backed basic redirect / deflect resolver.
@@ -3427,11 +3545,11 @@ function resolveRedirectFixture(state,catalog,{
 return {resolveRedirectFixture};
 })();
 
-const __v2_module_24 = (() => {
+const __v2_module_25 = (() => {
 "use strict";
 const {calculateHit,sumLegalArmor} = __v2_module_0;
 const {planRedirectRoute} = __v2_module_3;
-const {runEffectQueueFixture} = __v2_module_13;
+const {runEffectQueueFixture} = __v2_module_14;
 
 /**
  * V2 G3: narrow solo attack miracles with ordered defensive reactions.
@@ -3695,15 +3813,15 @@ function resolveSoloMiracleFixture(state,catalog,options={}) {
 return {compileSoloMiracleResolution,resolveSoloMiracleFixture};
 })();
 
-const __v2_module_25 = (() => {
+const __v2_module_26 = (() => {
 "use strict";
-const {applyStagingCommand} = __v2_module_12;
-const {validateSaleDeclarationFixture,resolveStagedSaleFixture} = __v2_module_18;
-const {resolveStagedBuyFixture} = __v2_module_19;
-const {resolveRedirectFixture} = __v2_module_23;
-const {resolveSoloMiracleFixture,compileSoloMiracleResolution} = __v2_module_24;
-const {compileOrderedWeaponAttack} = __v2_module_20;
-const {runEffectQueueFixture} = __v2_module_13;
+const {applyStagingCommand} = __v2_module_13;
+const {validateSaleDeclarationFixture,resolveStagedSaleFixture} = __v2_module_19;
+const {resolveStagedBuyFixture} = __v2_module_20;
+const {resolveRedirectFixture} = __v2_module_24;
+const {resolveSoloMiracleFixture,compileSoloMiracleResolution} = __v2_module_25;
+const {compileOrderedWeaponAttack} = __v2_module_21;
+const {runEffectQueueFixture} = __v2_module_14;
 const {drawRandom32} = __v2_module_2;
 const {MAX_HAND_SIZE} = __v2_module_0;
 
@@ -3921,13 +4039,13 @@ function submitAndResolveFixture(state,command,catalog,{
 return {resolvePrayFixture,resolveDiscardFixture,resolveStagedFixture,submitAndResolveFixture};
 })();
 
-const __v2_module_26 = (() => {
+const __v2_module_27 = (() => {
 "use strict";
 const {migrateLegacyCatalog} = __v2_module_4;
-const {createStagingRoom,viewStagingRoom} = __v2_module_12;
-const {submitAndResolveFixture} = __v2_module_25;
+const {createStagingRoom,viewStagingRoom} = __v2_module_13;
+const {submitAndResolveFixture} = __v2_module_26;
 const {VERIFIED_BASIC_CARDS} = __v2_module_1;
-const {attachDreamAppearanceFixture} = __v2_module_11;
+const {attachDreamAppearanceFixture} = __v2_module_12;
 
 /**
  * Offline 2-seat V2 lab controller.
@@ -4403,9 +4521,9 @@ function createV2LabController({
 return {createV2LabController};
 })();
 
-const __v2_module_27 = (() => {
+const __v2_module_28 = (() => {
 "use strict";
-const {createV2LabController} = __v2_module_26;
+const {createV2LabController} = __v2_module_27;
 
 /**
  * Minimal accessible and touch-friendly offline V2 hotseat UI.
@@ -4728,9 +4846,9 @@ function mountV2Lab(root,controller=createV2LabController()){
 return {renderV2LabMarkup,mountV2Lab};
 })();
 
-const __v2_lab_test_controller = __v2_module_26;
+const __v2_lab_test_controller = __v2_module_27;
 
-const __v2_lab_test_ui = __v2_module_27;
+const __v2_lab_test_ui = __v2_module_28;
 
 __v2_lab_test_ui.mountV2Lab(document.getElementById("v2-root"));
 </script>
