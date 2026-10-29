@@ -5,6 +5,16 @@
 
 > **この文書は引き継ぎ入口であり、実装の真実は常に開発ブランチの最新コードとGitHub Actions。** コミットSHA・テスト件数・カード数は作業のたびに変わる。本文の日付や数値を確認せず永久に正しいと扱わないこと。
 
+## 2026-10-30 G6改善｜送信成功通知の欠落から復帰＋配布HTML検証【最新】
+
+- **実際に解消したUI進行不能**：2人オンライン試遊版`v2/demo/firebase-online-lab.html`で、ゲスト操作をホストが処理したのに`acks/B`の受領通知だけが届かない場合、`waiting=true`で操作不能になっていた。「同じ操作を再送」ボタンを追加し、元の`commandId`と操作を保持して再送可能にした。
+- **通信層の根本修正**：`v2/firebase-two-seat-transport-fixture.mjs`がゲストメールボックスへ`deliveryId`（送信ごとに変わる番号）を付加。**同じコマンドID/JSON内容でもDBの値が更新され、listenerに再送が届く**。エンジン側の処理済みコマンドIDにより二重のダメージ・手番進行を抑止。原作カード効果は変更なし。
+- **別の進行不能も回避**：ホスト側の不正なカード組み合わせは`commandRejected=true`でUIへ返し、送信中状態を解除。ネットワーク更新が失敗した場合だけ元のコマンドIDを保持して再送。エラー表示を「操作エラー」と「通信エラー」で区別。
+- **テスト/配布一致**：最新ソース＋回帰テスト検証コミット `c11d2b340f7041bb58bc7be71090da3a680d7a56`で、**Node 903/903 PASS** run [`40939172568`](https://github.com/8mahi8/party-card-replica/actions/runs/40939172568)、**Chromium 28/28 PASS** run [`40939172489`](https://github.com/8mahi8/party-card-replica/actions/runs/40939172489)、**WebKit旧UI 339/339 PASS + 新オンライン2画面14/14 PASS** run [`40939172511`](https://github.com/8mahi8/party-card-replica/actions/runs/40939172511)。新オンラインWebKitは**成功ackを1回捨てる模擬Firebase**で手動再送後にHP30のまま復旧すること、ホストの誤カード選択後に選び直せることをタップ確認。生成済みHTMLとソースのバイト一致をNodeで検査。
+- **最新版配布用HTML**：開発ブランチ`v2/demo/firebase-online-standalone.html`（自動再生成済み）。[最新のGitHub Actions ZIP](https://github.com/8mahi8/party-card-replica/actions/runs/40939172511/artifacts/12926102283)。生成 workflow `g6-commit-portable-html.yml`は、開発ブランチでの手動起動に対応するよう修正、無駄な毎回の外部書込はしない。
+- **正式記録**：[`docs/V2_G6_RETRY_RECOVERY_2026-10-30.md`](docs/V2_G6_RETRY_RECOVERY_2026-10-30.md)と本資料。Firebase公式`onValue`やオフライン時のローカルイベントの挙動も照合。
+- **未実施と次工程**：今回の通知欠落は**模擬通信試験**。既存の`40934112303`では本物のFirebase経由で攻撃/防御を検証したが、**実ネットワーク断線の再現・学校iPad実機・GitHub Pages HTTPS公開**は未実施。次は学校iPadで2人の実操作/接続の確認。ソロ試験用固定カード補充・原作全カード/正規山札の再現も未完成。GitHub `main`、Google Sitesに貼られた学校版HTML、Firebase Security Rules・認証設定は変更なし。
+
 ## 2026-10-30 G6配布｜iPad向けオンライン単体HTML生成・GitHub保存【現行最新】
 
 - **本タスクの実装**：`v2/demo/bundle-modules.mjs`に既存31モジュールの宣言順をまとめ、既存オフラインビルダーと新`v2/demo/build-online.mjs`で共用。オンラインのローカルホストとFirebase輸送層を追加して、`v2/demo/firebase-online-lab.html`のESMエントリを**単体HTML**へ自動内蔵。Firebase compat SDKの外部スクリプト2本は残る。毎回手で再結合不要。`v2/demo/firebase-online-standalone.html`を開発ブランチに保存（Actionsによるコミット`e0adb7963e4167ffe8d44d8ce24fc7cf024b76f6`、約276k文字）。
