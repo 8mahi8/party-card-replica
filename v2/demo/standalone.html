@@ -4092,6 +4092,29 @@ function renderV2LabMarkup(data,{resetArmed=false}={}){
       '太陽のお守りの復活を試す</button>':'')+
      '</section>'+footer;
  }
+ if(data.revivalTrial&&data.phase==='defense'){
+   // A fixed-height iPad embed must show the passive charm and the decision
+   // together; the standard attack view has a deliberately taller layout.
+   const stats=data.publicPlayers.map(p=>
+     '<div class="trade-mini-seat"><strong>'+esc(seatLabel(p.id))+'</strong>'+
+     '<span>HP <b>'+esc(p.hp)+'</b></span>'+
+     '<span>MP <b>'+esc(p.mp)+'</b></span>'+
+     '<span>¥ <b>'+esc(p.money)+'</b></span></div>'
+   ).join('');
+   const action=data.selection.length?'防御を確定':'防御しない';
+   return topLine+'<main class="trade-reply revival-reply">'+
+     '<p class="trade-research-note">⚠ 研究用・太陽のお守りはHP0で自動発動</p>'+
+     '<div class="trade-mini-scores">'+stats+'</div>'+
+     '<h2>'+esc(seatLabel(data.actorId))+'：攻撃への応答</h2>'+
+     '<p class="trade-hint">「防御しない」で復活を試せます。お守りは手動選択できません</p>'+
+     '<div class="hand-grid trade-hand">'+
+       (data.hand.length?data.hand.map(c=>cardButton(c,'hand')).join(''):
+         '<p class="empty">手札がありません</p>')+
+     '</div>'+
+     '<p class="status" role="status">'+esc(data.notice)+'</p>'+
+     '<div class="action-bar"><button type="button" class="primary wide confirm" data-action="submit">'+
+       action+'</button></div></main>'+footer;
+ }
  if(data.phase==='buyDecision'){
    const item=data.pending?.offer;
    const mine=data.publicPlayers.find(p=>p.id===data.actorId);
