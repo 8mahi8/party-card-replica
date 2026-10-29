@@ -11,6 +11,7 @@
  */
 import {applyStagingCommand} from './staging-room.mjs';
 import {validateSaleDeclarationFixture,resolveStagedSaleFixture} from './staged-sale.mjs';
+import {resolveStagedBuyFixture} from './staged-buy.mjs';
 import {resolveRedirectFixture} from './redirect-resolution.mjs';
 import {resolveSoloMiracleFixture,compileSoloMiracleResolution} from './miracle-resolution.mjs';
 import {compileOrderedWeaponAttack} from './ordered-attack.mjs';
@@ -132,6 +133,8 @@ export function resolveStagedFixture(state,catalog,{
     return resolveDiscardFixture(state,catalog,{labOnly,fixtureDrawDefinitionId});
   if(state.pending?.type==='sale')
     return resolveStagedSaleFixture(state,catalog,{labOnly,fixtureDrawDefinitionId});
+  if(state.pending?.type==='buy')
+    return resolveStagedBuyFixture(state,catalog,{labOnly,fixtureDrawDefinitionId});
   const family=attackFamily(state,catalog);
   if(family==='miracle')
     return resolveSoloMiracleFixture(state,catalog,{labOnly:true,fixtureDrawDefinitionId,deflectRng});
