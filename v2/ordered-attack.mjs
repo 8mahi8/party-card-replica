@@ -67,7 +67,7 @@ export function compileOrderedWeaponAttack(state,catalog){
   let weaponAttack=0,attackElement='none',mainCount=0,weaponCount=0;
   let aura=null,plusCount=0,additive=0,lastWasMiracle=false,hasArmorBonus=false,itemBonus=0;
   let learnedDrawCount=0;
-  let forcedAttackElement=null,absorbsHp=false;
+  let forcedAttackElement=null,absorbsHp=false,hitCount=1;
   let wandPosition=-1,auraPosition=-1;
   const casts=[],selectedKinds=[];
   const miracles=[];
@@ -94,6 +94,11 @@ export function compileOrderedWeaponAttack(state,catalog){
           forcedAttackElement=eff.params.element;
           wandPosition=position;
           continue;
+        }
+        if(eff.type==='repeatAttack'&&eff.when==='onDeclare'&&
+           eff.params.count===2&&def.family==='weapon'&&def.playModes.includes('mainAttack')){
+          if(hitCount!==1)fail('Repeated multi-hit effects unverified');
+          hitCount=2;continue;
         }
         if(eff.type==='absorbHp'&&eff.when==='afterHit'&&
            eff.params.amount==='damage'&&def.family==='weapon'){
@@ -182,7 +187,7 @@ export function compileOrderedWeaponAttack(state,catalog){
     attack,element:forcedAttackElement??(aura?'none':attackElement),attackKind:'weapon',
     instanceIds:Object.freeze(selected.filter(x=>x.instance).map(x=>x.instance.instanceId)),
     payableMP,learnedDrawCount,learnedMiracles:Object.freeze(learnedMiracles),
-    hasModifiers:miracles.length>0,absorbsHp,
+    hasModifiers:miracles.length>0,absorbsHp,hitCount,
     selectedKinds:Object.freeze(selectedKinds)
   });
 }
