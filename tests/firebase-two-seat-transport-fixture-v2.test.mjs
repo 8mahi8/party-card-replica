@@ -210,3 +210,20 @@ test('failed guest Firebase publish is not a false negative command receipt; sam
  assert.equal(db.at(LAB_ROOT+'/'+code+'/views/B').players[1].hp,30);
  guest.close();host.close();
 });
+
+test('guest no-card defense survives the Firebase wire as an explicit empty array',async()=>{
+ const db=createFakeDb(),host=await makeHost(db),guest=await join(db);
+ const start=host.read();
+ await host.submit(command(start,'A','playCards',[start.players[0].hand[0].instanceId]));
+ const view=db.at(LAB_ROOT+'/'+code+'/views/B');
+ const defense=command(view,'B','defend',[]);
+ await guest.submit(defense);
+ const mailbox=db.at(LAB_ROOT+'/'+code+'/commands/B');
+ assert.equal(typeof mailbox.commandJson,'string');
+ assert.equal(mailbox.command,undefined);
+ assert.deepEqual(JSON.parse(mailbox.commandJson).orderedInstanceIds,[]);
+ await until(()=>db.at(LAB_ROOT+'/'+code+'/acks/B')?.ok===true);
+ assert.equal(db.at(LAB_ROOT+'/'+code+'/views/B').phase,'turn');
+ assert.equal(db.at(LAB_ROOT+'/'+code+'/views/B').players[1].hp,30);
+ guest.close();host.close();
+});
