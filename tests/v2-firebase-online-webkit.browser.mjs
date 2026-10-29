@@ -190,6 +190,13 @@ try{
  check((await b.locator('#combatRoute').textContent()).includes('P1') &&
   (await b.locator('#combatRoute').textContent()).includes('P2'),
   'defender sees the attacker-to-target context');
+ check(await b.locator('#incomingAttack').isVisible(),
+  'incoming attack detail is visible to defending seat');
+ check((await b.locator('#incomingAttack').textContent()).includes('ワンダーソード') &&
+  (await b.locator('#incomingAttack').textContent()).includes('攻10'),
+  'defender sees declared attacking artifact and printed attack strength');
+ check(await a.locator('#incomingAttack').isVisible(),
+  'host sees the same public attack announcement during defense');
  await b.locator('#hand button').nth(1).tap();
  check((await b.locator('#selectionTotal').textContent()).includes('守 3'),
   'defender can preview printed defense before choosing');
@@ -215,6 +222,8 @@ try{
  await b.locator('#retryPanel').waitFor({state:'hidden'});
  check(await b.locator('#retryPanel').isHidden(),
   'guest receives duplicate acknowledgement and exits waiting state');
+ check(await b.locator('#incomingAttack').isHidden(),
+  'attack announcement is cleared after the defending response');
  const scores=await a.locator('.score').allTextContents();
  check(scores[1].includes('HP 30'),'host sees resolved damage after guest defense');
  check((await b.locator('.score').allTextContents())[1].includes('HP 30'),
