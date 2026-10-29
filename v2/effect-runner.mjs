@@ -183,12 +183,17 @@ export function runEffectQueueFixture(state,catalog,queue,{
      if(Object.keys(effect).some(k=>!keys.includes(k))||
         typeof effect.accept!=='boolean')
        fail('Invalid researched Buy effect');
-     if(state.pending?.type!=='uncontestedBuy'||
-        state.pending.originalAttackerId!==effect.buyerId||
-        state.pending.targetId!==effect.sellerId||
-        state.pending.buyInstanceId!==effect.buyInstanceId||
-        state.pending.itemInstanceId!==effect.itemInstanceId||
-        state.pending.accept!==effect.accept)
+     const pending=state.pending;
+     if(!['uncontestedBuy','buy'].includes(pending?.type)||
+        pending.originalAttackerId!==effect.buyerId||
+        pending.targetId!==effect.sellerId||
+        pending.buyInstanceId!==effect.buyInstanceId||
+        (pending.type==='buy'?
+          pending.offer?.itemInstanceId!==effect.itemInstanceId||
+          pending.defense?.playerId!==effect.sellerId||
+          pending.defense?.mirrorInstanceId!==null:
+          pending.itemInstanceId!==effect.itemInstanceId)||
+        pending.accept!==effect.accept)
        fail('Buy does not match authenticated research selection');
      if(effect.buyerId===effect.sellerId)fail('Cannot buy from self');
      const originalBuyer=who(state,effect.buyerId);
