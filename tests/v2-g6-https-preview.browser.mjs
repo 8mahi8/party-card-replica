@@ -7,14 +7,16 @@ import assert from 'node:assert/strict';
 import {webkit} from 'playwright';
 
 const URL='https://raw.githack.com/8mahi8/party-card-replica/refactor/v2-foundation-review-20261027/v2/demo/firebase-online-standalone.html';
-let browser;
+let browser,page;
+const errors=[],requestFailures=[],consoleErrors=[];
 try{
  browser=await webkit.launch({headless:true});
  const context=await browser.newContext({viewport:{width:390,height:844},
   isMobile:true,hasTouch:true,locale:'ja-JP'});
- const page=await context.newPage();
- const errors=[];
+ page=await context.newPage();
  page.on('pageerror',err=>errors.push(err.message));
+ page.on('console',msg=>{if(msg.type()==='error')consoleErrors.push(msg.text());});
+ page.on('requestfailed',req=>requestFailures.push({url:req.url(),failure:req.failure()?.errorText}));
  await page.goto(URL,{waitUntil:'domcontentloaded',timeout:30000});
  await page.waitForFunction(()=>{
   const status=document.getElementById('status')?.textContent||'';
@@ -33,8 +35,9 @@ try{
  console.error('G6_EXTERNAL_HTTPS_PREVIEW_FAILURE',String(error?.stack||error));
  try{
   console.error('G6_EXTERNAL_HTTPS_PREVIEW_DIAGNOSTICS',JSON.stringify({
-   url:await page?.url(),status:await page?.locator('#status').textContent(),
-   errors:globalThis.__previewErrors??[],
+   url:page?.url(),status:await page?.locator('#status').textContent(),
+   body:(await page?.locator('body').innerText())?.slice(0,450),
+   errors,requestFailures,consoleErrors,
   }));
  }catch(e){console.error('G6_EXTERNAL_DIAGNOSTICS_UNAVAILABLE',String(e))}
  process.exitCode=1;
