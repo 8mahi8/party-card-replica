@@ -39,6 +39,12 @@ button:disabled{opacity:.45;cursor:not-allowed}
 .compact-pass p{margin:6px auto;font-size:12px;line-height:1.45}
 .compact-pass .hint{margin-bottom:12px}
 .compact-pass .primary{min-height:50px}
+.compact-pass .scenario-launch{margin-top:8px;font-size:12px;min-height:44px;padding:8px 12px}
+.trade-offer{margin:8px 0 15px;background:#1a3550;border:1px solid #65a8bd;border-radius:12px;padding:12px;display:flex;gap:10px;justify-content:space-between;align-items:center;flex-wrap:wrap;color:#e2f9ff}
+.trade-offer strong{font-size:14px;line-height:1.4}
+.trade-offer span{font-size:13px;color:#ffdf97;font-weight:800}
+.battle-card:disabled{opacity:.48;border-style:dashed;cursor:not-allowed}
+.battle-card:disabled .rank{visibility:hidden}
 h2{font-size:15px;margin:0 0 11px;color:#d4eaff}
 h2 small{font-weight:400;color:#8fa7c7;margin-left:5px;font-size:12px}
 .targets{margin-bottom:18px}
@@ -2827,6 +2833,9 @@ const DEFAULT_HANDS=Object.freeze({
 });
 const names=new Map(VERIFIED_BASIC_CARDS.map(x=>[x.id,x.referenceName]));
 const FALLBACK_DRAW='d001';
+const TRADE_TRIAL_HANDS=Object.freeze({
+ A:Object.freeze(['t001','w003','d005']),B:Object.freeze(['i002','d001'])
+});
 
 function safeMessage(error){
   const msg=error?.message;
@@ -2925,6 +2934,7 @@ function createV2LabController({
   let selected=[],visible=false,targetId=otherSeat(state,state.activePlayerId);
   let notice='手番プレイヤーだけが「手札を見る」を押してください';
   let commandSerial=0;
+  let tradeTrial=false;
 
   const active=()=>state.activePlayerId;
   function pendingActor(){
@@ -2947,7 +2957,7 @@ function createV2LabController({
           catalog.get(actor?.hand.find(c=>c.instanceId===x.instanceId)?.definitionId)
             ?.discardPolicy==='ordinary'),
       cardSetComplete:summary.complete,
-      cardSetCount:summary.unique
+      cardSetCount:summary.unique,tradeTrial
     };
     if(state.phase==='finished'){
       return {...status,publicPlayers:state.players.map(p=>({
@@ -2962,6 +2972,12 @@ function createV2LabController({
       return {instanceId:card.instanceId,definitionId:card.definitionId,
         label:baseLabel(def),family:def.family,element:def.element,
         playModes:[...def.playModes],
+        tradeAction:def.effects.find(e=>e.when==='onDeclare'&&e.type==='forceSale')?.params.kind??null,
+        canReflectTrade:def.effects.some(e=>e.when==='onDefense'&&e.type==='redirectAttack'&&
+          e.params.mode==='reflect'&&e.params.scope==='any'),
+        tradeSelectable:state.phase!=='tradeDefense'||def.effects.some(e=>
+          e.when==='onDefense'&&e.type==='redirectAttack'&&e.params.mode==='reflect'&&
+          e.params.scope==='any'),
         selectedOrder:selected.findIndex(x=>x.instanceId===card.instanceId)+1};
     });
     const learned=self.learned.map(id=>{
@@ -2976,7 +2992,10 @@ function createV2LabController({
       publicPlayers:projected.players.map(p=>({
       id:p.id,hp:p.hp,mp:p.mp,money:p.money,handCount:p.handCount
     })),
-      pending:projected.pending,
+      pending:projected.pending?.type==='sale'?{
+        ...projected.pending,offer:{...projected.pending.offer,
+          label:names.get(projected.pending.offer.definitionId)??projected.pending.offer.definitionId}
+      }:projected.pending,
       hand:visible?hand:[],
       learned:visible?learned:[],
       targets:state.phase==='turn'?state.players.filter(p=>p.hp>0).map(p=>p.id):[]
@@ -2993,9 +3012,17 @@ function createV2LabController({
     if(!key)throw new Error('Invalid selection');
     const idx=selected.findIndex(x=>keyOf(x)===key);
     if(idx>=0){selected.splice(idx,1);return view();}
+    if(state.phase==='tradeDefense'&&selection.learnedDefinitionId)
+      throw new Error('取引を跳ね返すには手札のスーパーミラーを選んでください');
     if(selection.instanceId){
       const held=player.hand.find(card=>card.instanceId===selection.instanceId);
       if(!held)throw new Error('そのカードは現在の手札にありません');
+      if(state.phase==='tradeDefense'){
+        const def=catalog.get(held.definitionId);
+        if(!def?.effects.some(e=>e.when==='onDefense'&&e.type==='redirectAttack'&&
+          e.params.mode==='reflect'&&e.params.scope==='any'))
+          throw new Error('取引に使える防御はスーパーミラーだけです');
+      }
     } else {
       if(!player.learned.includes(selection.learnedDefinitionId))
         throw new Error('その奇跡は習得していません');
@@ -3004,6 +3031,10 @@ function createV2LabController({
         throw new Error('防御奇跡を選択してください');
     }
     const choice={...selection};
+    if(state.phase==='tradeDefense'){
+      selected=[choice];notice='スーパーミラーを選択中。使わない場合はもう一度タップ';
+      return view();
+    }
     if(pendingAttackIsMiracle(state,catalog)){
       const next=nextMiracleDefenseSelection(player,selected,choice,catalog);
       if(next.length>18)throw new Error('一度に選択できるカード数を超えました');
@@ -3042,6 +3073,11 @@ function createV2LabController({
         throw new Error('捨てる神器を手札から選んでください');
       command={commandId:n,expectedRevision:state.revision,actorId:actor.id,
         type:'discard',orderedInstanceIds:selected.map(x=>x.instanceId)};
+    }else if(state.phase==='tradeDefense'){
+      if(selected.length>1||selected.some(x=>!x.instanceId))
+        throw new Error('取引防御ではスーパーミラーを1枚だけ選んでください');
+      command={commandId:n,expectedRevision:state.revision,actorId:actor.id,
+        type:'respondSale',...(selected.length?{mirrorInstanceId:selected[0].instanceId}:{})};
     }else if(state.phase==='defense'){
       const learned=selected.filter(x=>x.learnedDefinitionId);
       if(learned.length>1)throw new Error('習得済み防御奇跡は1つまで');
@@ -3056,6 +3092,15 @@ function createV2LabController({
         throw new Error('使用するカードを選んでください');
       if(!selected.length){
         command={commandId:n,expectedRevision:state.revision,actorId:actor.id,type:'pray'};
+      }else if(selected[0]?.instanceId&&
+         catalog.get(actor.hand.find(c=>c.instanceId===selected[0].instanceId)?.definitionId)
+           ?.effects.some(e=>e.when==='onDeclare'&&e.type==='forceSale'&&e.params.kind==='sell')){
+        if(selected.length!==2||selected.some(x=>!x.instanceId))
+          throw new Error('「売る」と売り渡す神器の順に2枚選んでください');
+        if(targetId===actor.id)throw new Error('自分への売却は原作確認まで研究版では扱いません');
+        command={commandId:n,expectedRevision:state.revision,actorId:actor.id,
+          type:'declareSale',targetId,saleInstanceId:selected[0].instanceId,
+          soldInstanceId:selected[1].instanceId};
       }else if(selected.length===1&&selected[0].learnedDefinitionId){
         command={commandId:n,expectedRevision:state.revision,actorId:actor.id,
           type:'castLearned',learnedDefinitionId:selected[0].learnedDefinitionId,targetId};
@@ -3080,6 +3125,7 @@ function createV2LabController({
       targetId=state.phase==='turn'?otherSeat(state,state.activePlayerId):null;
       notice=state.phase==='finished'?'検証試合が終了しました':
         result.state.phase==='defense'?'防御するプレイヤーに端末を渡してください':
+        result.state.phase==='tradeDefense'?'取引相手に端末を渡してください':
           '手番が進みました。次のプレイヤーに渡してください';
       return {ok:true,view:view(),events:result.events.map(x=>({type:x.type})),
         changedRevision:state.revision};
@@ -3089,17 +3135,26 @@ function createV2LabController({
       return {ok:false,error:notice,view:view(),changedRevision:state.revision};
     }
   }
+  function loadTradeTrial(){
+    state=createStagingRoom({
+      seats:Object.entries(TRADE_TRIAL_HANDS).map(([id,handDefinitionIds])=>({id,handDefinitionIds:[...handDefinitionIds]})),
+      firstSeatId:'A',rulesetId:'partial-reference-v2-lab'
+    },catalog);
+    tradeTrial=true;selected=[];visible=false;targetId='B';commandSerial=0;
+    notice='取引研究モードです。P1が「売る」→商品を選び、P2が応答します';
+    return view();
+  }
   function reset(){
     state=createStagingRoom({
       seats:handEntries.map(p=>({id:p.id,handDefinitionIds:[...p.handDefinitionIds]})),
       firstSeatId,rulesetId:'partial-reference-v2-lab'
     },catalog);
-    selected=[];visible=false;targetId=otherSeat(state,firstSeatId);
+    tradeTrial=false;selected=[];visible=false;targetId=otherSeat(state,firstSeatId);
     notice='新しい検証試合。手番プレイヤーに渡してください';
     commandSerial=0;
     return view();
   }
-  return {view,reveal,toggle,setTarget,submit,reset,
+  return {view,reveal,toggle,setTarget,submit,reset,loadTradeTrial,
     // Test-only state snapshot: never send to another player or persist online.
     labSnapshot:()=>JSON.parse(JSON.stringify(state))};
 }
@@ -3131,12 +3186,13 @@ function cardButton(c,type){
  const picked=c.selectedOrder>0;
  return '<button type="button" class="battle-card'+(picked?' picked':'')+
  '" data-card="'+type+'" data-id="'+attr(type==='hand'?c.instanceId:c.definitionId)+
- '" aria-pressed="'+picked+'"><span class="rank">'+(picked?c.selectedOrder:'+')+
+ '" aria-pressed="'+picked+'"'+(c.tradeSelectable===false?' disabled aria-disabled="true"':'')+'><span class="rank">'+(picked?c.selectedOrder:'+')+
  '</span><span class="card-label">'+esc(c.label)+'</span><small>'+
  (type==='hand'?'手札 · '+elem(c.element):'習得済み奇跡')+'</small></button>';
 }
 function renderV2LabMarkup(data,{resetArmed=false}={}){
- const text=data.phase==='turn'?'攻撃':data.phase==='defense'?'防御':'終了';
+ const text=data.phase==='turn'?'攻撃':data.phase==='defense'?'防御':
+   data.phase==='tradeDefense'?'取引防御':'終了';
  const topLine='<div class="topline"><div><strong class="brand">CARD LAB <em>V2</em></strong>'+
  '<div class="sub">学校iPad用・ルール検証だけの試遊版</div></div>'+
  '<span class="phase">'+text+'</span></div>';
@@ -3160,17 +3216,25 @@ function renderV2LabMarkup(data,{resetArmed=false}={}){
      '<p>'+esc(data.notice)+'</p><p class="hint">端末を'+esc(seatLabel(data.actorId))+
      'へ渡してから手札を表示してください</p>'+
      '<button type="button" class="primary wide" data-action="reveal">自分の手札を見る</button>'+
+     (data.phase==='turn'&&data.actorId==='A'&&!data.tradeTrial?
+      '<button type="button" class="quiet wide scenario-launch" data-action="trade-demo">'+
+      '取引の研究配置で始める</button>':'')+
      '</section>'+footer;
  }
- const title=data.phase==='turn'?'攻撃するカードを順番に選択':'防御カードを順番に選択';
+ const title=data.phase==='turn'?'攻撃するカードを順番に選択':
+   data.phase==='tradeDefense'?'取引への応答を選択':'防御カードを順番に選択';
  const firstPicked=data.selection[0]?.instanceId
    ?data.hand.find(c=>c.instanceId===data.selection[0].instanceId):null;
  const soloPlusMiracle=data.phase==='turn' && firstPicked?.family==='miracle' &&
    firstPicked.playModes.includes('addAttack');
+ const isSelling=data.phase==='turn' && firstPicked?.tradeAction==='sell';
  const selectedWeapon=data.phase==='turn' && data.selection.some(x=>
    x.instanceId&&data.hand.some(c=>c.instanceId===x.instanceId&&c.family==='weapon'));
- const caption=data.phase==='turn'
-   ?(selectedWeapon?'武器は「捨てる」対象外です。攻撃に使うか、他のカードを選んでください'
+ const caption=data.phase==='tradeDefense'?
+   '取引への防御はスーパーミラーだけ。選ばなければ売買を受け入れます'
+   :data.phase==='turn'
+   ?(isSelling?'「売る」→売り渡す神器の順に2枚選択。自己取引は未検証です'
+   :selectedWeapon?'武器は「捨てる」対象外です。攻撃に使うか、他のカードを選んでください'
    :soloPlusMiracle
      ?'火の玉・流星を先頭に選ぶと単独奇跡。続けられるのは直後の精霊のみ'
      :data.canPray&&data.selection.length===0
@@ -3188,17 +3252,23 @@ function renderV2LabMarkup(data,{resetArmed=false}={}){
      data.learned.find(q=>q.definitionId===x.learnedDefinitionId);
    return '<span class="pick-index">'+(i+1)+'. '+esc(c?.label??'選択中')+'</span>';
  }).join('');
- const actionText=data.phase==='defense'?(data.selection.length?'防御を確定':'防御しない')
+ const actionText=data.phase==='tradeDefense'?
+     (data.selection.length?'スーパーミラーで跳ね返す':'売買を受け入れる'):
+     data.phase==='defense'?(data.selection.length?'防御を確定':'防御しない')
    :data.canPray&&data.selection.length===0?'祈る（神器を1枚引く）':'攻撃を確定';
  const notice='<p class="status" role="status">'+esc(data.notice)+'</p>';
- const discardOption=data.phase==='turn' && data.canDiscardSelection
+ const discardOption=data.phase==='turn' && data.canDiscardSelection && !isSelling
    ?'<button type="button" class="quiet discard-option" data-action="discard">'+
      '<strong>'+data.selection.length+'枚捨てる</strong><small>補充なし・ターン終了</small>'+
      '</button>'
    :'';
+ const offer=data.phase==='tradeDefense'&&data.pending?.offer?
+   '<section class="trade-offer" aria-label="取引の提示">'+
+   '<strong>売り付けられた神器：'+esc(data.pending.offer.label)+'</strong>'+
+   '<span>価格 ¥'+esc(data.pending.offer.price)+'</span></section>':'';
  return header+'<main class="stage">'+
    '<div class="stage-heading"><h1>'+esc(seatLabel(data.actorId))+'：'+title+'</h1><p>'+caption+'</p></div>'+
-   targets+'<section class="cards-panel"><h2>手札 <small>'+data.hand.length+'枚</small></h2>'+
+   offer+targets+'<section class="cards-panel"><h2>手札 <small>'+data.hand.length+'枚</small></h2>'+
    '<div class="hand-grid">'+(data.hand.length?data.hand.map(c=>cardButton(c,'hand')).join(''):
        '<p class="empty">手札がありません</p>')+'</div></section>'+
    '<section class="cards-panel"><h2>習得済み奇跡</h2><div class="hand-grid">'+
@@ -3223,7 +3293,9 @@ function mountV2Lab(root,controller=createV2LabController()){
    let handoff=false;
    let submitRejected=false;
    try{
-     if(action==='reset'){
+     if(action==='trade-demo'){
+       controller.loadTradeTrial();resetArmed=false;handoff=true;
+     }else if(action==='reset'){
        if(!resetArmed)resetArmed=true;
        else{controller.reset();resetArmed=false;handoff=true;}
      }else if(action==='reveal'){
