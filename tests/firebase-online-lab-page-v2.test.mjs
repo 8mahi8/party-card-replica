@@ -68,3 +68,11 @@ test('selection panel shows ordered artifact confirmation and source-target cont
  assert.match(page,/view\.pending\?\.type==='attack'/);
  assert.match(page,/document\.createTextNode/);
 });
+
+test('defense UI shows only public declared attack projection from the host',()=>{
+ assert.match(page,/id="incomingAttack"/);
+ assert.match(page,/view\.pending\?\.declaredAttack/);
+ assert.match(page,/announced\.printedAttackTotal/);
+ assert.match(page,/相手の攻撃：/);
+ assert.match(page,/\('incomingAttack'\)\.hidden=!announced/);
+});
