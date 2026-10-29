@@ -1362,6 +1362,74 @@ async function testDreamOutgoingSaleTouch(base){
  finally{page=null;await context.close();}
 }
 
+
+async function testExpandedVanillaWeaponTouch(base){
+ const context=await browser.newContext({
+  viewport:{width:390,height:844},screen:{width:390,height:844},
+  deviceScaleFactor:2,isMobile:true,hasTouch:true,locale:'ja-J'
+ });
+ try{
+  page=await context.newPage();
+  await page.goto(base+'/embed-harness.html',{waitUntil:'load'});
+  await page.locator('#game-embed').evaluate(el=>{el.style.height='430px';});
+  const frame=page.frameLocator('#game-embed');
+  const embedded=page.frames().find(f=>f!==page.mainFrame());
+  if(!embedded)throw new Error('Missing new weapon iframe');
+  await embedded.evaluate(()=>{
+   const old=document.getElementById('v2-root');
+   const fresh=document.createElement('div');fresh.id='v2-root';
+   old.replaceWith(fresh);
+   const lab=__v2_lab_test_controller.createV2LabController({
+     hands:{A:['w033','a016','a017'],B:['d001']}
+   });
+   window.__newWeaponLab=lab;
+   __v2_lab_test_ui.mountV2Lab(fresh,lab);
+  });
+  await frame.locator('[data-action=reveal]').tap();
+  const cards=frame.locator('[data-card=hand]');
+  passed(await cards.count()===3,'source-added vanilla weapons appear in original research lab');
+  passed((await cards.nth(0).textContent()).includes('もろぶっこみアクス'),
+    'new normal main weapon shows researched reference name');
+  passed((await cards.nth(1).textContent()).includes('恐怖の車輪') &&
+    (await cards.nth(2).textContent()).includes('独楽コンバット'),
+    'both new additive weapons have independent card instances');
+  await cards.nth(0).tap();
+  await cards.nth(1).tap();
+  await cards.nth(2).tap();
+  passed(await frame.locator('.battle-card.picked').count()===3,
+    'all new weapon definitions are selectable and ordered in mobile hand');
+  const deck=await frame.locator('.stage-scroll').boundingBox();
+  const dock=await frame.locator('.action-bar').boundingBox();
+  passed(Boolean(deck&&dock&&deck.y+deck.height<=dock.y+1),
+    'selected new cards stay above confirm dock in 390x430 embed');
+  await screenshot('webkit-new-vanilla-weapon-selection');
+  await frame.locator('[data-action=submit]').tap();
+  await frame.locator('.compact-pass').waitFor();
+  passed((await frame.locator('.compact-pass h1').textContent()).includes('P2'),
+    'sourced new weapon combo stages private defender turn');
+  await frame.locator('[data-action=reveal]').tap();
+  await frame.locator('[data-action=submit]').tap();
+  await frame.locator('.compact-pass').waitFor();
+  await frame.locator('[data-action=reveal]').tap();
+  const scores=await frame.locator('.seat').allTextContents();
+  passed(scores[1].includes('HP 4')&&scores[0].includes('手札3枚'),
+    'main 12 + additive 11 + additive 13 = 36; consumed cards refill exactly once');
+  const state=await embedded.evaluate(()=>{
+    const s=window.__newWeaponLab.labSnapshot();
+    return {hp:s.players[1].hp,
+      playerA:s.players[0].hand.map(x=>x.definitionId),
+      playerB:s.players[1].hand.map(x=>x.definitionId)};
+  });
+  passed(state.hp===4&&state.playerA.every(x=>x==='d001')&&
+    state.playerB[0]==='d001',
+    'confirmed actual game-engine state matches screen without card duplication');
+  await screenshot('webkit-new-vanilla-weapon-settled');
+ }catch(error){
+  await screenshot('webkit-new-vanilla-weapon-failure');
+  throw error;
+ }finally{page=null;await context.close();}
+}
+
 async function testFullHandSaleTouch(base){
  const context=await browser.newContext({
   viewport:{width:390,height:844},screen:{width:390,height:844},
@@ -1464,6 +1532,7 @@ try{
   await testSelfSaleTouch(base);
   await testDreamAppearanceTouch(base);
   await testDreamOutgoingSaleTouch(base);
+  await testExpandedVanillaWeaponTouch(base);
   console.log('WEBKIT_SMOKE_SUCCESS checks='+checks+' engine=Playwright WebKit'+
     ' fixed-height frames=1024x460,390x430');
 }catch(error){
