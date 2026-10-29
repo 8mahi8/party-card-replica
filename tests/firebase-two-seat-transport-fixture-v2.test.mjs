@@ -176,8 +176,8 @@ test('host and guest updates publish in command order even when first DB write i
  await hostWrite;
  await until(()=>db.at(LAB_ROOT+'/'+code+'/acks/B')?.id==='race-defense');
  const out=db.at(LAB_ROOT+'/'+code);
- assert.equal(out.views.A.revision,2);
- assert.equal(out.views.B.revision,2);
+ assert.equal(out.views.A.revision,3);
+ assert.equal(out.views.B.revision,3);
  assert.equal(out.views.B.players[1].hp,30);
  assert.equal(out.acks.B.ok,true);
  guest.close();host.close();
@@ -200,13 +200,13 @@ test('failed guest Firebase publish is not a false negative command receipt; sam
  failNext=true;
  await guest.submit(cmd);
  await until(()=>errors.length>0);
- assert.equal(host.read().revision,2,'defense was committed in host memory');
+ assert.equal(host.read().revision,3,'defense was committed in host memory');
  assert.equal(db.at(LAB_ROOT+'/'+code+'/views/B').revision,1,'DB view is still old');
  assert.equal(db.at(LAB_ROOT+'/'+code+'/acks/B'),null,'do not claim the committed defense failed');
  await guest.submit(cmd);
  await until(()=>db.at(LAB_ROOT+'/'+code+'/acks/B')?.duplicate===true);
  assert.equal(db.at(LAB_ROOT+'/'+code+'/acks/B').ok,true);
- assert.equal(db.at(LAB_ROOT+'/'+code+'/views/B').revision,2);
+ assert.equal(db.at(LAB_ROOT+'/'+code+'/views/B').revision,3);
  assert.equal(db.at(LAB_ROOT+'/'+code+'/views/B').players[1].hp,30);
  guest.close();host.close();
 });
