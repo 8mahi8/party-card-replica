@@ -50,7 +50,7 @@ export function renderV2LabMarkup(data,{resetArmed=false}={}){
      '<p>'+esc(data.notice)+'</p><p class="hint">端末を'+esc(seatLabel(data.actorId))+
      'へ渡してから手札を表示してください</p>'+
      '<button type="button" class="primary wide" data-action="reveal">自分の手札を見る</button>'+
-     (data.phase==='turn'&&data.actorId==='A'&&!data.tradeTrial&&!data.buyTrial&&!data.exchangeTrial&&!data.revivalTrial&&!data.selfSaleTrial?
+     (data.phase==='turn'&&data.actorId==='A'&&!data.tradeTrial&&!data.buyTrial&&!data.exchangeTrial&&!data.revivalTrial&&!data.selfSaleTrial&&!data.dreamTrial?
       '<button type="button" class="quiet wide scenario-launch" data-action="trade-demo">'+
       '売るの研究配置で始める</button>'+
       '<button type="button" class="quiet wide scenario-launch" data-action="buy-demo">'+
@@ -60,7 +60,9 @@ export function renderV2LabMarkup(data,{resetArmed=false}={}){
       '<button type="button" class="quiet wide scenario-launch" data-action="revival-demo">'+
       '太陽のお守りの復活を試す</button>'+
       '<button type="button" class="quiet wide scenario-launch" data-action="self-sale-demo">'+
-      '自分に「売る」を試す</button>':'')+
+      '自分に「売る」を試す</button>'+
+      '<button type="button" class="quiet wide scenario-launch" data-action="dream-demo">'+
+      '夢の神器を自分に売って確かめる</button>':'')+
      '</section>'+footer;
  }
  if(data.revivalTrial&&data.phase==='defense'){
@@ -240,6 +242,8 @@ export function mountV2Lab(root,controller=createV2LabController()){
        controller.loadRevivalTrial();resetArmed=false;handoff=true;
      }else if(action==='self-sale-demo'){
        controller.loadSelfSaleTrial();resetArmed=false;handoff=true;
+     }else if(action==='dream-demo'){
+       controller.loadDreamTrial();resetArmed=false;handoff=true;
      }else if(action==='reset'){
        if(!resetArmed)resetArmed=true;
        else{controller.reset();resetArmed=false;handoff=true;}
