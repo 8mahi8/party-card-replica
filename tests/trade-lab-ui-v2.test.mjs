@@ -50,7 +50,9 @@ test('trade seller selects Sell then item; researched two-step view shows target
  assert.match(offered,/売り付けられた神器/);
  assert.match(offered,/価格 ¥25/);
  assert.match(offered,/スーパーミラーで跳ね返す|売買を受け入れる/);
- assert.doesNotMatch(offered,/ci-\d+/,'instance IDs must not appear unencoded as text');
+ for(const card of lab.labSnapshot().players[0].hand)
+  assert.equal(offered.includes('data-id="'+card.instanceId+'"'),false,
+    'buyer view must not contain the seller private hand instance '+card.instanceId);
 });
 test('no mirror chosen means accept the sale; exactly the Sell card gets replaced',()=>{
  const lab=createV2LabController();lab.loadTradeTrial();declare(lab);
