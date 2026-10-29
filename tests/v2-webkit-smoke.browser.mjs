@@ -1038,6 +1038,66 @@ async function testBuyTrialTouch(base){
  }
 }
 
+
+async function testExchangeTrialTouch(base){
+ const context=await browser.newContext({
+  viewport:{width:390,height:844},screen:{width:390,height:844},
+  deviceScaleFactor:2,isMobile:true,hasTouch:true,locale:'ja-J'
+ });
+ try{
+  page=await context.newPage();
+  await page.goto(base+'/embed-harness.html',{waitUntil:'load'});
+  await page.locator('#game-embed').evaluate(el=>{el.style.height='430px';});
+  const frame=page.frameLocator('#game-embed');
+  await frame.locator('[data-action=exchange-demo]').tap();
+  passed(await frame.locator('[data-card]').count()===0,
+    'Exchange lab conceals initial cards during hotseat handoff');
+  await frame.locator('[data-action=reveal]').tap();
+  const first=frame.locator('[data-card=hand]').first();
+  passed((await first.textContent()).includes('両替'),
+    'Exchange artifact appears as a source-backed trade card');
+  await first.tap();
+  const fields=frame.locator('[data-exchange-field]');
+  passed(await fields.count()===3,
+    'HP MP money all have editable numeric fields');
+  const original=await fields.evaluateAll(xs=>xs.map(x=>x.value));
+  passed(JSON.stringify(original)===JSON.stringify(['40','10','20']),
+    'Exchange editor prepopulates current public resources: '+JSON.stringify(original));
+  const editor=await frame.locator('.exchange-editor').boundingBox();
+  const button=await frame.locator('[data-action=submit]').boundingBox();
+  passed(Boolean(editor&&button&&editor.y+editor.height<button.y-3),
+    'Exchange editor stays above fixed submit bar in short iframe');
+  await screenshot('webkit-exchange-editor');
+  await frame.locator('[data-exchange-field=hp]').fill('51');
+  await frame.locator('[data-exchange-field=money]').fill('10');
+  await frame.locator('[data-action=submit]').tap();
+  passed(await frame.locator('.compact-pass').count()===0,
+    'invalid Exchange sum must not end turn');
+  const warning=await frame.locator('[role=status]').textContent();
+  passed(warning.includes('conserve total'),
+    'invalid allocation reports conservation error, not silent resolution');
+  await screenshot('webkit-exchange-invalid');
+  await frame.locator('[data-exchange-field=hp]').fill('50');
+  await frame.locator('[data-action=submit]').tap();
+  await frame.locator('.compact-pass').waitFor();
+  passed((await frame.locator('.compact-pass h1').textContent()).includes('P2') &&
+     await frame.locator('[data-card]').count()===0,
+    'valid Exchange passes hidden turn to P2');
+  await frame.locator('[data-action=reveal]').tap();
+  const scores=await frame.locator('.seat').allTextContents();
+  passed(scores[0].includes('HP 50')&&scores[0].includes('MP 10')&&
+     scores[0].includes('¥ 10'),
+    'P1 values are reallocated 1:1 with total 70: '+JSON.stringify(scores));
+  passed(scores[1].includes('HP 40')&&scores[1].includes('¥ 20'),
+    'P2 stats untouched by Exchange');
+  passed(scores[0].includes('手札2枚'),
+    'Exchange action refills exactly one artifact');
+  await screenshot('webkit-exchange-complete');
+ }catch(error){
+  await screenshot('webkit-exchange-failure');throw error;
+ }finally{page=null;await context.close();}
+}
+
 async function testFullHandSaleTouch(base){
  const context=await browser.newContext({
   viewport:{width:390,height:844},screen:{width:390,height:844},
@@ -1134,6 +1194,7 @@ try{
   await testSellingTradeCardTouch(base);
   await testFullHandSaleTouch(base);
   await testBuyTrialTouch(base);
+  await testExchangeTrialTouch(base);
   console.log('WEBKIT_SMOKE_SUCCESS checks='+checks+' engine=Playwright WebKit'+
     ' fixed-height frames=1024x460,390x430');
 }catch(error){
