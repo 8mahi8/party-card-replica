@@ -1,0 +1,35 @@
+name: G6 HTTPS preview metadata check (read-only)
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/g6-preview-source-check.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  pages-state:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Inspect repository Pages source without changing settings
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          status=$(curl -sSfL -o pages.json -w '%{http_code}' -H "Accept: application/vnd.github+json" -H "Authorization: Bearer $GH_TOKEN" "https://api.github.com/repos/$REPOSITORY/pages") || status=404
+          echo "G6_PAGES_API_STATUS=$status"
+          if [ "$status" = "200" ]; then
+            jq -c '{html_url, status, source, build_type, public}' pages.json
+          else
+            echo "G6_PAGES_NOT_VERIFIED: Pages disabled, inaccessible, or no source configured"
+          fi
+      - name: Check common HTTPS trial path (no writes)
+        shell: bash
+        run: |
+          status=$(curl -sSL -o /dev/null -w '%{http_code}' --max-time 12 'https://8mahi8.github.io/party-card-replica/v2/demo/firebase-online-lab.html') || status=000
+          echo "G6_PAGES_TRIAL_HTTP_STATUS=$status"
