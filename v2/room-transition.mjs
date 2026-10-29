@@ -133,6 +133,17 @@ export function resolveStagedFixture(state,catalog,{
     return resolveDiscardFixture(state,catalog,{labOnly,fixtureDrawDefinitionId});
   if(state.pending?.type==='sale')
     return resolveStagedSaleFixture(state,catalog,{labOnly,fixtureDrawDefinitionId});
+  if(state.pending?.type==='selfSale'){
+    const p=state.pending;
+    return {...runEffectQueueFixture(state,catalog,[
+      {type:'spend',playerId:p.originalAttackerId,instanceIds:[p.saleInstanceId]},
+      {type:'selfSale',playerId:p.originalAttackerId},
+      {type:'refill'},
+      {type:'advance',afterId:p.originalAttackerId}
+    ],{labOnly:true,fixtureDrawDefinitionId}),
+    plan:Object.freeze({type:'selfSale',
+      itemDefinitionId:p.offeredDefinitionId,price:p.price})};
+  }
   if(state.pending?.type==='buy')
     return resolveStagedBuyFixture(state,catalog,{labOnly,fixtureDrawDefinitionId});
   if(state.pending?.type==='exchange'){
