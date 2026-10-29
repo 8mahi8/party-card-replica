@@ -13,6 +13,7 @@ import {planIncomingHandTransfer} from './hand-overflow.mjs';
 import {previewBuyOfferFixture,previewBuyChoiceFixture} from './trade-buy.mjs';
 import {previewExchangeFixture} from './trade-exchange.mjs';
 import {planZeroHpRecoveryFixture} from './zero-hp-recovery.mjs';
+import {inspectHitOutcomeBoundaryFixture} from './hit-outcome-boundary.mjs';
 import {retireDreamAppearancesFixture,validateDreamOwnershipFixture} from './dream-appearance.mjs';
 import {previewSelfSaleFixture} from './trade-self-sale.mjs';
 
@@ -125,12 +126,55 @@ export function runEffectQueueFixture(state,catalog,queue,{
      if(!positiveCount(effect.damage)||!positiveCount(effect.hpAfter)||
         effect.hpAfter>p.hp||typeof effect.instantDefeat!=='boolean')
        fail('Malformed hit effect');
-     const recovery=planZeroHpRecoveryFixture({player:p,catalog,
-       hpAfter:effect.hpAfter});
-     p.hp=recovery.hpAfter;
+     // A source-backed absorbing weapon heals by the RESOLVED damage amount,
+     // even on overkill. A self-targeted absorber may reach transient HP0
+     // and recover without spending a Sun Charm (observed original behavior).
+     // Use the current attack source, which changes with reflect/deflect,
+     // NOT always the original attacker's seat.
+     if(effect.lifeSteal!==undefined&&effect.lifeSteal!==true)
+       fail('Invalid hit absorption flag');
+     const absorbs=effect.lifeSteal===true;
+     if(absorbs){
+       const pending=state.pending;
+       if(pending.type!=='attack'||pending.targetId!==effect.targetId||
+         (pending.attackContext
+           ?pending.attackContext.absorbsHp!==true
+           :!pending.attackInstanceIds?.some(id=>{
+             const attacker=who(state,pending.originalAttackerId);
+             const instance=attacker.hand.find(c=>c.instanceId===id);
+             return catalog.get(instance?.definitionId)?.effects.some(e=>
+               e.when==='afterHit'&&e.type==='absorbHp'&&e.params.amount==='damage');
+           })))
+         fail('Absorption requires an authentic attack effect');
+       if(effect.instantDefeat)
+         fail('Absorbing instant-defeat attacks need original verification');
+       inspectHitOutcomeBoundaryFixture({
+         beforeHp:p.hp,damage:effect.damage,hpAfter:effect.hpAfter,
+         instantDefeat:effect.instantDefeat
+       });
+       // The source-backed charm-vs-absorption order has not been verified.
+       if(p.id!==(pending.sourceId??pending.originalAttackerId)&&
+          effect.hpAfter===0&&p.hand.some(c=>
+            catalog.get(c.definitionId)?.effects.some(e=>
+              e.when==='onZeroHp'&&e.type==='reviveAtZeroHp')))
+         fail('Fatal absorption with Sun Charm unverified');
+     }
+     p.hp=effect.hpAfter;
      events.push({type:'damage',targetId:p.id,damage:effect.damage,
        instantDefeat:effect.instantDefeat,hpAfter:effect.hpAfter,
        ...(effect.stopped===undefined?{}:{stopped:effect.stopped})});
+     if(absorbs && effect.damage>0){
+       const beneficiary=who(s,state.pending.sourceId??state.pending.originalAttackerId);
+       const before=beneficiary.hp;
+       beneficiary.hp=Math.min(99,before+effect.damage);
+       events.push({type:'absorbHp',playerId:beneficiary.id,
+         sourceId:beneficiary.id,targetId:p.id,
+         attempted:effect.damage,restored:beneficiary.hp-before,
+         hpAfter:beneficiary.hp});
+     }
+     const recovery=planZeroHpRecoveryFixture({player:p,catalog,
+       hpAfter:p.hp});
+     p.hp=recovery.hpAfter;
      if(recovery.kind==='revived'){
        const index=p.hand.findIndex(x=>x.instanceId===recovery.consumedInstanceId);
        if(index<0)fail('Passive charm disappeared during resolution');
