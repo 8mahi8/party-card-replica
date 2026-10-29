@@ -159,6 +159,7 @@ export function runEffectQueueFixture(state,catalog,queue,{
               e.when==='onZeroHp'&&e.type==='reviveAtZeroHp')))
          fail('Fatal absorption with Sun Charm unverified');
      }
+     const targetBeforeHp=p.hp;
      p.hp=effect.hpAfter;
      events.push({type:'damage',targetId:p.id,damage:effect.damage,
        instantDefeat:effect.instantDefeat,hpAfter:effect.hpAfter,
@@ -172,7 +173,7 @@ export function runEffectQueueFixture(state,catalog,queue,{
          attempted:effect.damage,restored:beneficiary.hp-before,
          hpAfter:beneficiary.hp});
      }
-     const recovery=planZeroHpRecoveryFixture({player:p,catalog,
+     const recovery=planZeroHpRecoveryFixture({player:{...p,hp:targetBeforeHp},catalog,
        hpAfter:p.hp});
      p.hp=recovery.hpAfter;
      if(recovery.kind==='revived'){
