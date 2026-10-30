@@ -65,7 +65,9 @@ test('selection panel shows ordered artifact confirmation and source-target cont
  assert.match(page,/id="selectionTotal"/);
  assert.match(page,/for\(const instanceId of selection\)/);
  assert.match(page,/カード記載値の合計（参考）/);
- assert.match(page,/view\.pending\?\.type==='attack'/);
+ assert.match(page,/\['attack','useItem'\]\.includes\(view\.pending\?\.type\)/);
+ assert.match(page,/id="itemTarget"/);
+ assert.match(page,/itemDefense/);
  assert.match(page,/document\.createTextNode/);
 });
 
