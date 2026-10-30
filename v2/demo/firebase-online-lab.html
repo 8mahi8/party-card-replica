@@ -18,6 +18,8 @@ main{max-width:940px;min-height:100dvh;margin:auto;padding:0 10px 12px}
 .panel{border:1px solid #5baca0;background:#e6fff2c9;border-radius:9px;padding:9px;margin:8px 0;box-shadow:0 2px 5px #0c6d6a18}
 h2{font-size:15px;margin:3px 0 9px}
 .inline{display:flex;flex-wrap:wrap;gap:7px;align-items:center}.inline>*{flex:1;min-width:100px}
+select{font:inherit;color:#07584f;background:#fff;border:1px solid #5caaa0;border-radius:7px;min-height:42px;padding:5px 8px;max-width:100%}
+#presetNotice{font-size:11px;color:#2b7068;margin:4px 0 7px}
 input{min-height:42px;max-width:185px;padding:7px;font-size:18px;letter-spacing:.16em;text-align:center;color:#07584f;border:1px solid #5caaa0;border-radius:7px;background:white}
 #lobby{margin-top:12px}#lobby .inline{margin-top:7px}
 .connection-bar{display:flex;align-items:center;flex-wrap:wrap;gap:8px;padding:5px 8px;margin-top:7px;background:#e3fff0a8;border:1px solid #70b9af;border-radius:7px}
@@ -90,6 +92,13 @@ main{padding:0 6px 8px}.brandline{margin:0 -6px}
 </details>
 <section id="lobby" class="panel">
 <h2>対戦する</h2>
+<label for="labPreset">研究用の手札セット（部屋を作る人が選択）</label>
+<div class="inline"><select id="labPreset" aria-label="研究用の手札セット">
+<option value="basic">基本対戦（従来の固定4枚）</option>
+<option value="elements">属性防御（火・水）</option>
+<option value="dark">闇属性と高防御</option>
+</select></div>
+<p id="presetNotice">原作の山札ではありません。選択した4枚セットで効果を試します。</p>
 <div class="inline"><button id="create" class="primary">部屋を作る</button></div>
 <div class="inline"><input id="joinCode" inputmode="numeric" maxlength="5" aria-label="5桁のルーム番号" placeholder="5桁の番号"><button id="join">部屋に参加</button></div>
 </section>
@@ -131,6 +140,22 @@ import {VERIFIED_BASIC_CARDS} from '../../src/verified-basic-cards.mjs';
 const $=id=>document.getElementById(id);
 const {byId:catalog}=migrateLegacyCatalog();
 const names=new Map(VERIFIED_BASIC_CARDS.map(c=>[c.id,c.referenceName]));
+// Explicit research fixtures, not the original 353-kind / 500-slot deck.
+// These are trusted host-side presets, never supplied by a guest command.
+const LAB_PRESETS=Object.freeze({
+ basic:Object.freeze({
+  A:Object.freeze(['w016','d001','m002','d003']),
+  B:Object.freeze(['w027','d003','m001','d001'])
+ }),
+ elements:Object.freeze({
+  A:Object.freeze(['w018','w021','d035','d043']),
+  B:Object.freeze(['w021','w018','d043','d035'])
+ }),
+ dark:Object.freeze({
+  A:Object.freeze(['w051','w054','d030','d034']),
+  B:Object.freeze(['w052','w053','d030','d034'])
+ })
+});
 const url='https://mygame-df915-default-rtdb.firebaseio.com/';
 let db=null,session=null,view=null,seat=null,joined=false,waiting=false,selection=new Set(),lastRevision=-1,pendingId=null,pendingCommand=null,retrying=false;
 const randomId=()=>{const a=new Uint32Array(2);crypto.getRandomValues(a);return Array.from(a,x=>x.toString(36)).join('-');};
@@ -325,9 +350,14 @@ $('create').addEventListener('click',async()=>{
  $('create').disabled=true;
  try{
   const database=ensureDb();
+  const preset=LAB_PRESETS[$('labPreset').value];
+  if(!preset)throw Error('未対応の研究用セットです');
+  // Catch an accidentally removed research card BEFORE touching Firebase.
+  for(const ids of [preset.A,preset.B])
+   if(ids.some(id=>!catalog.has(id)))throw Error('セットの神器定義が不足しています');
   const initialState=createStagingRoom({firstSeatId:'A',
-   seats:[{id:'A',handDefinitionIds:['w016','d001','m002','d003']},
-    {id:'B',handDefinitionIds:['w027','d003','m001','d001']}],
+   seats:[{id:'A',handDefinitionIds:[...preset.A]},
+    {id:'B',handDefinitionIds:[...preset.B]}],
    rulesetId:'partial-reference-v2-lab',rngSeed:71},catalog);
   for(let i=0;i<5;i++){
    try{
