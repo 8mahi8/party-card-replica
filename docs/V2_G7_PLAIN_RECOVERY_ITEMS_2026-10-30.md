@@ -51,3 +51,11 @@ G7研究用のカード台帳は155種類・357/500参考枠まで登録でき�
 学校iPad Safari2台の実機検証、新しく追加した回復セットでの本物のFirebase通信、チーム戦で他人を回復する原作仕様、正規353/500種類・枠の監査、全種類のカード効果の再現、正規の初期9枚手札は未完了。
 
 Firebase Security Rules・認証、学校Google Sitesへ貼ったHTML、GitHub`main`は変更しない。
+
+## CIの確定状況
+
+- **Node 929/929件成功**：GitHub Actions [run 41041982015](https://github.com/8mahi8/party-card-replica/actions/runs/41041982015)。データ7種類、99上限、回復→同手番攻撃、同一コマンドIDの再送、別物理IDを指定した再送の拒否、未使用/消費済みカードの拒否を含む。
+- **Chromium 28/28件成功**：[run 41041981833](https://github.com/8mahi8/party-card-replica/actions/runs/41041981833)。
+- **WebKit**：新オンライン2画面の回復・攻撃・防御は[run 41041641624](https://github.com/8mahi8/party-card-replica/actions/runs/41041641624)で **49/49件成功**、既存画面も **339/339件成功**。最終workflow復帰後の再実行は [run 41041981963](https://github.com/8mahi8/party-card-replica/actions/runs/41041981963)。
+- **配布HTML**：3種類の単体HTMLを最新の回復処理から再生成し、開発ブランチへ保存（botコミット`a9683eb`）。生成ファイルとソースの一致は上記Node検証で確認済み。生成workflowは作業後`workflow_dispatch`手動起動に戻した。
+- **途中の問題と解消**：最初のCIでは生成HTMLが古く、Dream研究監査の`needsRuleReview`が新たな7枚の分だけ1→8になった。回復アイテムをDream対応済みに勝手に昇格させず、夢の見え方は「未検証」を明示してテストを修正。WebKit初回は研究用初期MP10を20と誤認したテストがタイムアウトしたが、MP15の正しい期待値に修正し成功。回復コマンドの重複判定に物理instanceIdが不足していた点も検出・修正した。
