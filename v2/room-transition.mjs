@@ -127,6 +127,26 @@ export function resolveStagedFixture(state,catalog,{
     fail('Unknown fixture draw card');
   if(state?.schemaVersion!==2||state.phase!=='resolving')
     fail('No attack waiting for resolution');
+  if(state.pending?.type==='useItem'){
+    const p=state.pending;
+    const actor=state.players.find(x=>x.id===p.originalAttackerId);
+    const card=actor?.hand.find(x=>x.instanceId===p.instanceId);
+    const def=catalog.get(card?.definitionId);
+    const effect=def?.effects.find(e=>e.when==='onDeclare'&&e.type==='restoreResource');
+    if(!card||!actor||actor.hp<=0||def?.family!=='item'||
+       !def.playModes.includes('use')||def.effects.length!==1||!effect)
+      fail('Invalid pending recovery item');
+    const result=runEffectQueueFixture(state,catalog,[
+      {type:'spend',playerId:actor.id,instanceIds:[card.instanceId]},
+      {type:'restoreResource',playerId:actor.id,
+        resource:effect.params.resource,amount:effect.params.amount},
+      {type:'refill'},
+      {type:'resumeTurn',playerId:actor.id}
+    ],{labOnly:true,fixtureDrawDefinitionId});
+    return {...result,plan:Object.freeze({type:'useItem',
+      playerId:actor.id,definitionId:def.id,
+      resource:effect.params.resource,amount:effect.params.amount})};
+  }
   if(state.pending?.type==='pray')
     return resolvePrayFixture(state,catalog,{labOnly,fixtureDrawDefinitionId});
   if(state.pending?.type==='discard')
