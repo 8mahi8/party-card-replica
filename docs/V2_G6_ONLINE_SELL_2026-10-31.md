@@ -21,7 +21,7 @@
 - `tests/firebase-online-lab-page-v2.test.mjs`にUI／送信コマンド検査を追加。
 - `tests/g7-online-loadout-presets-v2.test.mjs`に16種類の手札と売却額検査を追加。
 - ソースから`node v2/demo/build-online.mjs`でオンライン単体HTML再生成。旧オフライン・V2オフライン単体HTMLも同一ビルダーで同期。生成用workflowは利用後に手動専用へ復帰。
-- Node成功：1028/1028（run https://github.com/8mahi8/party-card-replica/actions/runs/41088807761 ）。WebKit／Chromiumの最終合否はGitHub Actions最新HEADで確認し、更新する。
+- Node成功：1028/1028（run https://github.com/8mahi8/party-card-replica/actions/runs/41088807761 ）。Chromium成功： https://github.com/8mahi8/party-card-replica/actions/runs/41088807932 。WebKit（実2ページ・模擬RTDB） **オンライン231/231、既存画面339/339 PASS**： https://github.com/8mahi8/party-card-replica/actions/runs/41088723615 。学校の実iPad Safariや実Firebaseでこの操作を検証したものではない。
 
 ## 未検証／次
 本物のFirebaseで今回新設した売買を両方の学校iPad Safariから操作したことはない。Google SitesにHTMLを直接貼った試験も未実施。現状は固定4枚＋固定補充の研究対戦。
