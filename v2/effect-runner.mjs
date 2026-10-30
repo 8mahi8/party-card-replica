@@ -147,6 +147,18 @@ export function runEffectQueueFixture(state,catalog,queue,{
        fail('Invalid grantDraw count');
      spent[p.id]=(spent[p.id]??0)+effect.count;
      events.push({type:'grantDraw',playerId:p.id,count:effect.count});
+   } else if(effect.type==='restoreResource'){
+     // Ordinary item recovery is not a strike, must not revive a fallen
+     // player, and caps HP/MP at the source game's maximum of 99.
+     if(!['hp','mp'].includes(effect.resource)||
+        !Number.isSafeInteger(effect.amount)||effect.amount<1||effect.amount>99)
+       fail('Invalid plain recovery effect');
+     const p=who(s,effect.playerId);
+     if(p.hp<=0)fail('Cannot use a recovery item after defeat');
+     const before=p[effect.resource];
+     p[effect.resource]=Math.min(99,before+effect.amount);
+     events.push({type:'restoreResource',playerId:p.id,resource:effect.resource,
+       requested:effect.amount,restored:p[effect.resource]-before});
    } else if(effect.type==='mp'){
      const p=who(s,effect.playerId);
      if(!positiveCount(effect.cost)||p.mp<effect.cost)fail('Invalid MP payment');
@@ -593,6 +605,14 @@ export function runEffectQueueFixture(state,catalog,queue,{
        hitCount:effect.attackContext.hitCount,targetId:target.id});
    } else if(effect.type==='refill'){
      refillSettled();
+   } else if(effect.type==='resumeTurn'){
+     // Plain healing does not consume the player's attack opportunity.
+     // A separate attack/prayer/discard can still finish the same turn.
+     const p=who(s,effect.playerId);
+     if(p.hp<=0||s.phase!=='resolving'||s.pending!==null)
+       fail('Cannot resume item turn');
+     s.phase='turn';s.activePlayerId=p.id;
+     events.push({type:'resumeTurn',playerId:p.id});
    } else if(effect.type==='advance'){
      advanceSettled(effect.afterId);
    } else fail('Unknown queued effect: '+String(effect.type));
