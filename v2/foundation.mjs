@@ -51,8 +51,9 @@ function freezeEffect(effect) {
       !['minor','all'].includes(params.scope)))
     throw new Error('Invalid cleanseAfflictions effect data');
   if(effect.type==='inflictDisease'&&
-     (effect.when!=='afterHit'||Object.keys(params).length!==1||
-      !['cold','hell'].includes(params.disease)))
+     (Object.keys(params).length!==1||
+      !((effect.when==='afterHit'&&['cold','hell'].includes(params.disease))||
+        (effect.when==='onDeclare'&&['cold','heaven'].includes(params.disease)))))
     throw new Error('Invalid inflictDisease effect data');
   if(effect.type==='heavenHerb'&&
      (effect.when!=='onDeclare'||Object.keys(params).length!==2||
