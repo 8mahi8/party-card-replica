@@ -328,6 +328,58 @@ try{
  if(errors.length)throw Error('G7 support browser errors: '+errors.join(' | '));
  console.log('G7_LIVE_SUPPORT_RECOVERY_SUCCESS: real RTDB, HP+5 mirrored, MP+5 accepted, revision6, private hands');
 
+ // Prove both Broom defense decisions against real Firebase in isolated,
+ // newly allocated 5-digit lab rooms. No unrelated nodes are touched.
+ async function liveBroomTrial(mirror){
+  await a.goto('about:blank');await b.goto('about:blank');
+  await cleanup();code=null;roomHostId=null;
+  await a.goto(url,{waitUntil:'load',timeout:20000});
+  await a.locator('#labPreset').selectOption('broom');
+  await a.locator('#create').tap();
+  await a.waitForFunction(()=>/ルーム \d{5}/.test(
+   document.querySelector('#roomLabel')?.textContent||''),null,{timeout:20000});
+  code=(await a.locator('#roomLabel').textContent()).match(/\d{5}/)[0];
+  const created=await dbRead(code);
+  if(!created?.meta?.hostId||created?.meta?.guestId!=null)
+   throw Error('G7 real Broom room creation failed');
+  roomHostId=created.meta.hostId;
+  await b.goto(url,{waitUntil:'load',timeout:20000});
+  await b.locator('#joinCode').fill(code);
+  await b.locator('#join').tap();
+  await b.locator('#hand button').first().waitFor({timeout:20000});
+  await a.locator('#hand button').first().tap();
+  if(!(await a.locator('#itemTarget').textContent()).includes('相手'))
+   throw Error('Broom did not default to opponent');
+  await a.locator('#useItem').tap();
+  await b.waitForFunction(()=>document.querySelector('#phase')?.textContent
+   .includes('雑貨への対応'),null,{timeout:20000});
+  const waiting=await dbRead(code);
+  if(waiting.views?.B?.pending?.declaredItem?.definitionId!=='i014'||
+     waiting.views?.B?.players?.[1]?.handCount!==4||
+     waiting.views?.B?.players?.[0]?.hand!==undefined)
+   throw Error('Broom was resolved before Mirror/pass or leaked opponent cards');
+  if(mirror)await b.locator('#hand button').first().tap();
+  await b.locator('#defend').tap();
+  await Promise.all([a,b].map(page=>page.waitForFunction(({mirror})=>{
+   const scores=document.querySelectorAll('.score');
+   return scores[0]?.textContent?.includes('手札 '+(mirror?1:4))&&
+    scores[1]?.textContent?.includes('手札 '+(mirror?4:1));
+  },{mirror},{timeout:20000})));
+  const end=await dbRead(code);
+  if(end.views?.A?.revision!==3||end.views?.B?.revision!==3||
+     end.views.A.players[0].handCount!==(mirror?1:4)||
+     end.views.A.players[1].handCount!==(mirror?4:1)||
+     end.views.A.activePlayerId!=='A'||end.views.B.activePlayerId!=='A'||
+     end.views.B.players[0].hand!==undefined||
+     end.views.A.players[1].hand!==undefined)
+   throw Error('G7 live Broom settlement, 3-card loss, turn or secrecy failed');
+  if(errors.length)throw Error('G7 Broom browser error: '+errors.join(' | '));
+  console.log(mirror?'G7_LIVE_BROOM_MIRROR_SUCCESS':'G7_LIVE_BROOM_PASS_SUCCESS');
+ }
+ await liveBroomTrial(false);
+ await liveBroomTrial(true);
+
+
 
 
 }catch(error){
