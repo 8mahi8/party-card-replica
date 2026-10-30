@@ -29,3 +29,12 @@
 ## 次の作業
 
 病を付与する武器の命中後に今回作ったスマイル／ハートの貝がらで正しく治療できる一連のラウンド操作を試す。別系統の災い（夢・霧・閃光・暗雲）や、独立した奇跡〈風〉〈天国風〉は原作の発動・消費・対抗手段を比較してから実装する。公式山札全353種・500枠の未完成状態は維持する。
+
+
+## 確認結果（後続追記）
+
+- **Node 1005/1005 PASS**：[run 41070293489](https://github.com/8mahi8/party-card-replica/actions/runs/41070293489)、**Chromium PASS**：[run 41070293285](https://github.com/8mahi8/party-card-replica/actions/runs/41070293285)。最新コード＋生成済み単体HTMLの状態で再確認。
+- **WebKitオンライン2画面168/168 PASS**、固定画面339/339 PASS：[run 41070397615](https://github.com/8mahi8/party-card-replica/actions/runs/41070397615)。390×430のタップ操作で風邪通常命中・高防御の完全ガード・スーパーミラーによる反射・地獄のハサミによる地獄病を確認。
+- **実Firebase 18シナリオ全成功**：[run 41070847262](https://github.com/8mahi8/party-card-replica/actions/runs/41070847262)。既存14ケースに追加した4ケースで`G7_LIVE_DISEASE_WEAPON_COLD_SUCCESS`、`G7_LIVE_DISEASE_WEAPON_BLOCKED_SUCCESS`、`G7_LIVE_DISEASE_WEAPON_REFLECT_SUCCESS`、`G7_LIVE_DISEASE_WEAPON_HELL_SUCCESS`を確認。独立試験用ルーム18件は、作成ホストIDを照合しすべて削除済み（18回の`G6_LIVE_CLEANUP_SUCCESS`）。
+- **デバッグ経過**：土攻撃の防御テストで、原作の相性表と異なる土防具を指定していたため木防具へ修正。実Firebaseの初回検証では、部屋参加で増えるrevisionを数えずに「固定revision=2」と決めつけたので正常な風邪命中が誤失敗。**両席のrevision一致＋防御前からの単調増加**に変更し、再試験で正常終了。これらはテストの前提の修正であり、ゲーム本体の感染処理ではない。
+- 2つの検証用ワークフローは試験後に従来の**`workflow_dispatch`手動専用**へ戻した。学校版のGoogle Sites直貼りHTMLとFirebaseルールには触れていない。学校のSafari実機はまだ未検証。
