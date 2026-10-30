@@ -6,6 +6,7 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import {RESEARCH_CATALOG_CONTRACT} from './helpers/research-catalog-contract.mjs';
 import {migrateLegacyCatalog} from '../v2/legacy-adapter.mjs';
 import {createStagingRoom} from '../v2/staging-room.mjs';
 import {submitAndResolveFixture} from '../v2/room-transition.mjs';
@@ -35,7 +36,7 @@ test('the physical reference is attack3, ¥10, 1/500 and a typed two-hit effect'
  assert.equal(d.stats.attack,3);assert.equal(d.stats.price,10);
  assert.equal(d.drawWeight,1);
  assert.deepEqual(d.effects,[{when:'onDeclare',type:'repeatAttack',params:{count:2}}]);
- assert.equal(summary.unique,120);assert.equal(summary.slots,309);
+ assert.equal(summary.unique,RESEARCH_CATALOG_CONTRACT.unique);assert.equal(summary.slots,RESEARCH_CATALOG_CONTRACT.slots);
 });
 test('two separate damage events and defense prompts for one opening weapon',()=>{
  const start=room(),before=JSON.stringify(start);
