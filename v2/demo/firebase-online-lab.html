@@ -177,7 +177,8 @@ const LAB_PRESETS=Object.freeze({
  }),
  heaven:Object.freeze({
   A:Object.freeze(['i016','w016','d003','i005']),
-  B:Object.freeze(['i002','i016','w027','d003'])
+  B:Object.freeze(['i002','i016','w027','d003']),
+  rngSeed:12345
  }),
  soap:Object.freeze({
   A:Object.freeze(['i015','w016','d003','i006']),
@@ -449,7 +450,7 @@ $('create').addEventListener('click',async()=>{
   const initialState=createStagingRoom({firstSeatId:'A',
    seats:[{id:'A',handDefinitionIds:[...preset.A]},
     {id:'B',handDefinitionIds:[...preset.B]}],
-   rulesetId:'partial-reference-v2-lab',rngSeed:71},catalog);
+   rulesetId:'partial-reference-v2-lab',rngSeed:preset.rngSeed??71},catalog);
   // Host-owned fixed lab data, never accepted from a guest command.
   for(const [index,ids] of [[0,preset.learnedA],[1,preset.learnedB]]){
    if(ids!==undefined){
