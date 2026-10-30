@@ -915,6 +915,77 @@ try{
   }finally{await a.close();await b.close();}
  }
  await learnedTouchTrial();
+
+ // Online G4 Sell: the host sends only an ordered Sell/item declaration,
+ // and the other seat gets the public name and price before deciding.
+ // Reuse the same lab G4 engine that offline trade touch tests validate.
+ async function sellTouchTrial(mirror){
+  const seller=await context.newPage(),buyer=await context.newPage();
+  for(const p of [seller,buyer])p.on('pageerror',err=>errors.push(err.message));
+  try{
+   await seller.goto(target);
+   await seller.locator('#labPreset').selectOption('sale');
+   await seller.locator('#create').tap();
+   await seller.waitForFunction(()=>/\b\d{5}\b/.test(
+    document.querySelector('#roomLabel')?.textContent||''));
+   const room=(await seller.locator('#roomLabel').textContent()).match(/\d{5}/)[0];
+   await buyer.goto(target);
+   await buyer.locator('#joinCode').fill(room);
+   await buyer.locator('#join').tap();
+   await buyer.locator('#hand button').first().waitFor();
+   check(await seller.locator('#sell').isDisabled(),
+    'online Sell is not submitted without its actual trade card and item');
+   await seller.locator('#hand button').first().tap();
+   check(await seller.locator('#sell').isDisabled(),
+    'Sell alone does not declare an incomplete trade');
+   check(await seller.locator('#attack').isDisabled(),
+    'Sell cannot be mistaken for a normal weapon attack');
+   await seller.locator('#hand button').nth(1).tap();
+   check(await seller.locator('#sell').isEnabled(),
+    'Sell then gold club enables one valid ordered trade declaration');
+   check((await seller.locator('#selectionPreview').textContent())
+    .indexOf('売る')<(await seller.locator('#selectionPreview').textContent()).indexOf('金のこん棒'),
+    'selected trade order shows Sell first then the item');
+   check((await seller.locator('#selectionTotal').textContent()).includes('¥25'),
+    'source-backed trade price is shown before confirmation');
+   await seller.locator('#sell').tap();
+   await buyer.waitForFunction(()=>document.querySelector('#phase')?.textContent
+    .includes('売買への対応'),null,{timeout:15000});
+   check((await buyer.locator('#incomingAttack').textContent()).includes('金のこん棒')&&
+     (await buyer.locator('#incomingAttack').textContent()).includes('¥25'),
+    'buyer sees the exact public sold item and price before choosing');
+   check(await buyer.locator('#hand button').nth(1).isDisabled(),
+    'ordinary defense cards cannot stop a forced sale');
+   check((await buyer.locator('#defend').textContent()).includes('売買を受け入れる'),
+    'no selected Mirror means accepting trade');
+   if(mirror){
+    await buyer.locator('#hand button').first().tap();
+    check((await buyer.locator('#defend').textContent()).includes('スーパーミラーで反射'),
+     'real Super Mirror is the only enabled trade response');
+   }
+   await buyer.locator('#defend').tap();
+   await Promise.all([seller,buyer].map(p=>p.waitForFunction(({mirror})=>{
+    const cards=document.querySelectorAll('.score');
+    const a=cards[0]?.textContent||'',b=cards[1]?.textContent||'';
+    const state=document.querySelector('#phase')?.textContent||'';
+    return (state.includes('あなたの攻撃')||state.includes('相手の攻撃待ち'))&&
+      (mirror?
+       a.includes('¥ 0')&&a.includes('MP 5')&&b.includes('¥ 45'):
+       a.includes('¥ 45')&&b.includes('¥ 0')&&b.includes('MP 5'));
+   },{mirror},{timeout:15000})));
+   check((await seller.locator('#hand').textContent()).includes('金のこん棒')===mirror,
+    'reflected sale retains original item; accepted sale removes it');
+   check((await buyer.locator('#hand').textContent()).includes('金のこん棒')===!mirror,
+    'only an accepted sale transfers the item to the recipient');
+   check((await seller.locator('#phase').textContent()).includes('相手の攻撃待ち'),
+    'sale resolution advances to next seat without freezing host view');
+   check(await buyer.evaluate(()=>document.documentElement.scrollWidth<=
+      document.documentElement.clientWidth+2),
+    'sale response and public price fit 390px narrow iPad iframe');
+  }finally{await seller.close();await buyer.close();}
+ }
+ await sellTouchTrial(false);
+ await sellTouchTrial(true);
  check(errors.length===0,'all preset trials have no script errors');
  console.log('FIREBASE_ONLINE_WEBKIT_SUCCESS checks='+checks+
   ' two tabs with mock RTDB, viewport=390x430');
