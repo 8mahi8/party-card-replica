@@ -21,3 +21,10 @@
 
 ## 境界・残課題
 学校のiPad Safariでの実機検証は未実施。実際のGoogle Sites直接埋め込み版、GitHub main、Firebase Security Rules・認証は変更しない。病の治療（スマイル／ハートの貝がら、奇跡）、病を付与する各武器、霧・夢・閃光・暗雲は未実装。今後、原作確認したうえで共通の病状態に接続する。既存正常機能の作り直しや、必要性のない汎用状態異常システムの構築はしない。
+
+
+## 実施済みの検証結果（後続追記）
+- Node：**984/984成功** [run 41063205774](https://github.com/8mahi8/party-card-replica/actions/runs/41063205774)。Chromium：**成功** [run 41063205751](https://github.com/8mahi8/party-card-replica/actions/runs/41063205751)。WebKit：オンライン2画面 **132/132成功**、既存画面 **339/339成功** [run 41063205454](https://github.com/8mahi8/party-card-replica/actions/runs/41063205454)。
+- 本物のFirebase：**成功** [run 41063614609](https://github.com/8mahi8/party-card-replica/actions/runs/41063614609)。従来の8シナリオと新しい`G7_LIVE_HEAVEN_PASS_SUCCESS`、`G7_LIVE_HEAVEN_MIRROR_SUCCESS` の計10ケース。許す→対象へのMP+20・天国病、反射→使用者へのMP+20・天国病、各ターン終了後のHP+5を確認。10の試験用ルームを全削除した`G6_LIVE_CLEANUP_SUCCESS`も確認。検証用のPR起動は後で元の手動専用に戻した。
+- 最初の実Firebase試験は、RTDBに`null`の`disease`フィールドが保存されない際、テストが`undefined`を病ありと誤判定した。ゲーム画面・データでは病は実際に未付与だったため、検証条件を`??null`へ修正し、**再実行成功**。あわせて新モジュールのオフライン/オンラインHTMLバンドル一覧への登録漏れを修正した。
+- 学校Google Sitesの実iPad操作は**依然未検証**。上記WebKitは390×430の模擬環境であり、実機動作の保証ではない。
