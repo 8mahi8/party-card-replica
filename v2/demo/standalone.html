@@ -541,6 +541,8 @@ const VERIFIED_BASIC_CARDS = Object.freeze([
   Object.freeze({id:'i010',referenceName:'スマイルの花',kind:'support_item',category:'item',element:'none',effect:'restore_mp',restoreAmount:5,price:1,weight:12}),
   Object.freeze({id:'i011',referenceName:'ハートの花',kind:'support_item',category:'item',element:'none',effect:'restore_mp',restoreAmount:10,price:3,weight:8}),
   Object.freeze({id:'i012',referenceName:'ロマンスの香木',kind:'support_item',category:'item',element:'none',effect:'restore_mp',restoreAmount:15,price:5,weight:4}),
+  // Piong (2026-10-24), GFGA and Macaron (2026): 50/50 +HP10 or 10 self-damage.
+  Object.freeze({id:'i013',referenceName:'ドキドキ涙',kind:'support_item',category:'item',element:'none',effect:'coin_flip_hp',restoreAmount:10,price:1,weight:2}),
   Object.freeze({id:'i003',referenceName:'精霊のぬいぐるみ',kind:'support_item',category:'item',element:'none',effect:'free_previous_miracle',price:5,weight:2}),
   Object.freeze({id:'i004',referenceName:'ちからの粉',kind:'support_item',category:'item',element:'none',effect:'add_attack',attackBonus:10,price:15,weight:2}),
   // Passive: held charm consumes ONE instance at HP0, revives at HP10.
@@ -579,7 +581,7 @@ const MODES = new Set(['mainAttack','addAttack','defend','cast','support','trade
 // Until sourced effects are implemented, explicitly gate those definitions.
 const DISCARD_POLICIES = new Set(['ordinary','forbidden','requiresSpecialResolution']);
 const EFFECT_TRIGGERS = new Set(['onDeclare','onCost','beforeHit','onDefense','afterHit','onTurnEnd','onZeroHp']);
-const EFFECT_TYPES = new Set(['redirectAttack','stripElement','multiplyAttack','addAttack','stopAttack','waivePreviousMp','setAttackElement','forceSale','requestBuy','reallocateResources','reviveAtZeroHp','absorbHp','repeatAttack','widenAttack','restoreResource']);
+const EFFECT_TYPES = new Set(['redirectAttack','stripElement','multiplyAttack','addAttack','stopAttack','waivePreviousMp','setAttackElement','forceSale','requestBuy','reallocateResources','reviveAtZeroHp','absorbHp','repeatAttack','widenAttack','restoreResource','flipHpRisk']);
 
 function plainObject(v) { return v !== null && typeof v === 'object' && !Array.isArray(v); }
 function nonnegative(n) { return Number.isSafeInteger(n) && n >= 0; }
@@ -614,6 +616,10 @@ function freezeEffect(effect) {
       !['hp','mp'].includes(params.resource)||
       !Number.isSafeInteger(params.amount)||params.amount<1||params.amount>99))
     throw new Error('Invalid restoreResource effect data');
+  if(effect.type==='flipHpRisk'&&
+     (effect.when!=='onDeclare'||Object.keys(params).length!==3||
+      params.heal!==10||params.damage!==10||params.healChance!==0.5))
+    throw new Error('Invalid flipHpRisk effect data');
   if(effect.type==='absorbHp'&&
       (effect.when!=='afterHit'||Object.keys(params).length!==1||params.amount!=='damage'))
     throw new Error('Invalid absorbHp effect data');
@@ -1112,6 +1118,11 @@ function convertLegacyCard(card,{ruleset=PARTIAL_CARD_SOURCE}={}) {
         resource:card.effect==='restore_hp'?'hp':'mp',
         amount:card.restoreAmount
       }));
+    }else if(card.effect==='coin_flip_hp'){
+      if(card.restoreAmount!==10||card.element!=='none')
+        throw new Error('Invalid source-backed coin-flip HP item');
+      modes.push('use');
+      effects.push(mk('onDeclare','flipHpRisk',{heal:10,damage:10,healChance:0.5}));
     }else if(card.effect==='sun_revive'){
       if(card.discardPolicy!=='forbidden')
         throw new Error('Passive Sun Charm discard policy mismatch');
@@ -2089,7 +2100,8 @@ function applyStagingCommand(state,command,catalog,{authorizedSeatId}={}) {
     const def=catalog.get(physical?.definitionId);
     if(!physical||def?.family!=='item'||!def.playModes.includes('use')||
       def.effects.length!==1||
-      !def.effects.some(e=>e.when==='onDeclare'&&e.type==='restoreResource'))
+      !def.effects.some(e=>e.when==='onDeclare'&&
+        ['restoreResource','flipHpRisk'].includes(e.type)))
       throw new Error('Only a plain owned recovery item may be used');
     pending={type:'useItem',originalAttackerId:actor.id,instanceId:physical.instanceId};
     phase='resolving';activePlayerId=null;
@@ -4680,20 +4692,42 @@ function resolveStagedFixture(state,catalog,{
     const actor=state.players.find(x=>x.id===p.originalAttackerId);
     const card=actor?.hand.find(x=>x.instanceId===p.instanceId);
     const def=catalog.get(card?.definitionId);
-    const effect=def?.effects.find(e=>e.when==='onDeclare'&&e.type==='restoreResource');
+    const effect=def?.effects.find(e=>e.when==='onDeclare'&&
+      ['restoreResource','flipHpRisk'].includes(e.type));
     if(!card||!actor||actor.hp<=0||def?.family!=='item'||
        !def.playModes.includes('use')||def.effects.length!==1||!effect)
       fail('Invalid pending recovery item');
-    const result=runEffectQueueFixture(state,catalog,[
+    let staged=state,action,outcome=null;
+    if(effect.type==='restoreResource'){
+      action={type:'restoreResource',playerId:actor.id,
+        resource:effect.params.resource,amount:effect.params.amount};
+    }else{
+      // One deterministic sample, exclusively at the authoritative host.
+      // The source's 50:50 item resolves as regular HP recovery or as an
+      // unpreventable self-hit, reusing the shared zero-HP charm handler.
+      if(effect.params.heal!==10||effect.params.damage!==10||
+         effect.params.healChance!==0.5)fail('Invalid coin-flip item');
+      const sample=drawRandom32(state.rngSeed);
+      staged={...state,rngSeed:sample.nextSeed};
+      const healed=sample.value<effect.params.healChance;
+      outcome=healed?'heal':'damage';
+      action=healed?{type:'restoreResource',playerId:actor.id,
+        resource:'hp',amount:10}:{type:'hit',targetId:actor.id,
+        damage:10,hpAfter:Math.max(0,actor.hp-10),instantDefeat:false};
+    }
+    const fatal=outcome==='damage'&&actor.hp<=10&&!actor.hand.some(c=>
+      catalog.get(c.definitionId)?.effects.some(e=>e.when==='onZeroHp'&&
+        e.type==='reviveAtZeroHp'&&e.params.hp===10));
+    const result=runEffectQueueFixture(staged,catalog,[
       {type:'spend',playerId:actor.id,instanceIds:[card.instanceId]},
-      {type:'restoreResource',playerId:actor.id,
-        resource:effect.params.resource,amount:effect.params.amount},
-      {type:'refill'},
-      {type:'resumeTurn',playerId:actor.id}
+      action,{type:'refill'},
+      fatal?{type:'advance',afterId:actor.id}:{type:'resumeTurn',playerId:actor.id}
     ],{labOnly:true,fixtureDrawDefinitionId});
     return {...result,plan:Object.freeze({type:'useItem',
       playerId:actor.id,definitionId:def.id,
-      resource:effect.params.resource,amount:effect.params.amount})};
+      ...(effect.type==='restoreResource'?{
+        resource:effect.params.resource,amount:effect.params.amount
+      }:{outcome,heal:10,damage:10})})};
   }
   if(state.pending?.type==='pray')
     return resolvePrayFixture(state,catalog,{labOnly,fixtureDrawDefinitionId});
