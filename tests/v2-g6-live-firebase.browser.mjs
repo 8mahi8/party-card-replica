@@ -317,7 +317,7 @@ try{
     document.querySelector('#incomingAttack')?.hidden;
  },null,{timeout:20000})));
  const supportEnd=await dbRead(code);
- if(supportEnd.views?.A?.revision!==5||supportEnd.views?.B?.revision!==5||
+ if(supportEnd.views?.A?.revision!==6||supportEnd.views?.B?.revision!==6||
     supportEnd.views.A.players[0].hp!==45||
     supportEnd.views.A.players[1].hp!==40||
     supportEnd.views.B.players[1].mp!==15||
@@ -326,7 +326,7 @@ try{
     supportEnd.views.A.players[1].hand!==undefined)
   throw Error('G7 real RTDB source-backed HP/MP support, mirror or secrecy failed');
  if(errors.length)throw Error('G7 support browser errors: '+errors.join(' | '));
- console.log('G7_LIVE_SUPPORT_RECOVERY_SUCCESS: real RTDB, HP+5 mirrored, MP+5 accepted, revision5, private hands');
+ console.log('G7_LIVE_SUPPORT_RECOVERY_SUCCESS: real RTDB, HP+5 mirrored, MP+5 accepted, revision6, private hands');
 
 
 
