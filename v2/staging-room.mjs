@@ -244,7 +244,8 @@ export function applyStagingCommand(state,command,catalog,{authorizedSeatId}={})
     const def=catalog.get(physical?.definitionId);
     if(!physical||def?.family!=='item'||!def.playModes.includes('use')||
       def.effects.length!==1||
-      !def.effects.some(e=>e.when==='onDeclare'&&e.type==='restoreResource'))
+      !def.effects.some(e=>e.when==='onDeclare'&&
+        ['restoreResource','flipHpRisk'].includes(e.type)))
       throw new Error('Only a plain owned recovery item may be used');
     pending={type:'useItem',originalAttackerId:actor.id,instanceId:physical.instanceId};
     phase='resolving';activePlayerId=null;
