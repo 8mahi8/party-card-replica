@@ -607,7 +607,8 @@ try{
    await attacker.locator('#hand button').first().tap();
    check((await attacker.locator('#selectionTotal').textContent()).includes('天国病'),
     'Heaven Grass preview reveals MP+20 and Heaven Disease risk');
-   await attacker.locator('#itemTarget').tap();
+   check((await attacker.locator('#itemTarget').textContent()).includes('相手'),
+    'Heaven Grass defaults to opponent when selected');
    await attacker.locator('#useItem').tap();
    await defender.waitForFunction(()=>document.querySelector('#phase')?.textContent
     .includes('雑貨への対応'));
