@@ -850,9 +850,9 @@ try{
    await a.goto(target);
    await a.locator('#labPreset').selectOption('learnedTrial');
    await a.locator('#create').tap();
-   await a.waitForFunction(()=>/\\b\\d{5}\\b/.test(
+   await a.waitForFunction(()=>/\b\d{5}\b/.test(
     document.querySelector('#roomLabel')?.textContent||''));
-   const room=(await a.locator('#roomLabel').textContent()).match(/\\d{5}/)[0];
+   const room=(await a.locator('#roomLabel').textContent()).match(/\d{5}/)[0];
    await b.goto(target);
    await b.locator('#joinCode').fill(room);
    await b.locator('#join').tap();
@@ -887,7 +887,6 @@ try{
     'learned defensive miracle returns the turn without freezing');
    // Complete a normal second turn; the first seat can then use learned
    // Aura after a weapon in the same ordered attack, via playSequence.
-   await b.locator('#hand button').filter({hasText:'ワンダー'}).count().catch(()=>0);
    await b.locator('#hand button').nth(1).tap();
    await b.locator('#attack').tap();
    await a.waitForFunction(()=>document.querySelector('#phase')?.textContent
