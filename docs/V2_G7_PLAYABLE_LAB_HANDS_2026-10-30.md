@@ -42,3 +42,12 @@ G6ではルーム作成時の手札がA/Bそれぞれ固定4枚で、G7で新し
 実機iPad2台で**研究用セットの切替→5桁コードで参加→攻防タップ→HP同期**を試してから、原作の正式カード効果・通常配布山札への道を進める。完全な353種類/500枠のデータ・効果監査が完了するまでは、本家確率の抽選は導入しない。1度の試合で任意の155種をすべて試せる自由デッキ編集は作らず、実際に検証する組み合わせに絞ってシンプルさを優先。
 
 **未検証**：学校のiPad実機、最新UIでの実Firebase双方向通信（G6の旧基本手札での成功は別途あり）、GitHub Pages HTTPS公開。学校Google Sites埋め込みHTML、`main`、Firebase Security Rules・認証は変更しない。
+
+## 最終CI・配布状態（確定）
+
+- Node（研究データ、共通エンジン、オンライン手札設定など）**923/923 PASS**：[GitHub Actions run 41038901304](https://github.com/8mahi8/party-card-replica/actions/runs/41038901304)。
+- Chromium **28/28 PASS**：[run 41038901206](https://github.com/8mahi8/party-card-replica/actions/runs/41038901206)。
+- Playwright WebKit 既存UI **339/339 PASS**＋オンライン2画面 **41/41 PASS**：[run 41038901697](https://github.com/8mahi8/party-card-replica/actions/runs/41038901697)。今回追加の2種類の固定手札では、双方の部屋参加、神器の表示、攻撃宣言、カード防御によるHP40維持を確認。
+- **最新版単体HTML**：`v2/demo/firebase-online-standalone.html` は開発ブランチ上で再生成・コミット（`cd47c485f552be6dc40accb8f4598b99b776c059`）。[配布ZIP artifact](https://github.com/8mahi8/party-card-replica/actions/runs/41038901697/artifacts/12969371993)。ビルドは1回だけ実施し、通常のPR更新で配布ZIPやFirebase書込が連続しないようworkflowを`workflow_dispatch`へ戻した。
+- 先行のNode実行は旧HTMLを参照して`checked-in online single HTML`の一致検査のみ失敗（その他922/922成功）。再生成後の正式結果が上記923/923。
+- **未検証**：新しい2種類のセットを**本物のFirebase**で使用した2台実機、学校iPadのSafari、Google Sites直接埋め込みでの操作、画面キャプチャの開発者による目視評価。CIの模擬RTDBと実機環境を混同しない。
