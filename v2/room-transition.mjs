@@ -134,7 +134,7 @@ export function resolveStagedFixture(state,catalog,{
     const card=actor?.hand.find(x=>x.instanceId===p.instanceId);
     const def=catalog.get(card?.definitionId);
     const effect=def?.effects.find(e=>e.when==='onDeclare'&&
-      ['restoreResource','flipHpRisk'].includes(e.type));
+      ['restoreResource','flipHpRisk','sweepHand'].includes(e.type));
     if(!card||!actor||actor.hp<=0||!target||target.hp<=0||
        def?.family!=='item'||!def.playModes.includes('use')||
        def.effects.length!==1||!effect)
@@ -158,6 +158,34 @@ export function resolveStagedFixture(state,catalog,{
       }
     }else if(p.defense!==null&&p.defense!==undefined)
       fail('Cannot defend against an item used on oneself');
+    if(effect.type==='sweepHand'){
+      if(effect.params.count!==3)fail('Invalid broom sweep count');
+      // Sampling is performed once by the authoritative host, after the
+      // broom itself and any reacting Mirror have left their owners' hands.
+      // Learned miracles live outside hand[], hence cannot be swept.
+      const available=recipient.hand.filter(c=>
+        c.instanceId!==p.instanceId&&c.instanceId!==mirrorId);
+      const pool=[...available],picked=[];
+      let seed=state.rngSeed;
+      while(pool.length&&picked.length<effect.params.count){
+        const sample=drawRandom32(seed);
+        seed=sample.nextSeed;
+        const index=Math.floor(sample.value*pool.length);
+        picked.push(pool.splice(index,1)[0].instanceId);
+      }
+      const queue=[
+        {type:'spend',playerId:actor.id,instanceIds:[card.instanceId]},
+        ...(mirrorId===null?[]:[{type:'spend',playerId:target.id,instanceIds:[mirrorId]}]),
+        {type:'sweep',playerId:recipient.id,instanceIds:picked},
+        {type:'refill'},
+        {type:'resumeTurn',playerId:actor.id}
+      ];
+      const result=runEffectQueueFixture({...state,rngSeed:seed},catalog,queue,
+        {labOnly:true,fixtureDrawDefinitionId});
+      return {...result,plan:Object.freeze({type:'useItem',
+        playerId:actor.id,targetId:recipient.id,definitionId:def.id,
+        sweptCount:picked.length,reflected:mirrorId!==null})};
+    }
     let staged=state,action,outcome=null;
     if(effect.type==='restoreResource'){
       action={type:'restoreResource',playerId:recipient.id,
