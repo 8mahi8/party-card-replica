@@ -986,6 +986,114 @@ try{
  }
  await sellTouchTrial(false);
  await sellTouchTrial(true);
+ // G6: the staged Buy is source-backed only on the no-Mirror path.
+ // Host A receives the offer privately after guest B allows the request.
+ async function buyTouchTrial(accept){
+  const a=await context.newPage(),b=await context.newPage();
+  for(const p of [a,b])p.on('pageerror',e=>errors.push(e.message));
+  try{
+   await a.goto(target);
+   await a.locator('#labPreset').selectOption('buy');
+   await a.locator('#create').tap();
+   await a.waitForFunction(()=>/\b\d{5}\b/.test(
+    document.querySelector('#roomLabel')?.textContent||''));
+   const room=(await a.locator('#roomLabel').textContent()).match(/\d{5}/)[0];
+   await b.goto(target);
+   await b.locator('#joinCode').fill(room);
+   await b.locator('#join').tap();
+   await b.locator('#hand button').first().waitFor();
+   check(await a.locator('#buy').isDisabled(),
+    'Buy button requires the Buy artifact in hand');
+   await a.locator('#hand button').first().tap();
+   check(await a.locator('#buy').isEnabled()&&await a.locator('#attack').isDisabled(),
+    'Buy is submitted by trade command, not physical attack command');
+   await a.locator('#buy').tap();
+   await b.waitForFunction(()=>document.querySelector('#phase')?.textContent
+     .includes('購入依頼への対応'),null,{timeout:15000});
+   check(await b.locator('#hand button').first().isDisabled(),
+    'unverified Super Mirror response is not silently simulated');
+   check((await b.locator('#battleHint').textContent()).includes('反射は研究中'),
+    'Buy mirror limitation is clearly visible on opponent device');
+   check(await a.locator('#buyDecision').isHidden(),
+    'offer is not revealed to original buyer before response');
+   await b.locator('#defend').tap();
+   await a.waitForFunction(()=>document.querySelector('#phase')?.textContent
+     .includes('買うかどうか選択'),null,{timeout:15000});
+   const offer=await a.locator('#incomingAttack').textContent();
+   const price=Number((offer.match(/価格 ¥(\d+)/)||[])[1]);
+   check(Number.isSafeInteger(price)&&price>=0&&price<=20,
+    'one genuine source-backed Buy offer is made at affordable price');
+   check(await a.locator('#buyDecision').isVisible(),
+    'buyer can accept or decline after the offer appears');
+   check(await b.locator('#buyDecision').isHidden()&&
+     !(await b.locator('#incomingAttack').textContent()).includes('購入候補：'),
+    'opponent cannot see private buy decision projection');
+   if(accept)await a.locator('#buyAccept').tap();
+   else await a.locator('#buyDecline').tap();
+   await Promise.all([a,b].map(p=>p.waitForFunction(({accept,price})=>{
+    const scores=document.querySelectorAll('.score');
+    const a=scores[0]?.textContent||'',b=scores[1]?.textContent||'';
+    const phase=document.querySelector('#phase')?.textContent||'';
+    const expectedA=accept?'¥ '+(20-price):'¥ 20';
+    const expectedB=accept?'¥ '+(20+price):'¥ 20';
+    return (phase.includes('あなたの攻撃')||phase.includes('相手の攻撃待ち'))&&
+     a.includes(expectedA)&&b.includes(expectedB)&&
+     a.includes('手札 '+(accept?5:4))&&b.includes('手札 '+(accept?3:4));
+   },{accept,price},{timeout:15000})));
+   check((await b.locator('#phase').textContent()).includes('あなたの攻撃'),
+    'Buy completes and advances to next player without freezing');
+   check(await a.evaluate(()=>document.documentElement.scrollWidth<=
+    document.documentElement.clientWidth+2),
+    'Buy offer and decision fit narrow Safari embed');
+  }finally{await a.close();await b.close();}
+ }
+ await buyTouchTrial(true);
+ await buyTouchTrial(false);
+ // Exchange is a turn action. The allocation is not valid until its
+ // three integer pools conserve HP+MP+money with HP positive.
+ async function exchangeTouchTrial(){
+  const a=await context.newPage(),b=await context.newPage();
+  for(const p of [a,b])p.on('pageerror',e=>errors.push(e.message));
+  try{
+   await a.goto(target);
+   await a.locator('#labPreset').selectOption('exchange');
+   await a.locator('#create').tap();
+   await a.waitForFunction(()=>/\b\d{5}\b/.test(
+    document.querySelector('#roomLabel')?.textContent||''));
+   const room=(await a.locator('#roomLabel').textContent()).match(/\d{5}/)[0];
+   await b.goto(target);
+   await b.locator('#joinCode').fill(room);
+   await b.locator('#join').tap();
+   await b.locator('#hand button').first().waitFor();
+   await a.locator('#hand button').first().tap();
+   check(await a.locator('#exchangePanel').isVisible()&&
+     await a.locator('#attack').isDisabled(),
+    'Exchange selection reveals resource fields and never invokes an attack');
+   await a.locator('#exchangeHp').fill('35');
+   check(await a.locator('#exchange').isDisabled(),
+    'reallocation cannot be confirmed with a changed total');
+   await a.locator('#exchangeMp').fill('20');
+   await a.locator('#exchangeMoney').fill('15');
+   check((await a.locator('#exchangeTotal').textContent()).includes('70 / 70')&&
+     await a.locator('#exchange').isEnabled(),
+    'resource sum 35+20+15 equals original 40+10+20');
+   await a.locator('#exchange').tap();
+   await Promise.all([a,b].map(p=>p.waitForFunction(()=>{
+    const scores=document.querySelectorAll('.score');
+    const s=scores[0]?.textContent||'';
+    return s.includes('HP 35')&&s.includes('MP 20')&&s.includes('¥ 15')&&
+     (document.querySelector('#phase')?.textContent||'').includes('攻撃');
+   },null,{timeout:15000})));
+   check(await a.locator('#exchangePanel').isHidden(),
+    'Exchange form disappears after committed action');
+   check((await b.locator('#phase').textContent()).includes('あなたの攻撃'),
+    'Exchange passes the turn to other seat');
+   check(await a.evaluate(()=>document.documentElement.scrollWidth<=
+    document.documentElement.clientWidth+2),
+    'resource allocation fields fit 390px Safari embed');
+  }finally{await a.close();await b.close();}
+ }
+ await exchangeTouchTrial();
  check(errors.length===0,'all preset trials have no script errors');
  console.log('FIREBASE_ONLINE_WEBKIT_SUCCESS checks='+checks+
   ' two tabs with mock RTDB, viewport=390x430');
