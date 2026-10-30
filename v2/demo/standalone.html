@@ -2106,9 +2106,9 @@ function applyStagingCommand(state,command,catalog,{authorizedSeatId}={}) {
       throw new Error('Only a plain owned recovery item may be used');
     const target=command.targetId===undefined?actor:seat(state,id(command.targetId,'item target ID'));
     if(target.hp<=0)throw new Error('Item target has already been defeated');
-    const risky=def.effects[0].type==='flipHpRisk';
-    if(!risky&&target.id!==actor.id)
-      throw new Error('Other-player use for this restorative needs original verification');
+    // The original allows targeted consumables, including plain HP/MP
+    // restoration. A living non-self target gets the same single Mirror/pass
+    // response as the previously audited risky tear.
     pending={type:'useItem',originalAttackerId:actor.id,
       targetId:target.id,instanceId:physical.instanceId,defense:null};
     phase=target.id===actor.id?'resolving':'itemDefense';
@@ -4734,7 +4734,7 @@ function resolveStagedFixture(state,catalog,{
     // Only Super Mirror can turn this item back on its original user.
     let mirrorId=null,recipient=target;
     if(target.id!==actor.id){
-      if(effect.type!=='flipHpRisk'||p.defense?.playerId!==target.id||
+      if(p.defense?.playerId!==target.id||
          !Object.hasOwn(p.defense,'mirrorInstanceId'))
         fail('Targeted item requires an authenticated defense response');
       mirrorId=p.defense.mirrorInstanceId;
@@ -4744,15 +4744,14 @@ function resolveStagedFixture(state,catalog,{
         if(!mirror||!mirrorDef?.effects.some(e=>
           e.when==='onDefense'&&e.type==='redirectAttack'&&
           e.params.mode==='reflect'&&e.params.scope==='any'))
-          fail('Only Super Mirror reflects the risky item');
+          fail('Only Super Mirror reflects the item');
         recipient=actor;
       }
     }else if(p.defense!==null&&p.defense!==undefined)
       fail('Cannot defend against an item used on oneself');
     let staged=state,action,outcome=null;
     if(effect.type==='restoreResource'){
-      if(target.id!==actor.id)fail('Unverified third-party recovery');
-      action={type:'restoreResource',playerId:actor.id,
+      action={type:'restoreResource',playerId:recipient.id,
         resource:effect.params.resource,amount:effect.params.amount};
     }else{
       if(effect.params.heal!==10||effect.params.damage!==10||
