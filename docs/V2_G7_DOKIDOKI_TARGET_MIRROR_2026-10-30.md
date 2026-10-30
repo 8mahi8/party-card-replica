@@ -22,8 +22,9 @@
 
 - `tests/g7-dokidoki-target-mirror-v2.test.mjs`：8件。自分/相手向け、効果選択より前の防御待ち、許す後の当たり／外れ、鏡の反射と消費、0HPでの勝敗と太陽のお守り、非公開手札とコマンドの冪等性、普通の回復アイテムを相手に使わない制約。
 - `tests/v2-firebase-online-webkit.browser.mjs`：既存の模擬RTDB上の2画面WebKitタップ試験に、相手への使用→許す、相手への使用→スーパーミラーの2ケースを追加。固定seed=71で当たり側を確認。
-- Node回帰944/944合格（[Actions run 41054099619](https://github.com/8mahi8/party-card-replica/actions/runs/41054099619)）。Chromium成功（[run 41054099257](https://github.com/8mahi8/party-card-replica/actions/runs/41054099257)）。WebKitの最終結果は、実行完了後に確認する。
-- **本物のFirebaseでこの相手向け新ルートを確認したわけではなく、学校iPad Safari＋Google Sites実機も未検証。** 先行G6/G7の実Firebase試験は今回と異なる基本HP/MP回復セット。
+- Node回帰 **945/945 PASS**（生成単体HTML復帰後 [Actions run 41054436648](https://github.com/8mahi8/party-card-replica/actions/runs/41054436648)）。Chromium **PASS**（[run 41054436614](https://github.com/8mahi8/party-card-replica/actions/runs/41054436614)）。WebKitオンライン **69/69 PASS**、既存画面 **339/339 PASS**（[run 41054436880](https://github.com/8mahi8/party-card-replica/actions/runs/41054436880)）。WebKit初回の失敗はUIが`respondItem`へ不要な`orderedInstanceIds`を送った実不具合で修正・追加回帰テスト済み。
+- **本物のFirebaseでも成功**：[run 41054723700](https://github.com/8mahi8/party-card-replica/actions/runs/41054723700) で `G6_LIVE_TWO_BROWSER_SUCCESS`（基本対戦）、`G7_LIVE_RECOVERY_SUCCESS`（通常回復）、`G7_LIVE_TARGET_MIRROR_SUCCESS`（相手に使いスーパーミラーで反射、両席revision3/秘密手札非公開）を確認。3ルームの `G6_LIVE_CLEANUP_SUCCESS` もログ確認。1回限りのPRトリガーを使用後に元の手動`workflow_dispatch`へ復帰。
+- **学校iPad Safari＋Google Sites実機は引き続き未検証**。CIのWebKitはデスクトップ上のiPadサイズ・タッチ模擬であり実機とは区別する。
 
 ## 次の作業
 
