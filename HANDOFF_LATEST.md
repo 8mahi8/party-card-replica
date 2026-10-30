@@ -5,6 +5,16 @@
 
 > **この文書は引き継ぎ入口であり、実装の真実は常に開発ブランチの最新コードとGitHub Actions。** コミットSHA・テスト件数・カード数は作業のたびに変わる。本文の日付や数値を確認せず永久に正しいと扱わないこと。
 
+## 2026-10-31 G7｜乱気流・感染治療の通し試合と防御画面修正【最新・実Firebase成功】
+
+- **原作資料**：[GFGA奇跡一覧](https://w.atwiki.jp/gfplusa/pages/19.html)、[Piongタイマン攻略](https://w.atwiki.jp/piong/pages/21.html)、[Piong防御リダイレクト](https://w.atwiki.jp/piong/pages/17.html)：〈乱気流〉は**MP5で奇跡を弾く**が、必ず元攻撃者へ反射するわけではない。自分にも戻る可能性があり、その場合は二度目の防御がない。**既存`v2/redirect-route.mjs`が生存者からhost乱数で選ぶ動作を実装済みのため再実装せずテストに集中した**。現行原作の全防御演出を直接実測したわけではない。
+- **テスト・操作研究セット**：`tests/g7-turbulence-and-infection-cure-v2.test.mjs`に**8件**。seed12345（弾く先=防御者自身で再防御不可）、seed71（弾く先=元攻撃者で再防御可）、エンゼルで停止／反射を受けて風邪+HP-1、習得乱気流MP5・手札+1・コマンド再送、MP不足で元の防御待機維持、〈風〉→スマイルの貝がら治療→同手番反撃、〈天国風〉→ハートの貝がら治療→反撃、2度目の習得済み〈天国風〉で天国病発作KO。オンラインラボに`turbulenceSelf`/`turbulenceBack`の**固定4枚研究セット2種**を追加し、研究セット全14種。研究カードは**174種・435/500参考枠、`complete:false`**を維持。
+- **実際の表示不具合を発見・修正**：WebKitで、乱気流で元攻撃者に戻った奇跡が防御画面の`incomingAttack`に表示されない。原因は、詠唱した奇跡が物理手札から取り除かれた後、表示側がその手札から奇跡名を探していたこと。`v2/staging-room.mjs`の`declaredAttackFixture`を、すでに宣言済みの**単独奇跡に限り**検証済み`pending.attackContext`から再表示するよう修正。相手の未公開手札は引き続き秘匿。元の反射・命中ルールは変更なし。新しい表示回帰テストを追加。
+- **最新確認済み**：Node **1026/1026 PASS** [run 41081035693](https://github.com/8mahi8/party-card-replica/actions/runs/41081035693)、Chromium **PASS** [run 41081035417](https://github.com/8mahi8/party-card-replica/actions/runs/41081035417)、WebKit 2席オンライン **192/192 PASS**＋旧画面 **339/339 PASS** [run 41081035588](https://github.com/8mahi8/party-card-replica/actions/runs/41081035588)。このWebKit結果は**UI表示修正後**。検証用単体HTML3本もビルドを実行して開発ブランチに同期。
+- **実Firebase 27ケース成功**：[run 41080143334](https://github.com/8mahi8/party-card-replica/actions/runs/41080143334)。従来22＋新規 `G7_LIVE_TURBULENCE_SELF_SUCCESS`、`G7_LIVE_TURBULENCE_ANGEL_SUCCESS`、`G7_LIVE_TURBULENCE_ACCEPT_SUCCESS`、`G7_LIVE_WIND_CURE_WIND_SUCCESS`、`G7_LIVE_WIND_CURE_HEAVEN_SUCCESS`、ホストIDを照合した一時ルーム**27件すべて削除済み**。**この実Firebase試験は最後の防御画面表示修正前**であり、修正後の表示はWebKitで確認した。誤って後修正分も実Firebase確認済みと報告しない。両テストworkflowは**手動専用へ復帰**。
+- **資料**：[V2_G7_TURBULENCE_CURE_INTEGRATION_2026-10-31.md](docs/V2_G7_TURBULENCE_CURE_INTEGRATION_2026-10-31.md)。学校iPad Safari実機＋Google Sitesに直貼りしたHTMLは**未検証・未変更**。Firebase Security Rules/認証方式、GitHub mainは未変更。
+- **次工程**：学校Safariでの画面・フリーズ試験、習得した奇跡を試合中に再唱するタップUI、反射後の公開情報と乱気流の防御表示などプレイ体験を優先。原作完全抽選や未実装の他災いは原作資料・実機比較をしながら段階的に。低確率例外のための過剰抽象化は避ける。
+
 ## 2026-10-30 G7｜感染→治療の通し試合と奇跡〈風〉〈天国風〉【最新・実Firebase成功】
 
 - **原作照合**：[GFGA 奇跡一覧](https://w.atwiki.jp/gfplusa/pages/19.html)・[まかろん2026神器一覧](https://macarongamemo.com/entry/godfield-artifact)・[2026年9月奇跡一覧](https://toroccowars.jp/21523/)を突合。〈風〉=MP6・風邪、〈天国風〉=MP15・天国病。両者とも無属性・直接ダメージなし、出現率0.2%（各1/500）。奇跡は一度使用すると習得し、以降MPを払って唱え直せる。精霊使用で当該直前奇跡のMP免除。原作ゲームでの直接画面観察や全対奇跡防御の網羅は未検証。
