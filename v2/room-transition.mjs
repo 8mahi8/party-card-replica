@@ -158,6 +158,31 @@ export function resolveStagedFixture(state,catalog,{
       }
     }else if(p.defense!==null&&p.defense!==undefined)
       fail('Cannot defend against an item used on oneself');
+    if(effect.type==='forgetLearned'){
+      if(effect.params.count!==2)fail('Invalid Soap forget count');
+      // Authenticated target/mirror choice comes first. Learned miracles are
+      // held separately from physical hand items, and may number 0, 1 or more.
+      const pool=[...recipient.learned],forgotten=[];
+      let seed=state.rngSeed;
+      while(pool.length&&forgotten.length<effect.params.count){
+        const sample=drawRandom32(seed);
+        seed=sample.nextSeed;
+        const index=Math.floor(sample.value*pool.length);
+        forgotten.push(pool.splice(index,1)[0]);
+      }
+      const queue=[
+        {type:'spend',playerId:actor.id,instanceIds:[card.instanceId]},
+        ...(mirrorId===null?[]:[{type:'spend',playerId:target.id,instanceIds:[mirrorId]}]),
+        {type:'forgetLearned',playerId:recipient.id,definitionIds:forgotten},
+        {type:'refill'},
+        {type:'resumeTurn',playerId:actor.id}
+      ];
+      const result=runEffectQueueFixture({...state,rngSeed:seed},catalog,queue,
+        {labOnly:true,fixtureDrawDefinitionId});
+      return {...result,plan:Object.freeze({type:'useItem',
+        playerId:actor.id,targetId:recipient.id,definitionId:def.id,
+        forgottenCount:forgotten.length,reflected:mirrorId!==null})};
+    }
     if(effect.type==='sweepHand'){
       if(effect.params.count!==3)fail('Invalid broom sweep count');
       // Sampling is performed once by the authoritative host, after the
