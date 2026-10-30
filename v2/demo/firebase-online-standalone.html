@@ -1868,6 +1868,7 @@ function fingerprint(command) {
     targetId:['playCards','playSequence','castLearned','declareSale','declareBuy'].includes(command.type)?command.targetId:null,
     orderedPlays:command.orderedPlays??null,
     orderedInstanceIds:command.orderedInstanceIds??null,
+    instanceId:command.type==='useItem'?command.instanceId:null,
     learnedDefinitionId:command.learnedDefinitionId??null,
     buyInstanceId:command.buyInstanceId??null,
     exchangeInstanceId:command.exchangeInstanceId??null,
