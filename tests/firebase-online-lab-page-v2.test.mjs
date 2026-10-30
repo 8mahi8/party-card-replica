@@ -79,6 +79,11 @@ test('defense UI shows only public declared attack projection from the host',()=
  assert.match(page,/\('incomingAttack'\)\.hidden=!announced/);
 });
 
+test('item defense response sends only mirror selection, not weapon-defense arrays',()=>{
+ assert.match(page,/effectiveType=type==='defend'&&view\.phase==='itemDefense'\?'respondItem':type/);
+ assert.match(page,/\['playCards','defend','discard'\]\.includes\(effectiveType\)/);
+ assert.match(page,/effectiveType==='respondItem'&&ids\.length/);
+});
 test('Google Sites-style storage restriction never prevents guest join',()=>{
  assert.match(page,/try\{previousId=sessionStorage\.getItem\(key\)\}catch\{\}/);
  assert.match(page,/try\{sessionStorage\.setItem\(key,guestId\)\}catch\{\}/);
