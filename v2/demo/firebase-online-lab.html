@@ -98,6 +98,7 @@ main{padding:0 6px 8px}.brandline{margin:0 -6px}
 <option value="elements">属性防御（火・水）</option>
 <option value="dark">闇属性と高防御</option>
 <option value="recovery">HP・MP回復と反撃</option>
+<option value="support">相手への回復と反射</option>
 <option value="tear">ドキドキ涙・運試し</option>
 </select></div>
 <p id="presetNotice">原作の山札ではありません。選択した4枚セットで効果を試します。</p>
@@ -162,6 +163,10 @@ const LAB_PRESETS=Object.freeze({
  recovery:Object.freeze({
   A:Object.freeze(['i006','i010','w016','d003']),
   B:Object.freeze(['i007','i011','w027','d003'])
+ }),
+ support:Object.freeze({
+  A:Object.freeze(['i006','i010','w016','d003']),
+  B:Object.freeze(['i002','i007','w027','d003'])
  }),
  tear:Object.freeze({
   A:Object.freeze(['i013','i005','w016','d003']),
