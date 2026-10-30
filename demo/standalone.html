@@ -702,8 +702,8 @@ function playStackedPlusMiracles(state,{
  * 調査用の参照名で、オリジナルUIの表示素材ではない。
  */
 const PARTIAL_CARD_SOURCE = 'piong-atwiki-and-macaron-2026-02-28';
-const main=(id,referenceName,attack,price,weight,{element='none',guard,reaction,reactionScope='neutral_weapon',stopScope,hpAbsorb,repeatHits}={})=>
-  Object.freeze({id,referenceName,kind:'weapon',slot:'main',category:'weapon_single',element,attack,price,weight,...(guard===undefined?{}:{guard}),...(reaction===undefined?{}:{reaction,reactionScope}),...(stopScope===undefined?{}:{stopScope}),...(hpAbsorb===undefined?{}:{hpAbsorb}),...(repeatHits===undefined?{}:{repeatHits})});
+const main=(id,referenceName,attack,price,weight,{element='none',guard,reaction,reactionScope='neutral_weapon',stopScope,hpAbsorb,repeatHits,diseaseOnHit}={})=>
+  Object.freeze({id,referenceName,kind:'weapon',slot:'main',category:'weapon_single',element,attack,price,weight,...(guard===undefined?{}:{guard}),...(reaction===undefined?{}:{reaction,reactionScope}),...(stopScope===undefined?{}:{stopScope}),...(hpAbsorb===undefined?{}:{hpAbsorb}),...(repeatHits===undefined?{}:{repeatHits}),...(diseaseOnHit===undefined?{}:{diseaseOnHit})});
 const add=(id,referenceName,attack,price,weight=1,{element='none',reaction,reactionScope,stopScope,attackElementOverride}={})=>
   Object.freeze({id,referenceName,kind:'weapon',slot:'addon',category:'weapon_single',element,attack,price,weight,...(reaction===undefined?{}:{reaction,reactionScope}),...(stopScope===undefined?{}:{stopScope}),...(attackElementOverride===undefined?{}:{attackElementOverride})});
 const shield=(id,referenceName,guard,price,weight,{element='none',attackBonus,stopScope,reaction,reactionScope}={})=>
@@ -758,6 +758,11 @@ const VERIFIED_BASIC_CARDS = Object.freeze([
   // Source: Piong (2026-03-18) and Macaron (2026-02-28).
   // Ordinary main attack that can also defend for 1.
   main('w055','伝説の剣のさや',13,3,1,{guard:1}),
+  // Macaron 2026 and Piong disease list: only a damaging hit causes disease.
+  main('w056','疾風剣',9,10,1,{diseaseOnHit:'cold'}),
+  main('w057','激烈疾風剣',13,15,1,{diseaseOnHit:'cold'}),
+  main('w058','風のカギ爪',1,10,1,{element:'earth',diseaseOnHit:'cold'}),
+  main('w059','地獄のハサミ',8,15,1,{diseaseOnHit:'hell'}),
   // Source-checked plain weapons (2026-03-18 piong wiki, cross-checked with
   // 2024 GFGA where both agree). No special/condition/status behavior.
   // Preserve main/add factories so later cards need data, not name branches.
