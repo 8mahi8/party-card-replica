@@ -21,7 +21,7 @@
 - `tests/g7-online-loadout-presets-v2.test.mjs`で18セットの4枚・カード定義と初期条件を検査。
 - `tests/firebase-online-lab-page-v2.test.mjs`で、購入候補の公開先、購入・見送りと両替命令、合計保全・ボタンの存在を検査。
 - `tests/v2-firebase-online-webkit.browser.mjs`で、2タブ＋模擬Firebase＋390×430画面。買うの購入・見送り、公開タイミング・所持金・手札枚数・手番、両替の入力変更・不正合計のブロック・確定後のHP/MP/¥を操作試験。
-- 最新GitHub Actionsの最終成功結果は確認後に`HANDOFF_LATEST.md`に反映すること。
+- GitHub Actions：Node **1030/1030 PASS**（https://github.com/8mahi8/party-card-replica/actions/runs/41090645823）、Chromium **PASS**（https://github.com/8mahi8/party-card-replica/actions/runs/41090645886）、WebKit **2人オンライン257/257 PASS、既存画面339/339 PASS**（https://github.com/8mahi8/party-card-replica/actions/runs/41090418243）。このWebKitは本物の学校iPadや実Firebaseではなく、模擬Firebase上のPlaywright WebKit操作試験。
 
 ## 未検証と次
 学校のiPad実機／Google Sitesに直接埋め込んだHTML／今回の買う・両替の実Firebase試合は未検証。正規山札は `complete:false` の研究台帳174種類・435/500参考枠の段階。次はオンラインUIとオフライン原作表示の比較、ボタン密度・入力の操作性、未実装カードを優先して試す。
