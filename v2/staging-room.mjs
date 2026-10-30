@@ -196,7 +196,7 @@ export function createStagingRoom({seats,firstSeatId,rulesetId='lab-v2',rngSeed=
     if(!Array.isArray(p.handDefinitionIds)||p.handDefinitionIds.length>MAX_HAND)
       throw new Error('Invalid starting hand');
     const hand=p.handDefinitionIds.map(definitionId=>createInstance(definitionId,serial++,catalog));
-    return {id:p.id,hp:40,mp:10,money:20,hand,learned:[]};
+    return {id:p.id,hp:40,mp:10,money:20,hand,learned:[],disease:null};
   });
   return {
     schemaVersion:2,rulesetId,revision:0,phase:'turn',
