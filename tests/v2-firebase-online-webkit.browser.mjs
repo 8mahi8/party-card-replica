@@ -587,6 +587,59 @@ try{
  }
  await goddessSoapTrial(false);
  await goddessSoapTrial(true);
+ // Heaven Grass proves illness persists across the item and ticks on turn END.
+ // The one-time PRNG seed for this fixture is chosen to avoid a 5% random
+ // fatal fit on the very first attack, unlike the dedicated seed=71 test.
+ async function heavenTrial(mirror){
+  const attacker=await context.newPage(),defender=await context.newPage();
+  for(const p of [attacker,defender])p.on('pageerror',e=>errors.push(e.message));
+  try{
+   await attacker.goto(target);
+   await attacker.locator('#labPreset').selectOption('heaven');
+   await attacker.locator('#create').tap();
+   await attacker.waitForFunction(()=>/\b\d{5}\b/.test(
+    document.querySelector('#roomLabel')?.textContent||''));
+   const room=(await attacker.locator('#roomLabel').textContent()).match(/\d{5}/)[0];
+   await defender.goto(target);
+   await defender.locator('#joinCode').fill(room);
+   await defender.locator('#join').tap();
+   await defender.locator('#hand button').first().waitFor();
+   await attacker.locator('#hand button').first().tap();
+   check((await attacker.locator('#selectionTotal').textContent()).includes('天国病'),
+    'Heaven Grass preview reveals MP+20 and Heaven Disease risk');
+   await attacker.locator('#itemTarget').tap();
+   await attacker.locator('#useItem').tap();
+   await defender.waitForFunction(()=>document.querySelector('#phase')?.textContent
+    .includes('雑貨への対応'));
+   check((await defender.locator('#incomingAttack').textContent()).includes('天国草'),
+    'Heaven Grass is publicly announced before Mirror decision');
+   if(mirror)await defender.locator('#hand button').first().tap();
+   await defender.locator('#defend').tap();
+   await Promise.all([attacker,defender].map(page=>page.waitForFunction(({mirror})=>{
+    const scores=document.querySelectorAll('.score');
+    const holder=mirror?0:1,other=mirror?1:0;
+    return scores[holder]?.textContent?.includes('MP 30')&&
+     scores[holder]?.textContent?.includes('天国病')&&
+     scores[other]?.textContent?.includes('MP 10')&&
+     !scores[other]?.textContent?.includes('天国病');
+   },{mirror},{timeout:15000})));
+   check((await attacker.locator('#phase').textContent()).includes('あなたの攻撃'),
+    'Herb uses no attack opportunity');
+   await attacker.locator('#hand button').first().tap();
+   await attacker.locator('#attack').tap();
+   await defender.waitForFunction(()=>document.querySelector('#phase')?.textContent
+    .includes('あなたの防御'));
+   await defender.locator('#defend').tap();
+   await attacker.waitForFunction(()=>document.querySelector('#phase')?.textContent
+    .includes('相手の攻撃待ち'));
+   check((await attacker.locator('.score').first().textContent()).includes(mirror?'HP 45':'HP 40'),
+    'only the acting player gets Heaven Disease HP+5 at their own turn end');
+   check((await attacker.locator('#battleHint').textContent()).length>0,
+    'the G7 turn-end illness remains in a responsive battle view');
+  }finally{await attacker.close();await defender.close();}
+ }
+ await heavenTrial(false);
+ await heavenTrial(true);
  check(errors.length===0,'all preset trials have no script errors');
  console.log('FIREBASE_ONLINE_WEBKIT_SUCCESS checks='+checks+
   ' two tabs with mock RTDB, viewport=390x430');
