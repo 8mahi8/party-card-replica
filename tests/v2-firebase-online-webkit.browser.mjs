@@ -374,9 +374,9 @@ try{
    await attacker.goto(target);
    await attacker.locator('#labPreset').selectOption('tear');
    await attacker.locator('#create').tap();
-   await attacker.waitForFunction(()=>/\\b\\d{5}\\b/.test(
+   await attacker.waitForFunction(()=>/\b\d{5}\b/.test(
      document.querySelector('#roomLabel')?.textContent||''));
-   const room=(await attacker.locator('#roomLabel').textContent()).match(/\\d{5}/)[0];
+   const room=(await attacker.locator('#roomLabel').textContent()).match(/\d{5}/)[0];
    await defender.goto(target);
    await defender.locator('#joinCode').fill(room);
    await defender.locator('#join').tap();
