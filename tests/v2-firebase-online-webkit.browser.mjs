@@ -332,6 +332,38 @@ try{
   check(await gb.locator('.score').nth(1).textContent().then(s=>s.includes('HP 33')),
    'recovery and attack then armor defense resolve without stalled turn');
  }finally{await ha.close();await gb.close();}
+ // Test the actual G7 coin-flip item through two separate touch pages,
+ // with the lab's fixed RNG seed (71: first roll deterministically heals).
+ const tearHost=await context.newPage(),tearGuest=await context.newPage();
+ for(const p of [tearHost,tearGuest])p.on('pageerror',error=>errors.push(error.message));
+ try{
+  await tearHost.goto(target);
+  await tearHost.locator('#labPreset').selectOption('tear');
+  await tearHost.locator('#create').tap();
+  await tearHost.waitForFunction(()=>/\b\d{5}\b/.test(
+   document.querySelector('#roomLabel')?.textContent||''));
+  const tearCode=(await tearHost.locator('#roomLabel').textContent()).match(/\d{5}/)[0];
+  await tearGuest.goto(target);
+  await tearGuest.locator('#joinCode').fill(tearCode);
+  await tearGuest.locator('#join').tap();
+  await tearGuest.locator('#hand button').first().waitFor();
+  check((await tearHost.locator('#hand button').first().textContent()).includes('ドキドキ涙'),
+   'risky tear lab preset distributes source-backed item');
+  await tearHost.locator('#hand button').first().tap();
+  check((await tearHost.locator('#selectionTotal').textContent()).includes('各50%'),
+   'UI reveals both risky tear outcomes before confirmation');
+  check(await tearHost.locator('#useItem').isEnabled(),
+   'host can use the typed tear through shared use-item action');
+  await tearHost.locator('#useItem').tap();
+  await Promise.all([tearHost,tearGuest].map(page=>page.waitForFunction(()=>
+   document.querySelectorAll('.score')[0]?.textContent?.includes('HP 50'),
+   null,{timeout:15000})));
+  check((await tearHost.locator('#phase').textContent()).includes('あなたの攻撃'),
+   'healing outcome preserves the same attacker turn');
+  check(await tearGuest.evaluate(()=>document.documentElement.scrollWidth<=
+   document.documentElement.clientWidth+2),
+   'new risky tear preset fits narrow iframe');
+ }finally{await tearHost.close();await tearGuest.close();}
  check(errors.length===0,'all preset trials have no script errors');
  console.log('FIREBASE_ONLINE_WEBKIT_SUCCESS checks='+checks+
   ' two tabs with mock RTDB, viewport=390x430');
