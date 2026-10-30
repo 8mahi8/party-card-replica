@@ -153,7 +153,7 @@ export function resolveStagedFixture(state,catalog,{
         if(!mirror||!mirrorDef?.effects.some(e=>
           e.when==='onDefense'&&e.type==='redirectAttack'&&
           e.params.mode==='reflect'&&e.params.scope==='any'))
-          fail('Only Super Mirror reflects the risky item');
+          fail('Only Super Mirror reflects the item');
         recipient=actor;
       }
     }else if(p.defense!==null&&p.defense!==undefined)
