@@ -353,7 +353,7 @@ export function runEffectQueueFixture(state,catalog,queue,{
        fail('Illness not authorized by the original attack card');
      if(p.hp>0){
        const beforeDisease=p.disease??null;
-       const change=planDiseaseExposure(beforeDisease);
+       const change=planDiseaseExposure(beforeDisease,effect.disease);
        p.disease=change.disease;
        events.push({type:'inflictDisease',targetId:p.id,
          diseaseBefore:beforeDisease,diseaseAfter:p.disease,fatal:change.fatal});
