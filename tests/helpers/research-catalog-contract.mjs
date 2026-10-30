@@ -9,7 +9,7 @@
  * is complete, nor does it authorize random production draws.
  */
 export const RESEARCH_CATALOG_CONTRACT=Object.freeze({
-  unique:162,
-  slots:406,
+  unique:163,
+  slots:408,
   complete:false
 });
