@@ -246,7 +246,7 @@ export function applyStagingCommand(state,command,catalog,{authorizedSeatId}={})
     if(!physical||def?.family!=='item'||!def.playModes.includes('use')||
       def.effects.length!==1||
       !def.effects.some(e=>e.when==='onDeclare'&&
-        ['restoreResource','flipHpRisk','sweepHand','forgetLearned'].includes(e.type)))
+        ['restoreResource','flipHpRisk','sweepHand','forgetLearned','heavenHerb'].includes(e.type)))
       throw new Error('Only a plain owned recovery item may be used');
     const target=command.targetId===undefined?actor:seat(state,id(command.targetId,'item target ID'));
     if(target.hp<=0)throw new Error('Item target has already been defeated');
