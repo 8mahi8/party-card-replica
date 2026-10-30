@@ -81,7 +81,8 @@ test('defense UI shows only public declared attack projection from the host',()=
 });
 
 test('item defense response sends only mirror selection, not weapon-defense arrays',()=>{
- assert.match(page,/effectiveType=type==='defend'&&view\.phase==='itemDefense'\?'respondItem':type/);
+ assert.match(page,/effectiveType=type==='defend'&&view\.phase==='itemDefense'\?'respondItem':/);
+ assert.match(page,/view\.phase==='tradeDefense'\?'respondSale':type/);
  assert.match(page,/\['playCards','defend','discard'\]\.includes\(effectiveType\)/);
  assert.match(page,/effectiveType==='respondItem'&&ids\.length/);
 });
