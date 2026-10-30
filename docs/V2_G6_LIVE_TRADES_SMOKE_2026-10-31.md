@@ -19,7 +19,7 @@
 - 最初のrun [41143614910](https://github.com/8mahi8/party-card-replica/actions/runs/41143614910)は、ルーム作成後の**テスト側の判定ミス**で停止。Firebase RTDBではJSONの`guestId:null`が**省略される**ため、厳密`===null`チェックが不合格になった。実取引コマンドの送信はまだ行われておらず、ゲーム側の取引失敗を意味しない。
 - 同時に所有者IDを記録する前だったため、未確認ルーム削除を拒否した。**最初の試験で1つの孤立したルームが残った可能性**がある。ルームコードがログにないため推測で他のルームを削除してはいけない。新しい実行では作成時に所有者IDを保存してから判断するよう修正。
 - 修正コミット `2c7859b8`：`guestId==null`で正規化し、所有者検証の前に`currentHostId`を保持。再試験 [41143745866](https://github.com/8mahi8/party-card-replica/actions/runs/41143745866) を開始した。
-- **再試験の最終合否は上記runから確認すること**。このファイル作成時点で完走を主張しない。
+- **再試験は成功**：[run 41143745866](https://github.com/8mahi8/party-card-replica/actions/runs/41143745866) で **5経路・60/60チェック成功**。ログに `G6_LIVE_TRADE_SELL_ACCEPT_SUCCESS`、`G6_LIVE_TRADE_SELL_MIRROR_SUCCESS`、`G6_LIVE_TRADE_BUY_ACCEPT_SUCCESS`、`G6_LIVE_TRADE_BUY_DECLINE_SUCCESS`、`G6_LIVE_TRADE_EXCHANGE_SUCCESS`、最終 `G6_LIVE_TRADES_ALL_SUCCESS checks=60` を確認。**今回新設した5ルームすべて**で所有者照合に合格して削除された（cleanupチェック計5）。これまでの初回失敗の不明ルームについては削除を保証できず、推測で消していない。
 
 ## 既知の未実施範囲
 - 学校の実際のiPad Safari／Google Sites HTML直貼りでの2人実戦。
