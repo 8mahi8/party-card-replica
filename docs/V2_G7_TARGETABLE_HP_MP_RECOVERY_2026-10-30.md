@@ -23,7 +23,7 @@
 - `tests/g7-dokidoki-target-mirror-v2.test.mjs`：以前「通常回復は相手に使えない」と決めつけていた期待値を原作調査後の仕様へ更新し、反射札偽装の拒否を維持。
 - `tests/v2-firebase-online-webkit.browser.mjs`：2つの独立WebKitページ、390×430タッチ画面・模擬RTDBで、HP+5を相手に使用→許す/鏡、さらにMP+5を相手へ使い、攻撃手番に戻るまで検証。
 - 通常CIは Node **952/952成功**、Chromium **成功**、WebKitオンライン **87/87成功**＋旧画面 **339/339成功**を確認。
-- 実Firebaseは一時ルーム4つを使う検証 `tests/v2-g6-live-firebase.browser.mjs` に新たな「HP+5の反射→MP+5の許す」を追加。初回は最終revision=6を5と誤記したテスト期待値だけが失敗し、実画面ではHP45/40、ゲストMP15で正しく同期。期待値を訂正して再実行する。**再実行が成功するまでは当該新ルートの実Firebase合格は未確定**。
+- 実Firebaseは一時ルーム4つを使う検証 `tests/v2-g6-live-firebase.browser.mjs` に新たな「HP+5の反射→MP+5の許す」を追加。初回は最終revision=6を5と誤記したテスト期待値だけが失敗し、実画面ではHP45/40、ゲストMP15で正しく同期。**再実行成功を確認**：[GitHub Actions run 41056408728](https://github.com/8mahi8/party-card-replica/actions/runs/41056408728) に `G7_LIVE_SUPPORT_RECOVERY_SUCCESS`（revision6・HP+5反射・MP+5許す・秘匿手札）と、既存のG6/G7成功ログ、4回の一時ルーム削除成功を確認。workflowは従来の手動起動へ復帰した。
 
 ## 設定と次の作業
 
