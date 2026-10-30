@@ -5,6 +5,15 @@
 
 > **この文書は引き継ぎ入口であり、実装の真実は常に開発ブランチの最新コードとGitHub Actions。** コミットSHA・テスト件数・カード数は作業のたびに変わる。本文の日付や数値を確認せず永久に正しいと扱わないこと。
 
+## 2026-10-30 G7｜ドキドキ涙の相手指定・事前スーパーミラー【最新・実Firebase成功】
+
+- **前担当の修正点**：研究版のドキドキ涙 `i013` は50%回復/50%自傷まで実装したが「自分にしか使えない」と扱っていた。原作攻略記事 [2020](https://ameblo.jp/shibransk/entry-12647363984.html)・[2025](https://kankurou53.hatenablog.com/entry/2025/07/19/165703) を再調査し、**相手にも使用でき、効果が確定する前にスーパーミラーで反射を選べる**と確認。オリジナルルールからのズレを優先して修正。
+- **コード**：`v2/staging-room.mjs` の `useItem.targetId`（未指定なら既存の自分）、`itemDefense` と `respondItem`（許す／所有スーパーミラー1枚）、相手へ宣言した雑貨の席別公開・未使用手札秘匿、再送署名に対象ID反映。`v2/room-transition.mjs` は相手の選択**後に1回だけ**ホストseed RNGで決定し、鏡なら使用者へ戻す。既存 `hit`/`restoreResource`/太陽のお守り/決着/補充/同手番継続の仕組みを流用。通常HP/MP回復アイテムの他者使用は今回の出典で個別ルール未確認のため従来の自分用のまま。新カードは登録していない（研究台帳**163種類・408/500参考枠**、`complete:false`）。
+- **画面**：オンライン研究用tearセットにスーパーミラーを配置。`対象：自分／相手` のトグルと、受け側の `許す／スーパーミラーで反射` ボタン。リリース用の単体HTML3種類は開発ブランチへ再生成保存済み。オンラインでは新`respondItem`コマンドから不要な旧防御配列が送られて拒否される**実UIバグをWebKitで発見し修正**、再発防止テストを追加。GitHub上の生成workflowは手動起動へ戻した。
+- **確定テスト**：Node **945/945 PASS** [run 41054436648](https://github.com/8mahi8/party-card-replica/actions/runs/41054436648)、Chromium **PASS** [run 41054436614](https://github.com/8mahi8/party-card-replica/actions/runs/41054436614)、WebKitオンライン **69/69 PASS**＋旧画面 **339/339 PASS** [run 41054436880](https://github.com/8mahi8/party-card-replica/actions/runs/41054436880)。新規 `tests/g7-dokidoki-target-mirror-v2.test.mjs` に原作対象選択、許す/鏡、回復/ダメージ、HP0と太陽のお守り、再送・秘密手札を追加。
+- **実Firebaseで成功**：[run 41054723700](https://github.com/8mahi8/party-card-replica/actions/runs/41054723700) の実RTDB＋独立2WebKit画面で、`G6_LIVE_TWO_BROWSER_SUCCESS`、`G7_LIVE_RECOVERY_SUCCESS`、新`G7_LIVE_TARGET_MIRROR_SUCCESS`（revision3／使用者HP50／被使用者HP40／鏡消費／秘匿ビュー）と3回の安全な試験ルーム削除成功を確認。検証用の一時PRトリガーは終了後に**元の手動workflowへ復帰**。
+- **資料・残課題**：[G7相手指定・鏡の実装と出典](docs/V2_G7_DOKIDOKI_TARGET_MIRROR_2026-10-30.md)。学校のiPad Safari＋Google Sites実機は**未検証**。`main`、学校Google Sites直接貼り付けHTML、Firebase Security Rules/認証は変更なし。次はG7の原作未実装神器と状態異常・雑貨対象選択の検証へ進む。部分台帳から本家抽選を有効化しない。
+
 ## 2026-10-30 G7｜ドキドキ涙50/50アイテム（原作資料照合＋研究用対戦へ追加）
 
 - **原作根拠**：[Piongその他神器](https://w.atwiki.jp/piong/pages/19.html)、[GFGA](https://w.atwiki.jp/gfplusa/pages/18.html)、[まかろん2026](https://macarongamemo.com/entry/godfield-artifact)を照合。ドキドキ涙（価格¥1、確率0.4%＝参考2/500枠）、50%でHP+10／50%で10ダメージ。現在の研究カタログは**163種類・408/500参考枠**、 `complete:false` 維持。
