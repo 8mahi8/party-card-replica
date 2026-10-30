@@ -5,6 +5,17 @@
 
 > **この文書は引き継ぎ入口であり、実装の真実は常に開発ブランチの最新コードとGitHub Actions。** コミットSHA・テスト件数・カード数は作業のたびに変わる。本文の日付や数値を確認せず永久に正しいと扱わないこと。
 
+## 2026-10-30 G7｜貝がら2種・病系治療の範囲分岐【最新・実Firebase成功】
+
+- **原作照合**：[Piong神器一覧](https://w.atwiki.jp/piong/pages/19.html)、[Piong災い一覧](https://w.atwiki.jp/piong/pages/23.html)、[まかろん2026神器表](https://macarongamemo.com/entry/godfield-artifact)：**スマイルの貝がら=¥5・2.4%（12/500）・風邪/熱病/霧/閃光を払う**、**ハートの貝がら=¥15・1.2%（6/500）・あらゆる災いを払う**。スマイルは地獄病・天国病・夢・暗雲を治療できない。原作本体での直接演出は未実測（外部資料による照合）。
+- **実装**：`src/verified-basic-cards.mjs`に`i017`/`i018`、`v2/legacy-adapter.mjs`と`v2/foundation.mjs`に厳密型`cleanseAfflictions({scope:'minor'|'all'})`。`v2/disease-rules.mjs`に`planDiseaseCure`を追加。`v2/staging-room.mjs`の既存`useItem`／`respondItem`と`v2/room-transition.mjs`の既存スーパーミラー後の効果判定を再利用。`v2/effect-runner.mjs`の既存効果キューで**スマイルは風邪・熱病のみ、ハートは病系4段階すべて**を解除。病をもたない相手への使用も可能、他人の手札の秘匿と一回だけの補充・同じターンで攻撃可を維持。治療後は持ち主のターン終了時の病ダメージが消える。研究カタログは**168種類・429/500参考枠、`complete:false`**で本家ランダム抽選は引き続き禁止。
+- **制約を正確に区別**：原作では貝がらは霧・閃光・夢・暗雲にも有効だが、それらの**状態異常そのものはまだV2対戦に実装されていない**。今回は実装済みの病系治療のみを正確に実装。デバッグ用のDream見た目差替え台帳は「夢」災い本体ではないため、勝手に消さない。後で本体を実装した時に同じ型付き効果に接続する。
+- **UI・パッケージ**：オンライン研究セット10種目`shells`はホストがスマイル/ハート2枚＋天国病、ゲストがスーパーミラー＋熱病で開始。効果プレビューは「風邪・熱病を治す」「病系の災いをすべて治す」と正確に記述。旧/V2オフライン/V2オンラインの3種単体HTMLを開発ブランチで再生成。ビルドworkflowは元の手動専用へ戻した。
+- **自動テスト実測**：`tests/g7-shell-cleansing-v2.test.mjs` 10件新規。Node **994/994 PASS** [run 41066264525](https://github.com/8mahi8/party-card-replica/actions/runs/41066264525)、Chromium **PASS** [run 41066264540](https://github.com/8mahi8/party-card-replica/actions/runs/41066264540)、WebKitオンライン **156/156 PASS**と既存画面 **339/339 PASS** [run 41066264527](https://github.com/8mahi8/party-card-replica/actions/runs/41066264527)。
+- **本物のFirebase 2画面も成功**：[run 41067115608](https://github.com/8mahi8/party-card-replica/actions/runs/41067115608) で既存G6/G7の10ケース＋`G7_LIVE_SHELL_SMILE_PASS_SUCCESS`、`G7_LIVE_SHELL_SMILE_MIRROR_SUCCESS`、`G7_LIVE_SHELL_HEART_PASS_SUCCESS`、`G7_LIVE_SHELL_HEART_MIRROR_SUCCESS`の**計14試験がすべて成功**。14ルームのホストIDを照合した安全な削除も14回成功。初回のスマイル反射時の誤失敗は**治療が実際には発生しない場合に、ゲストへの同期を待たずにRESTの旧revisionを読んだテスト待機不足**。ゲスト側の反映を待つ修正をして再実行成功。Live workflowも元の手動専用へ戻した。
+- **詳細資料**：[V2_G7_SHELL_AFFLICTION_CURE_2026-10-30.md](docs/V2_G7_SHELL_AFFLICTION_CURE_2026-10-30.md)。学校の実iPad Safari＋Google Sites直貼り版は未検証・変更なし。GitHub main、Firebase Security Rulesと認証方式も未変更。
+- **次工程**：G7病エンジンを活かして風邪/熱病/地獄病を付与する原作神器/奇跡の命中・効果順を調査するか、既存のオンラインUI品質を点検。ユーザーが承認していない独自仕様や未実装の他の災いを推測で加えない。
+
 ## 2026-10-30 G7｜天国草・病系4段階のターン終了エンジン【最新・実Firebase成功】
 
 - **原作照合**：[Piongその他神器（2026-10-24）](https://w.atwiki.jp/piong/pages/19.html)・[まかろん神器表](https://macarongamemo.com/entry/godfield-artifact)により**天国草=¥20/0.2%（1/500）/MP+20と天国病**。[Piong災い一覧](https://w.atwiki.jp/piong/pages/23.html)・[初心者向けルール](https://godfield-beginner.game-info.wiki/)により病4段階は風邪(-HP1)→熱病(-HP2)→地獄病(-HP5)→天国病(+HP5)、所有者のターン終了時に5%で次段階へ悪化（天国病なら発作でHP0）。追加の病付与でも悪化し、太陽のお守り復活では病が残る。原作ゲームでの直接実機確認は未実施。厳密な演出/HP変化と5%抽選順は出典を踏まえて実装し、今後現行原作で直接照合する。
