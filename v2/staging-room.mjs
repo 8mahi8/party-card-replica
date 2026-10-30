@@ -21,7 +21,8 @@ const MAX_PLAYERS=9;
 const MAX_HAND=18;
 const ALLOWED_KEYS={
   pray:new Set(['commandId','expectedRevision','actorId','type']),
-  useItem:new Set(['commandId','expectedRevision','actorId','type','instanceId']),
+  useItem:new Set(['commandId','expectedRevision','actorId','type','instanceId','targetId']),
+  respondItem:new Set(['commandId','expectedRevision','actorId','type','mirrorInstanceId']),
   discard:new Set(['commandId','expectedRevision','actorId','type','orderedInstanceIds']),
   declareSale:new Set(['commandId','expectedRevision','actorId','type','targetId','saleInstanceId','soldInstanceId']),
   respondSale:new Set(['commandId','expectedRevision','actorId','type','mirrorInstanceId']),
@@ -57,7 +58,7 @@ function fingerprint(command) {
     actorId:command.actorId,
     type:command.type,
     expectedRevision:command.expectedRevision,
-    targetId:['playCards','playSequence','castLearned','declareSale','declareBuy'].includes(command.type)?command.targetId:null,
+    targetId:['playCards','playSequence','castLearned','declareSale','declareBuy','useItem'].includes(command.type)?command.targetId:null,
     orderedPlays:command.orderedPlays??null,
     orderedInstanceIds:command.orderedInstanceIds??null,
     instanceId:command.type==='useItem'?command.instanceId:null,
@@ -247,7 +248,31 @@ export function applyStagingCommand(state,command,catalog,{authorizedSeatId}={})
       !def.effects.some(e=>e.when==='onDeclare'&&
         ['restoreResource','flipHpRisk'].includes(e.type)))
       throw new Error('Only a plain owned recovery item may be used');
-    pending={type:'useItem',originalAttackerId:actor.id,instanceId:physical.instanceId};
+    const target=command.targetId===undefined?actor:seat(state,id(command.targetId,'item target ID'));
+    if(target.hp<=0)throw new Error('Item target has already been defeated');
+    const risky=def.effects[0].type==='flipHpRisk';
+    if(!risky&&target.id!==actor.id)
+      throw new Error('Other-player use for this restorative needs original verification');
+    pending={type:'useItem',originalAttackerId:actor.id,
+      targetId:target.id,instanceId:physical.instanceId,defense:null};
+    phase=target.id===actor.id?'resolving':'itemDefense';
+    activePlayerId=target.id===actor.id?null:target.id;
+  } else if(command.type==='respondItem'){
+    if(state.phase!=='itemDefense'||state.pending?.type!=='useItem'||
+       state.pending.targetId!==actor.id||actor.hp<=0)
+      throw new Error('Not the defending item target');
+    let mirrorInstanceId=null;
+    if(command.mirrorInstanceId!==undefined){
+      id(command.mirrorInstanceId,'Mirror item instance ID');
+      const mirror=actor.hand.find(c=>c.instanceId===command.mirrorInstanceId);
+      const mirrorDef=catalog.get(mirror?.definitionId);
+      if(!mirror||!mirrorDef?.effects.some(e=>e.when==='onDefense'&&
+         e.type==='redirectAttack'&&e.params.mode==='reflect'&&
+         e.params.scope==='any'))
+        throw new Error('Only Super Mirror may reflect the item');
+      mirrorInstanceId=mirror.instanceId;
+    }
+    pending={...state.pending,defense:{playerId:actor.id,mirrorInstanceId}};
     phase='resolving';activePlayerId=null;
   } else if(command.type==='exchange'){
     if(state.phase!=='turn'||actor.hp<=0)
@@ -500,6 +525,11 @@ export function viewStagingRoom(state,viewerId,catalog=null) {
       type:state.pending.type,sourceId:state.pending.sourceId??state.pending.originalAttackerId,
       targetId:state.pending.targetId,
       ...(announcement?{declaredAttack:announcement}:{}),
+      ...(state.pending.type==='useItem'&&state.phase==='itemDefense'&&
+        state.players.some(q=>q.id===state.pending.originalAttackerId)?
+        {declaredItem:{definitionId:state.players.find(q=>
+          q.id===state.pending.originalAttackerId).hand.find(c=>
+          c.instanceId===state.pending.instanceId)?.definitionId}}:{}),
       ...(state.pending.mirageRoute?{
         mirageRound:state.pending.mirageRoute.roundIndex+1,
         mirageRounds:state.pending.mirageRoute.roundCount,
@@ -517,7 +547,8 @@ export function viewStagingRoom(state,viewerId,catalog=null) {
         strikeNumber:(state.pending.strikeIndex??0)+1,
         strikeCount:state.pending.attackContext?.hitCount??1
       }:{}),
-      stage:state.pending.type==='buy'?
+      stage:state.pending.type==='useItem'&&state.phase==='itemDefense'?'awaitingItemResponse':
+        state.pending.type==='buy'?
         (state.phase==='buyDefense'?'awaitingTradeResponse':
          state.phase==='buyDecision'?'awaitingPurchaseDecision':'awaitingResolution'):
         state.pending.type==='sale'?
