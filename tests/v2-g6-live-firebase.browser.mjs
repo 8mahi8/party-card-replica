@@ -464,7 +464,7 @@ try{
     .includes('雑貨への対応'),null,{timeout:20000});
   const pending=await dbRead(code);
   if(pending.views?.B?.pending?.declaredItem?.definitionId!=='i016'||
-     pending.views?.B?.players?.[1]?.disease!==null)
+     (pending.views?.B?.players?.[1]?.disease??null)!==null)
    throw Error('Heaven Grass illness was applied before Mirror decision');
   if(mirror)await b.locator('#hand button').first().tap();
   await b.locator('#defend').tap();
@@ -477,7 +477,7 @@ try{
   const resolved=await dbRead(code);
   if(resolved.views.A.revision!==3||resolved.views.B.revision!==3||
      resolved.views.A.players[mirror?0:1].disease!=='heaven'||
-     resolved.views.B.players[mirror?1:0].disease!==null||
+     (resolved.views.B.players[mirror?1:0].disease??null)!==null||
      resolved.views.B.players[0].hand!==undefined||
      resolved.views.A.players[1].hand!==undefined)
    throw Error('Heaven Grass RTDB target, Mirror or privacy mismatch');
