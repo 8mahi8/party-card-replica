@@ -549,6 +549,9 @@ const VERIFIED_BASIC_CARDS = Object.freeze([
   Object.freeze({id:'i015',referenceName:'女神の石けん',kind:'support_item',category:'item',element:'none',effect:'forget_learned',price:10,weight:1}),
   // Piong 2026-10-24: 0.2%, ¥20, MP+20 and heaven disease exposure.
   Object.freeze({id:'i016',referenceName:'天国草',kind:'support_item',category:'item',element:'none',effect:'heaven_herb',restoreAmount:20,price:20,weight:1}),
+  // Piong 2026-10-24, Macaron 2026: minor vs all affliction clearance.
+  Object.freeze({id:'i017',referenceName:'スマイルの貝がら',kind:'support_item',category:'item',element:'none',effect:'cleanse_minor',price:5,weight:12}),
+  Object.freeze({id:'i018',referenceName:'ハートの貝がら',kind:'support_item',category:'item',element:'none',effect:'cleanse_all',price:15,weight:6}),
   Object.freeze({id:'i003',referenceName:'精霊のぬいぐるみ',kind:'support_item',category:'item',element:'none',effect:'free_previous_miracle',price:5,weight:2}),
   Object.freeze({id:'i004',referenceName:'ちからの粉',kind:'support_item',category:'item',element:'none',effect:'add_attack',attackBonus:10,price:15,weight:2}),
   // Passive: held charm consumes ONE instance at HP0, revives at HP10.
@@ -587,7 +590,7 @@ const MODES = new Set(['mainAttack','addAttack','defend','cast','support','trade
 // Until sourced effects are implemented, explicitly gate those definitions.
 const DISCARD_POLICIES = new Set(['ordinary','forbidden','requiresSpecialResolution']);
 const EFFECT_TRIGGERS = new Set(['onDeclare','onCost','beforeHit','onDefense','afterHit','onTurnEnd','onZeroHp']);
-const EFFECT_TYPES = new Set(['redirectAttack','stripElement','multiplyAttack','addAttack','stopAttack','waivePreviousMp','setAttackElement','forceSale','requestBuy','reallocateResources','reviveAtZeroHp','absorbHp','repeatAttack','widenAttack','restoreResource','flipHpRisk','sweepHand','forgetLearned','heavenHerb']);
+const EFFECT_TYPES = new Set(['redirectAttack','stripElement','multiplyAttack','addAttack','stopAttack','waivePreviousMp','setAttackElement','forceSale','requestBuy','reallocateResources','reviveAtZeroHp','absorbHp','repeatAttack','widenAttack','restoreResource','flipHpRisk','sweepHand','forgetLearned','heavenHerb','cleanseAfflictions']);
 
 function plainObject(v) { return v !== null && typeof v === 'object' && !Array.isArray(v); }
 function nonnegative(n) { return Number.isSafeInteger(n) && n >= 0; }
@@ -622,6 +625,10 @@ function freezeEffect(effect) {
       !['hp','mp'].includes(params.resource)||
       !Number.isSafeInteger(params.amount)||params.amount<1||params.amount>99))
     throw new Error('Invalid restoreResource effect data');
+  if(effect.type==='cleanseAfflictions'&&
+     (effect.when!=='onDeclare'||Object.keys(params).length!==1||
+      !['minor','all'].includes(params.scope)))
+    throw new Error('Invalid cleanseAfflictions effect data');
   if(effect.type==='heavenHerb'&&
      (effect.when!=='onDeclare'||Object.keys(params).length!==2||
       params.mp!==20||params.disease!=='heaven'))
@@ -1139,6 +1146,13 @@ function convertLegacyCard(card,{ruleset=PARTIAL_CARD_SOURCE}={}) {
         throw new Error('Invalid source-backed coin-flip HP item');
       modes.push('use');
       effects.push(mk('onDeclare','flipHpRisk',{heal:10,damage:10,healChance:0.5}));
+    }else if(['cleanse_minor','cleanse_all'].includes(card.effect)){
+      const minor=card.effect==='cleanse_minor';
+      if(card.element!=='none'||card.price!==(minor?5:15)||
+         card.weight!==(minor?12:6))
+        throw new Error('Invalid source-backed shell');
+      modes.push('use');
+      effects.push(mk('onDeclare','cleanseAfflictions',{scope:minor?'minor':'all'}));
     }else if(card.effect==='heaven_herb'){
       if(card.element!=='none'||card.restoreAmount!==20||card.price!==20||card.weight!==1)
         throw new Error('Invalid source-backed heaven grass');
@@ -1537,7 +1551,19 @@ function planDiseaseTurnEnd(disease,hp,roll){
  return Object.freeze({disease:stage,hpAfter:adjusted,advanced:false,fatal:false});
 }
 
-return {DISEASE_STAGES,assertDisease,planDiseaseExposure,planDiseaseTurnEnd};
+/**
+ * Current disease-only boundary. Original Smile Shell also cures mist and
+ * flash; Heart Shell also cures dream/cloud. Those afflictions are not yet
+ * represented in the active V2 room model, so never pretend they were cured.
+ */
+function planDiseaseCure(disease,scope){
+ const current=assertDisease(disease);
+ if(!['minor','all'].includes(scope))throw new Error('Invalid affliction cure scope');
+ const cures=current!==null&&(scope==='all'||['cold','fever'].includes(current));
+ return Object.freeze({before:current,disease:cures?null:current,cured:cures});
+}
+
+return {DISEASE_STAGES,assertDisease,planDiseaseExposure,planDiseaseTurnEnd,planDiseaseCure};
 })();
 
 const __v2_module_12 = (() => {
@@ -2183,7 +2209,7 @@ function applyStagingCommand(state,command,catalog,{authorizedSeatId}={}) {
     if(!physical||def?.family!=='item'||!def.playModes.includes('use')||
       def.effects.length!==1||
       !def.effects.some(e=>e.when==='onDeclare'&&
-        ['restoreResource','flipHpRisk','sweepHand','forgetLearned','heavenHerb'].includes(e.type)))
+        ['restoreResource','flipHpRisk','sweepHand','forgetLearned','heavenHerb','cleanseAfflictions'].includes(e.type)))
       throw new Error('Only a plain owned recovery item may be used');
     const target=command.targetId===undefined?actor:seat(state,id(command.targetId,'item target ID'));
     if(target.hp<=0)throw new Error('Item target has already been defeated');
@@ -2515,7 +2541,7 @@ const {planIncomingHandTransfer} = __v2_module_7;
 const {previewBuyOfferFixture,previewBuyChoiceFixture} = __v2_module_8;
 const {previewExchangeFixture} = __v2_module_9;
 const {planZeroHpRecoveryFixture} = __v2_module_10;
-const {planDiseaseExposure,planDiseaseTurnEnd} = __v2_module_11;
+const {planDiseaseExposure,planDiseaseTurnEnd,planDiseaseCure} = __v2_module_11;
 const {drawRandom32} = __v2_module_2;
 const {inspectHitOutcomeBoundaryFixture} = __v2_module_13;
 const {retireDreamAppearancesFixture,validateDreamOwnershipFixture} = __v2_module_15;
@@ -2726,6 +2752,19 @@ function runEffectQueueFixture(state,catalog,queue,{
        fail('Invalid grantDraw count');
      spent[p.id]=(spent[p.id]??0)+effect.count;
      events.push({type:'grantDraw',playerId:p.id,count:effect.count});
+   } else if(effect.type==='cleanseAfflictions'){
+     if(Object.keys(effect).length!==3||typeof effect.playerId!=='string'||
+        !['minor','all'].includes(effect.scope))
+       fail('Malformed original Shell cleansing effect');
+     const p=who(s,effect.playerId);
+     if(p.hp<=0)fail('Cannot cure defeated target');
+     // The only active G7 affliction is the four-stage disease family.
+     // No fabricated dream/mist/flash/cloud flags are introduced here.
+     const plan=planDiseaseCure(p.disease??null,effect.scope);
+     p.disease=plan.disease;
+     events.push({type:'cleanseAfflictions',playerId:p.id,
+       scope:effect.scope,diseaseBefore:plan.before,
+       diseaseAfter:plan.disease,curedDisease:plan.cured});
    } else if(effect.type==='heavenHerb'){
      if(Object.keys(effect).length!==2||typeof effect.playerId!=='string')
        fail('Malformed Heaven Grass action');
@@ -4881,7 +4920,7 @@ function resolveStagedFixture(state,catalog,{
     const card=actor?.hand.find(x=>x.instanceId===p.instanceId);
     const def=catalog.get(card?.definitionId);
     const effect=def?.effects.find(e=>e.when==='onDeclare'&&
-      ['restoreResource','flipHpRisk','sweepHand','forgetLearned','heavenHerb'].includes(e.type));
+      ['restoreResource','flipHpRisk','sweepHand','forgetLearned','heavenHerb','cleanseAfflictions'].includes(e.type));
     if(!card||!actor||actor.hp<=0||!target||target.hp<=0||
        def?.family!=='item'||!def.playModes.includes('use')||
        def.effects.length!==1||!effect)
@@ -4905,6 +4944,22 @@ function resolveStagedFixture(state,catalog,{
       }
     }else if(p.defense!==null&&p.defense!==undefined)
       fail('Cannot defend against an item used on oneself');
+    if(effect.type==='cleanseAfflictions'){
+      if(!['minor','all'].includes(effect.params.scope))
+        fail('Invalid pending Shell cure scope');
+      const queue=[
+        {type:'spend',playerId:actor.id,instanceIds:[card.instanceId]},
+        ...(mirrorId===null?[]:[{type:'spend',playerId:target.id,instanceIds:[mirrorId]}]),
+        {type:'cleanseAfflictions',playerId:recipient.id,scope:effect.params.scope},
+        {type:'refill'},
+        {type:'resumeTurn',playerId:actor.id}
+      ];
+      const result=runEffectQueueFixture(state,catalog,queue,
+        {labOnly:true,fixtureDrawDefinitionId});
+      return {...result,plan:Object.freeze({type:'useItem',
+        playerId:actor.id,targetId:recipient.id,definitionId:def.id,
+        scope:effect.params.scope,reflected:mirrorId!==null})};
+    }
     if(effect.type==='heavenHerb'){
       if(effect.params.mp!==20||effect.params.disease!=='heaven')
         fail('Invalid Heaven Grass compound effect');
