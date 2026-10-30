@@ -84,7 +84,7 @@ test('item defense response sends only mirror selection, not weapon-defense arra
  assert.match(page,/effectiveType=type==='defend'&&view\.phase==='itemDefense'\?'respondItem':/);
  assert.match(page,/view\.phase==='tradeDefense'\?'respondSale':type/);
  assert.match(page,/\['playCards','defend','discard'\]\.includes\(effectiveType\)/);
- assert.match(page,/effectiveType==='respondItem'&&ids\.length/);
+ assert.match(page,/\['respondItem','respondSale'\]\.includes\(effectiveType\)&&ids\.length/);
 });
 test('Google Sites-style storage restriction never prevents guest join',()=>{
  assert.match(page,/try\{previousId=sessionStorage\.getItem\(key\)\}catch\{\}/);
