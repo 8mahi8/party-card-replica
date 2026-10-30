@@ -99,6 +99,7 @@ main{padding:0 6px 8px}.brandline{margin:0 -6px}
 <option value="dark">闇属性と高防御</option>
 <option value="recovery">HP・MP回復と反撃</option>
 <option value="support">相手への回復と反射</option>
+<option value="broom">夜空のホウキ・手札除去</option>
 <option value="tear">ドキドキ涙・運試し</option>
 </select></div>
 <p id="presetNotice">原作の山札ではありません。選択した4枚セットで効果を試します。</p>
@@ -509,6 +510,8 @@ const VERIFIED_BASIC_CARDS = Object.freeze([
   Object.freeze({id:'i012',referenceName:'ロマンスの香木',kind:'support_item',category:'item',element:'none',effect:'restore_mp',restoreAmount:15,price:5,weight:4}),
   // Piong (2026-10-24), GFGA and Macaron (2026): 50/50 +HP10 or 10 self-damage.
   Object.freeze({id:'i013',referenceName:'ドキドキ涙',kind:'support_item',category:'item',element:'none',effect:'coin_flip_hp',restoreAmount:10,price:1,weight:2}),
+  // Piong (2026-10-24), GFGA, Macaron 2026: sweeps up to 3 physical artifacts; learned miracles excluded.
+  Object.freeze({id:'i014',referenceName:'夜空のホウキ',kind:'support_item',category:'item',element:'none',effect:'sweep_hand',price:10,weight:1}),
   Object.freeze({id:'i003',referenceName:'精霊のぬいぐるみ',kind:'support_item',category:'item',element:'none',effect:'free_previous_miracle',price:5,weight:2}),
   Object.freeze({id:'i004',referenceName:'ちからの粉',kind:'support_item',category:'item',element:'none',effect:'add_attack',attackBonus:10,price:15,weight:2}),
   // Passive: held charm consumes ONE instance at HP0, revives at HP10.
@@ -547,7 +550,7 @@ const MODES = new Set(['mainAttack','addAttack','defend','cast','support','trade
 // Until sourced effects are implemented, explicitly gate those definitions.
 const DISCARD_POLICIES = new Set(['ordinary','forbidden','requiresSpecialResolution']);
 const EFFECT_TRIGGERS = new Set(['onDeclare','onCost','beforeHit','onDefense','afterHit','onTurnEnd','onZeroHp']);
-const EFFECT_TYPES = new Set(['redirectAttack','stripElement','multiplyAttack','addAttack','stopAttack','waivePreviousMp','setAttackElement','forceSale','requestBuy','reallocateResources','reviveAtZeroHp','absorbHp','repeatAttack','widenAttack','restoreResource','flipHpRisk']);
+const EFFECT_TYPES = new Set(['redirectAttack','stripElement','multiplyAttack','addAttack','stopAttack','waivePreviousMp','setAttackElement','forceSale','requestBuy','reallocateResources','reviveAtZeroHp','absorbHp','repeatAttack','widenAttack','restoreResource','flipHpRisk','sweepHand']);
 
 function plainObject(v) { return v !== null && typeof v === 'object' && !Array.isArray(v); }
 function nonnegative(n) { return Number.isSafeInteger(n) && n >= 0; }
@@ -582,6 +585,9 @@ function freezeEffect(effect) {
       !['hp','mp'].includes(params.resource)||
       !Number.isSafeInteger(params.amount)||params.amount<1||params.amount>99))
     throw new Error('Invalid restoreResource effect data');
+  if(effect.type==='sweepHand'&&
+     (effect.when!=='onDeclare'||Object.keys(params).length!==1||params.count!==3))
+    throw new Error('Invalid sweepHand effect data');
   if(effect.type==='flipHpRisk'&&
      (effect.when!=='onDeclare'||Object.keys(params).length!==3||
       params.heal!==10||params.damage!==10||params.healChance!==0.5))
@@ -1089,6 +1095,11 @@ function convertLegacyCard(card,{ruleset=PARTIAL_CARD_SOURCE}={}) {
         throw new Error('Invalid source-backed coin-flip HP item');
       modes.push('use');
       effects.push(mk('onDeclare','flipHpRisk',{heal:10,damage:10,healChance:0.5}));
+    }else if(card.effect==='sweep_hand'){
+      if(card.element!=='none'||card.price!==10||card.weight!==1)
+        throw new Error('Invalid source-backed broom item');
+      modes.push('use');
+      effects.push(mk('onDeclare','sweepHand',{count:3}));
     }else if(card.effect==='sun_revive'){
       if(card.discardPolicy!=='forbidden')
         throw new Error('Passive Sun Charm discard policy mismatch');
@@ -2068,7 +2079,7 @@ function applyStagingCommand(state,command,catalog,{authorizedSeatId}={}) {
     if(!physical||def?.family!=='item'||!def.playModes.includes('use')||
       def.effects.length!==1||
       !def.effects.some(e=>e.when==='onDeclare'&&
-        ['restoreResource','flipHpRisk'].includes(e.type)))
+        ['restoreResource','flipHpRisk','sweepHand'].includes(e.type)))
       throw new Error('Only a plain owned recovery item may be used');
     const target=command.targetId===undefined?actor:seat(state,id(command.targetId,'item target ID'));
     if(target.hp<=0)throw new Error('Item target has already been defeated');
@@ -2546,6 +2557,21 @@ function runEffectQueueFixture(state,catalog,queue,{
      if(before-p.hand.length!==ids.size)fail('Discarded card not in hand');
      forgetDream(p,effect.instanceIds);
      events.push({type:'discard',playerId:p.id,count:ids.size});
+   } else if(effect.type==='sweep'){
+     // Unlike voluntary discard, a Broom forcibly sweeps ANY physical
+     // artifact (including those with forbidden discard policies). This
+     // removes hand slots permanently; only the PLAYED broom/mirror refill.
+     if(!Array.isArray(effect.instanceIds)||effect.instanceIds.length>3)
+       fail('Invalid broom sweep IDs');
+     const p=who(s,effect.playerId),ids=new Set(effect.instanceIds);
+     if(ids.size!==effect.instanceIds.length)fail('Repeated broom sweep card');
+     if(effect.instanceIds.some(x=>typeof x!=='string'||!p.hand.some(c=>c.instanceId===x)))
+       fail('Broom sweep contains an unowned card');
+     const before=p.hand.length;
+     p.hand=p.hand.filter(c=>!ids.has(c.instanceId));
+     if(before-p.hand.length!==ids.size)fail('Broom sweep count mismatch');
+     forgetDream(p,effect.instanceIds);
+     events.push({type:'sweep',playerId:p.id,count:ids.size});
    } else if(effect.type==='grantDraw'){
      const p=who(s,effect.playerId);
      if(!positiveCount(effect.count)||effect.count<1||effect.count>18)
@@ -4691,7 +4717,7 @@ function resolveStagedFixture(state,catalog,{
     const card=actor?.hand.find(x=>x.instanceId===p.instanceId);
     const def=catalog.get(card?.definitionId);
     const effect=def?.effects.find(e=>e.when==='onDeclare'&&
-      ['restoreResource','flipHpRisk'].includes(e.type));
+      ['restoreResource','flipHpRisk','sweepHand'].includes(e.type));
     if(!card||!actor||actor.hp<=0||!target||target.hp<=0||
        def?.family!=='item'||!def.playModes.includes('use')||
        def.effects.length!==1||!effect)
@@ -4715,6 +4741,34 @@ function resolveStagedFixture(state,catalog,{
       }
     }else if(p.defense!==null&&p.defense!==undefined)
       fail('Cannot defend against an item used on oneself');
+    if(effect.type==='sweepHand'){
+      if(effect.params.count!==3)fail('Invalid broom sweep count');
+      // Sampling is performed once by the authoritative host, after the
+      // broom itself and any reacting Mirror have left their owners' hands.
+      // Learned miracles live outside hand[], hence cannot be swept.
+      const available=recipient.hand.filter(c=>
+        c.instanceId!==p.instanceId&&c.instanceId!==mirrorId);
+      const pool=[...available],picked=[];
+      let seed=state.rngSeed;
+      while(pool.length&&picked.length<effect.params.count){
+        const sample=drawRandom32(seed);
+        seed=sample.nextSeed;
+        const index=Math.floor(sample.value*pool.length);
+        picked.push(pool.splice(index,1)[0].instanceId);
+      }
+      const queue=[
+        {type:'spend',playerId:actor.id,instanceIds:[card.instanceId]},
+        ...(mirrorId===null?[]:[{type:'spend',playerId:target.id,instanceIds:[mirrorId]}]),
+        {type:'sweep',playerId:recipient.id,instanceIds:picked},
+        {type:'refill'},
+        {type:'resumeTurn',playerId:actor.id}
+      ];
+      const result=runEffectQueueFixture({...state,rngSeed:seed},catalog,queue,
+        {labOnly:true,fixtureDrawDefinitionId});
+      return {...result,plan:Object.freeze({type:'useItem',
+        playerId:actor.id,targetId:recipient.id,definitionId:def.id,
+        sweptCount:picked.length,reflected:mirrorId!==null})};
+    }
     let staged=state,action,outcome=null;
     if(effect.type==='restoreResource'){
       action={type:'restoreResource',playerId:recipient.id,
@@ -5966,6 +6020,10 @@ const LAB_PRESETS=Object.freeze({
   A:Object.freeze(['i006','i010','w016','d003']),
   B:Object.freeze(['i002','i007','w027','d003'])
  }),
+ broom:Object.freeze({
+  A:Object.freeze(['i014','w016','d003','i006']),
+  B:Object.freeze(['i002','w027','d003','i005'])
+ }),
  tear:Object.freeze({
   A:Object.freeze(['i013','i005','w016','d003']),
   B:Object.freeze(['i013','w027','d003','i002'])
@@ -6093,7 +6151,7 @@ function render(){
  // reflections, multi-hits and special effects belong to the battle engine.
  const selectedIds=[...selection],itemEffect=selectedIds.length===1?
    catalog.get(cardsById.get(selectedIds[0])?.definitionId)?.effects.find(
-    e=>e.when==='onDeclare'&&['restoreResource','flipHpRisk'].includes(e.type)):null;
+    e=>e.when==='onDeclare'&&['restoreResource','flipHpRisk','sweepHand'].includes(e.type)):null;
  const mirrorChoice=selectedIds.length===1&&catalog.get(
    cardsById.get(selectedIds[0])?.definitionId)?.effects.some(e=>
     e.when==='onDefense'&&e.type==='redirectAttack'&&
@@ -6101,7 +6159,8 @@ function render(){
  $('selectionTotal').textContent=itemDefense?
    (mirrorChoice?'スーパーミラーで雑貨を反射':'許す／スーパーミラーを選択'):
    itemEffect?
-   (itemEffect.type==='flipHpRisk'?'HP+10 / 10ダメージ（各50%）':
+   (itemEffect.type==='sweepHand'?'対象の神器を無作為に最大3枚除去':
+    itemEffect.type==='flipHpRisk'?'HP+10 / 10ダメージ（各50%）':
     (itemEffect.params.resource==='hp'?'HP':'MP')+'+'+itemEffect.params.amount+'（最大99）'):
    index?'カード記載値の合計（参考） · '+(defense?'守 '+guardSum:'攻 '+attackSum)+
     (mpSum?' · MP '+mpSum:''):'';
@@ -6121,9 +6180,10 @@ function render(){
   const label=document.createElement('span');label.className='cardname';
   label.textContent=name;
   const stat=document.createElement('span');stat.className='cardstats';
-  const restored=def?.effects.find(e=>['restoreResource','flipHpRisk'].includes(e.type));
+  const restored=def?.effects.find(e=>['restoreResource','flipHpRisk','sweepHand'].includes(e.type));
   stat.textContent=restored?
-   (restored.type==='flipHpRisk'?'HP±10（50%）':
+   (restored.type==='sweepHand'?'神器を3枚除去':
+    restored.type==='flipHpRisk'?'HP±10（50%）':
     (restored.params.resource==='hp'?'HP':'MP')+'+'+restored.params.amount):
    [stats.attack?'攻'+stats.attack:'',
     stats.guard?'守'+stats.guard:'',
@@ -6138,7 +6198,10 @@ function render(){
     e.params.mode==='reflect'&&e.params.scope==='any'));
   btn.addEventListener('click',()=>{
    if(selection.has(c.instanceId))selection.delete(c.instanceId);
-   else selection.add(c.instanceId);
+   else {
+    selection.add(c.instanceId);
+    if(def?.effects.some(e=>e.type==='sweepHand'))itemTarget='other';
+   }
    render();
   });
   hand.append(btn);
@@ -6172,7 +6235,7 @@ async function send(type){
   command.instanceId=ids[0];
   const effect=catalog.get(view.players.find(p=>p.id===seat)?.hand?.find(c=>
     c.instanceId===ids[0])?.definitionId)?.effects.find(e=>
-     ['restoreResource','flipHpRisk'].includes(e.type));
+     ['restoreResource','flipHpRisk','sweepHand'].includes(e.type));
   if(effect)command.targetId=itemTarget==='self'?seat:(seat==='A'?'B':'A');
  }
  if(effectiveType==='respondItem'&&ids.length)command.mirrorInstanceId=ids[0];
