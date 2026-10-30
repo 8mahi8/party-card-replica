@@ -97,6 +97,7 @@ main{padding:0 6px 8px}.brandline{margin:0 -6px}
 <option value="basic">基本対戦（従来の固定4枚）</option>
 <option value="elements">属性防御（火・水）</option>
 <option value="dark">闇属性と高防御</option>
+<option value="recovery">HP・MP回復と反撃</option>
 </select></div>
 <p id="presetNotice">原作の山札ではありません。選択した4枚セットで効果を試します。</p>
 <div class="inline"><button id="create" class="primary">部屋を作る</button></div>
@@ -115,6 +116,7 @@ main{padding:0 6px 8px}.brandline{margin:0 -6px}
 </div>
 <div id="actions" hidden>
 <button id="attack" class="primary">攻撃する</button>
+<button id="useItem">回復を使う</button>
 <button id="defend" class="primary">防御する／許す</button>
 <button id="pray">祈る</button>
 <button id="discard">捨てる</button>
@@ -154,6 +156,10 @@ const LAB_PRESETS=Object.freeze({
  dark:Object.freeze({
   A:Object.freeze(['w051','w054','d030','d034']),
   B:Object.freeze(['w052','w053','d030','d034'])
+ }),
+ recovery:Object.freeze({
+  A:Object.freeze(['i006','i010','w016','d003']),
+  B:Object.freeze(['i007','i011','w027','d003'])
  })
 });
 const url='https://mygame-df915-default-rtdb.firebaseio.com/';
@@ -270,9 +276,13 @@ function render(){
  }
  // Preview the printed stats, NOT a resolved damage estimate: elements,
  // reflections, multi-hits and special effects belong to the battle engine.
- $('selectionTotal').textContent=index?
-  'カード記載値の合計（参考） · '+(defense?'守 '+guardSum:'攻 '+attackSum)+
-   (mpSum?' · MP '+mpSum:''):'';
+ const selectedIds=[...selection],recovery=selectedIds.length===1?
+   catalog.get(cardsById.get(selectedIds[0])?.definitionId)?.effects.find(
+    e=>e.when==='onDeclare'&&e.type==='restoreResource'):null;
+ $('selectionTotal').textContent=recovery?
+   (recovery.params.resource==='hp'?'HP':'MP')+'+'+recovery.params.amount+'（最大99）':
+   index?'カード記載値の合計（参考） · '+(defense?'守 '+guardSum:'攻 '+attackSum)+
+    (mpSum?' · MP '+mpSum:''):'';
 
  const hand=$('hand'),scroll=hand.scrollLeft;
  hand.replaceChildren();
@@ -289,7 +299,10 @@ function render(){
   const label=document.createElement('span');label.className='cardname';
   label.textContent=name;
   const stat=document.createElement('span');stat.className='cardstats';
-  stat.textContent=[stats.attack?'攻'+stats.attack:'',
+  const restored=def?.effects.find(e=>e.type==='restoreResource');
+  stat.textContent=restored?
+   (restored.params.resource==='hp'?'HP':'MP')+'+'+restored.params.amount:
+   [stats.attack?'攻'+stats.attack:'',
     stats.guard?'守'+stats.guard:'',
     stats.mpCost?'MP'+stats.mpCost:''].filter(Boolean).join(' · ')||'神器';
   const price=document.createElement('span');price.className='cardprice';
@@ -308,9 +321,11 @@ function render(){
  hand.scrollLeft=scroll;
  const usable=mine&&!busy;
  $('actions').hidden=!(turn||defense);
- $('attack').hidden=!turn;$('pray').hidden=!turn;$('discard').hidden=!turn;
+ $('attack').hidden=!turn;$('useItem').hidden=!turn;
+ $('pray').hidden=!turn;$('discard').hidden=!turn;
  $('defend').hidden=!defense;
  $('attack').disabled=!usable||!selection.size;
+ $('useItem').disabled=!usable||!recovery;
  $('discard').disabled=!usable||!selection.size;
  $('pray').disabled=!usable||player.hand?.some(c=>catalog.get(c.definitionId)?.family==='weapon');
  $('defend').disabled=!usable;
@@ -322,6 +337,7 @@ async function send(type){
  const ids=[...selection];
  const command={commandId:randomId(),expectedRevision:view.revision,actorId:seat,type};
  if(type==='playCards'||type==='defend'||type==='discard')command.orderedInstanceIds=ids;
+ if(type==='useItem')command.instanceId=ids[0];
  if(type==='playCards')command.targetId=seat==='A'?'B':'A';
  waiting=true;pendingId=command.commandId;pendingCommand=command;
  feedback('操作を送信しています…');render();
@@ -389,6 +405,7 @@ $('join').addEventListener('click',async()=>{
 });
 $('retry').addEventListener('click',retryPending);
 $('attack').addEventListener('click',()=>send('playCards'));
+$('useItem').addEventListener('click',()=>send('useItem'));
 $('defend').addEventListener('click',()=>send('defend'));
 $('pray').addEventListener('click',()=>send('pray'));
 $('discard').addEventListener('click',()=>send('discard'));
