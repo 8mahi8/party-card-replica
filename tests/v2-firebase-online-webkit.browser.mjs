@@ -536,6 +536,57 @@ try{
  }
  await broomTrial({mirror:false});
  await broomTrial({mirror:true});
+ // Goddess Soap is directed at already learned miracles. Hand miracles
+ // and all ordinary physical slots must remain intact on both devices.
+ async function goddessSoapTrial(mirror){
+  const attacker=await context.newPage(),defender=await context.newPage();
+  for(const page of [attacker,defender])
+   page.on('pageerror',e=>errors.push(e.message));
+  try{
+   await attacker.goto(target);
+   await attacker.locator('#labPreset').selectOption('soap');
+   await attacker.locator('#create').tap();
+   await attacker.waitForFunction(()=>/\b\d{5}\b/.test(
+    document.querySelector('#roomLabel')?.textContent||''));
+   const room=(await attacker.locator('#roomLabel').textContent()).match(/\d{5}/)[0];
+   await defender.goto(target);
+   await defender.locator('#joinCode').fill(room);
+   await defender.locator('#join').tap();
+   await defender.locator('#hand button').first().waitFor();
+   check((await attacker.locator('#learnedMiracles').textContent()).split(' · ').length===3,
+    'Soap trial starts with 3 already learned A miracles');
+   check((await defender.locator('#learnedMiracles').textContent()).split(' · ').length===3,
+    'Soap trial starts with 3 already learned B miracles');
+   await attacker.locator('#hand button').first().tap();
+   check((await attacker.locator('#itemTarget').textContent()).includes('相手'),
+    'Goddess Soap defaults to opponent and may be self-targeted');
+   check((await attacker.locator('#selectionTotal').textContent()).includes('習得済み奇跡'),
+    'Soap preview states that only learned miracles are targeted');
+   await attacker.locator('#useItem').tap();
+   await defender.waitForFunction(()=>document.querySelector('#phase')?.textContent
+    .includes('雑貨への対応'));
+   check((await defender.locator('#incomingAttack').textContent()).includes('女神の石けん'),
+    'Goddess Soap is announced before response');
+   check((await defender.locator('#learnedMiracles').textContent()).split(' · ').length===3,
+    'learned miracles are unchanged until Mirror/pass');
+   if(mirror)await defender.locator('#hand button').first().tap();
+   await defender.locator('#defend').tap();
+   await Promise.all([attacker,defender].map((page,i)=>page.waitForFunction(
+    ({mirror,i})=>{
+     const text=document.querySelector('#learnedMiracles')?.textContent||'';
+     const wanted=(i===0 ? (mirror?1:3) : (mirror?3:1));
+     return text.startsWith('習得した奇跡：')&&text.split(' · ').length===wanted&&
+      document.querySelectorAll('.score')[0]?.textContent?.includes('手札 4')&&
+      document.querySelectorAll('.score')[1]?.textContent?.includes('手札 4');
+    },{mirror,i},{timeout:15000})));
+   check((await attacker.locator('#phase').textContent()).includes('あなたの攻撃'),
+    'Soap does not consume the original attack opportunity');
+   check((await defender.locator('#hand button').nth(1).textContent()).includes(''),
+    'physical hand cards are unaffected by learned-miracle removal');
+  }finally{await attacker.close();await defender.close();}
+ }
+ await goddessSoapTrial(false);
+ await goddessSoapTrial(true);
  check(errors.length===0,'all preset trials have no script errors');
  console.log('FIREBASE_ONLINE_WEBKIT_SUCCESS checks='+checks+
   ' two tabs with mock RTDB, viewport=390x430');
