@@ -89,6 +89,12 @@ main{padding:0 6px 8px}.brandline{margin:0 -6px}
 .hand button{flex-basis:78px;width:78px;min-height:101px}.hand .artmark{height:36px}
 }
 @media(max-height:520px){.notice p{display:none}.arena{min-height:86px}.hand button{min-height:94px}.hand .artmark{height:30px}}
+.trade-panel{padding:7px;margin:4px 0;background:#e5fff1;border:1px solid #6ca79d;border-radius:7px}
+.trade-panel p{margin:2px 0 6px;font-size:11px;line-height:1.35}
+.exchange-fields{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.exchange-fields label{font-size:11px;font-weight:800;display:flex;flex-direction:column;gap:2px}
+.exchange-fields input{width:74px;max-width:24vw;min-height:36px;border:1px solid #318b82;border-radius:5px;padding:4px;font-size:16px}
+.trade-panel .inline{margin-top:5px}
 </style>
 </head>
 <body><main>
@@ -113,6 +119,8 @@ main{padding:0 6px 8px}.brandline{margin:0 -6px}
 <option value="windMiracles">奇跡・風と天国風の災い</option>
 <option value="learnedTrial">習得済み奇跡・攻撃と防御</option>
 <option value="sale">取引「売る」・受け入れと反射</option>
+<option value="buy">取引「買う」・購入と見送り</option>
+<option value="exchange">取引「両替」・HP/MP/¥振替</option>
 <option value="turbulenceBack">乱気流・攻撃者へ弾く</option>
 <option value="turbulenceSelf">乱気流・自分へ弾く</option>
 <option value="tear">ドキドキ涙・運試し</option>
@@ -137,11 +145,19 @@ main{padding:0 6px 8px}.brandline{margin:0 -6px}
 <button id="attack" class="primary">攻撃する</button>
 <button id="useItem">雑貨を使う</button>
 <button id="sell" class="primary">売る（選んだ神器を売却）</button>
+<button id="buy" class="primary">買う（相手の神器を抽選）</button>
 <button id="itemTarget" type="button" hidden>対象：自分</button>
 <button id="defend" class="primary">防御する／許す</button>
 <button id="pray">祈る</button>
 <button id="discard">捨てる</button>
 </div>
+<section id="buyDecision" class="trade-panel" hidden><p id="buyNotice"></p>
+<div class="inline"><button id="buyAccept" class="primary">買う</button><button id="buyDecline">買わない</button></div></section>
+<section id="exchangePanel" class="trade-panel" hidden><p>両替 · HP/MP/¥の合計はそのまま（HPは1以上）</p>
+<div class="exchange-fields"><label>HP<input id="exchangeHp" type="number" inputmode="numeric" min="1"></label>
+<label>MP<input id="exchangeMp" type="number" inputmode="numeric" min="0"></label>
+<label>¥<input id="exchangeMoney" type="number" inputmode="numeric" min="0"></label></div>
+<p id="exchangeTotal" aria-live="polite"></p><button id="exchange" class="primary">この配分で両替する</button></section>
 <section class="hand-area"><header>神器 <span id="handCount">自分の手札</span></header>
 <div id="hand" class="hand" aria-label="自分の神器を選択"></div>
 </section>
@@ -6425,6 +6441,14 @@ const LAB_PRESETS=Object.freeze({
   B:Object.freeze(['i002','i016','w027','d003']),
   diseaseA:'heaven',diseaseB:'fever',rngSeed:12345
  }),
+ buy:Object.freeze({
+  A:Object.freeze(['t002','w016','d003','d005']),
+  B:Object.freeze(['i002','d001','d003','w027']),rngSeed:71
+ }),
+ exchange:Object.freeze({
+  A:Object.freeze(['t003','w016','d003','i006']),
+  B:Object.freeze(['w027','d001','i002','d003']),rngSeed:71
+ }),
  sale:Object.freeze({
   A:Object.freeze(['t001','w003','d005','w016']),
   B:Object.freeze(['i002','d001','d003','w027'])
@@ -6448,7 +6472,7 @@ const LAB_PRESETS=Object.freeze({
  })
 });
 const url='https://mygame-df915-default-rtdb.firebaseio.com/';
-let db=null,session=null,view=null,seat=null,joined=false,waiting=false,selection=new Set(),lastRevision=-1,pendingId=null,pendingCommand=null,retrying=false,itemTarget="self";
+let db=null,session=null,view=null,seat=null,joined=false,waiting=false,selection=new Set(),lastRevision=-1,pendingId=null,pendingCommand=null,retrying=false,itemTarget="self",exchangeDraft=null;
 const randomId=()=>{const a=new Uint32Array(2);crypto.getRandomValues(a);return Array.from(a,x=>x.toString(36)).join('-');};
 const code=()=>{const a=new Uint32Array(1);crypto.getRandomValues(a);return String(10000+a[0]%90000);};
 const feedback=s=>{$('status').textContent=String(s);};
@@ -6464,7 +6488,7 @@ function callbacks(){
  return {
   onView(next){
    if(!next)return;
-   if(next.revision!==lastRevision){selection.clear();itemTarget='self';lastRevision=next.revision;}
+   if(next.revision!==lastRevision){selection.clear();itemTarget='self';exchangeDraft=null;lastRevision=next.revision;}
    view=next;render();
   },
   onStatus(info){
@@ -6492,7 +6516,8 @@ function render(){
  if(!view){feedback('相手の画面情報を読み込んでいます');return}
  const active=view.activePlayerId===seat,turn=view.phase==='turn',
   itemDefense=view.phase==='itemDefense',saleDefense=view.phase==='tradeDefense',
-  defense=view.phase==='defense'||itemDefense||saleDefense;
+  buyDefense=view.phase==='buyDefense',buyDecision=view.phase==='buyDecision',
+  defense=view.phase==='defense'||itemDefense||saleDefense||buyDefense;
  const player=view.players.find(p=>p.id===seat);
  const stats=$('scores');
  stats.replaceChildren();
@@ -6539,7 +6564,7 @@ function render(){
   btn.setAttribute('aria-pressed',String(picked));
   btn.setAttribute('aria-label','習得済み奇跡 '+btn.textContent);
   btn.disabled=!mine||busy||!(turn?def?.playModes.includes('cast'):
-   defense&&!itemDefense&&!saleDefense&&def?.playModes.includes('defend'));
+   defense&&!itemDefense&&!saleDefense&&!buyDefense&&def?.playModes.includes('defend'));
   btn.addEventListener('click',()=>{
    if(selection.has(key))selection.delete(key);
    else{
@@ -6553,11 +6578,15 @@ function render(){
  $('phase').textContent=view.phase==='finished'?'対戦終了':
   itemDefense?(mine?'雑貨への対応':'相手の対応待ち'):
   saleDefense?(mine?'売買への対応':'相手の売買対応待ち'):
+  buyDefense?(mine?'購入依頼への対応':'相手の購入依頼待ち'):
+  buyDecision?(mine?'買うかどうか選択':'相手の購入判断待ち'):
   defense?(mine?'あなたの防御':'相手の防御待ち'):
   turn?(mine?'あなたの攻撃':'相手の攻撃待ち'):'処理中…';
  $('battleHint').textContent=busy?'操作結果を待っています':
   itemDefense?(mine?'スーパーミラーで反射、または許す':'相手の選択を待っています'):
   saleDefense?(mine?'売り付けられる神器を確認し、受け入れるか反射':'相手の売買対応を待っています'):
+  buyDefense?(mine?'買うへの反射は研究中。今回は購入依頼を通す操作のみ可能':'相手の選択を待っています'):
+  buyDecision?(mine?'提示された神器を買うか選んでください':'相手の選択を待っています'):
   defense?(mine?'防具を選ぶか、「許す」':'相手の選択を待っています'):
   turn?(mine?'神器を選び、攻撃を確定':'相手の操作を待っています'):
   '試合結果を確認してください';
@@ -6570,8 +6599,11 @@ function render(){
  const announced=view.phase==='defense'?view.pending?.declaredAttack:null;
  const announcedItem=itemDefense?view.pending?.declaredItem:null;
  const saleOffer=saleDefense?view.pending?.offer:null;
- $('incomingAttack').hidden=!announced?.cards?.length&&!announcedItem?.definitionId&&!saleOffer?.definitionId;
- $('incomingAttack').textContent=saleOffer?.definitionId?
+ const buyOffer=buyDecision&&mine?view.pending?.offer:null;
+ $('incomingAttack').hidden=!announced?.cards?.length&&!announcedItem?.definitionId&&!saleOffer?.definitionId&&!buyOffer?.definitionId;
+ $('incomingAttack').textContent=buyOffer?.definitionId?
+   '購入候補：'+(names.get(buyOffer.definitionId)||buyOffer.definitionId)+' ／ 価格 ¥'+buyOffer.price:
+  saleOffer?.definitionId?
    '売り付けられる神器：'+(names.get(saleOffer.definitionId)||saleOffer.definitionId)+
    ' ／ 価格 ¥'+saleOffer.price+' ／ スーパーミラーで反射可能':
   announcedItem?.definitionId?
@@ -6616,6 +6648,10 @@ function render(){
  const saleValid=selection.size===2&&saleIds.length===2&&
   saleDef?.effects.some(e=>e.when==='onDeclare'&&e.type==='forceSale'&&e.params.kind==='sell');
  const saleGood=catalog.get(cardsById.get(saleIds[1])?.definitionId);
+ const tradeOnly=selection.size===1&&!([...selection][0]||'').startsWith('l:')?
+  catalog.get(cardsById.get([...selection][0])?.definitionId):null;
+ const buyValid=tradeOnly?.effects.some(e=>e.when==='onDeclare'&&e.type==='requestBuy'&&e.params.kind==='buy');
+ const exchangeValid=tradeOnly?.effects.some(e=>e.when==='onDeclare'&&e.type==='reallocateResources'&&e.params.kind==='exchange');
  const mirrorChoice=selection.size===1&&catalog.get(
    cardsById.get(selectedIds[0])?.definitionId)?.effects.some(e=>
     e.when==='onDefense'&&e.type==='redirectAttack'&&
@@ -6670,7 +6706,7 @@ function render(){
   btn.append(art,label,stat,price);
   btn.setAttribute('aria-label',name+' '+stat.textContent);
   btn.setAttribute('aria-pressed',String(picked));
-  btn.disabled=!mine||waiting||((itemDefense||saleDefense)&&!def?.effects.some(e=>
+  btn.disabled=!mine||waiting||buyDefense||((itemDefense||saleDefense)&&!def?.effects.some(e=>
     e.when==='onDefense'&&e.type==='redirectAttack'&&
     e.params.mode==='reflect'&&e.params.scope==='any'));
   btn.addEventListener('click',()=>{
@@ -6686,7 +6722,28 @@ function render(){
  hand.scrollLeft=scroll;
  const usable=mine&&!busy;
  $('actions').hidden=!(turn||defense);
+ $('buyDecision').hidden=!buyDecision||!mine;
+ const purchaseAllowed=!!buyOffer&&player.money>=buyOffer.price;
+ $('buyNotice').textContent=buyOffer?
+   '価格 ¥'+buyOffer.price+'／手持ち ¥'+player.money+
+   (purchaseAllowed?' · 買う／買わないを選択':' · 貧乏：所持金不足なので買えません'):'';
+ $('buyAccept').disabled=!mine||busy||!purchaseAllowed;
+ $('buyDecline').disabled=!mine||busy;
+ const exchangePanel=$('exchangePanel');
+ exchangePanel.hidden=!turn||!mine||!exchangeValid;
+ if(!exchangePanel.hidden){
+  if(!exchangeDraft)exchangeDraft={hp:player.hp,mp:player.mp,money:player.money};
+  for(const [key,id] of [['hp','exchangeHp'],['mp','exchangeMp'],['money','exchangeMoney']])
+   if(document.activeElement!==$(id))$(id).value=String(exchangeDraft[key]);
+  const total=player.hp+player.mp+player.money;
+  const sum=exchangeDraft.hp+exchangeDraft.mp+exchangeDraft.money;
+  const valid=Number.isSafeInteger(sum)&&sum===total&&exchangeDraft.hp>=1&&
+   ['mp','money'].every(k=>Number.isSafeInteger(exchangeDraft[k])&&exchangeDraft[k]>=0);
+  $('exchangeTotal').textContent='配分合計 '+sum+' / '+total+(valid?' · OK':' · 合計を合わせてください');
+  $('exchange').disabled=!mine||busy||!valid;
+ }
  $('attack').hidden=!turn;$('useItem').hidden=!turn;$('sell').hidden=!turn;
+ $('buy').hidden=!turn;
  $('itemTarget').hidden=!turn||!itemEffect;
  $('itemTarget').textContent='対象：'+(itemTarget==='self'?'自分':'相手');
  $('itemTarget').disabled=!usable;
@@ -6698,25 +6755,28 @@ function render(){
  const canCastAlone=!learnedAlone||((standalone?.stats.attack??0)>0||
   standalone?.effects.some(e=>e.when==='onDeclare'&&e.type==='inflictDisease'));
  $('attack').disabled=!usable||!selection.size||!canCastAlone||
-  (saleDef?.effects.some(e=>e.when==='onDeclare'&&e.type==='forceSale'));
+  (catalog.get(cardsById.get(selectedIds[0])?.definitionId)?.family==='trade');
  $('useItem').disabled=!usable||!itemEffect;
  $('sell').disabled=!usable||!saleValid;
+ $('buy').disabled=!usable||!buyValid;
  $('discard').disabled=!usable||!selection.size||selectedIds.length!==selection.size;
  $('pray').disabled=!usable||player.hand?.some(c=>catalog.get(c.definitionId)?.family==='weapon');
  $('defend').disabled=!usable||((itemDefense||saleDefense)&&selection.size>0&&!mirrorChoice);
- $('defend').textContent=saleDefense?
+ $('defend').textContent=buyDefense?'購入依頼を通す（反射未対応）':
+  saleDefense?
    (mirrorChoice?'スーパーミラーで反射':'売買を受け入れる'):
   itemDefense?
    (mirrorChoice?'スーパーミラーで反射':'許す（反射なし）'):
    selection.size?'防御する':'許す（防御なし）';
  if(seat==='A'&&!joined)feedback('相手が5桁のルーム番号で参加するのを待っています');
 }
-async function send(type){
+async function send(type,accept=null){
  if(!session||!view||waiting||view.activePlayerId!==seat||seat==='A'&&!joined)return;
  const entries=[...selection],ids=entries.filter(id=>!id.startsWith('l:'));
  const learned=entries.filter(id=>id.startsWith('l:'));
  let effectiveType=type==='defend'&&view.phase==='itemDefense'?'respondItem':
-  type==='defend'&&view.phase==='tradeDefense'?'respondSale':type;
+  type==='defend'&&view.phase==='tradeDefense'?'respondSale':
+  type==='defend'&&view.phase==='buyDefense'?'respondBuy':type;
  if(type==='playCards'&&learned.length)effectiveType=entries.length===1?'castLearned':'playSequence';
  if(type==='defend'&&view.phase==='defense'&&learned.length)effectiveType='defendSequence';
  const command={commandId:randomId(),expectedRevision:view.revision,actorId:seat,type:effectiveType};
@@ -6732,6 +6792,14 @@ async function send(type){
   if(effect)command.targetId=itemTarget==='self'?seat:(seat==='A'?'B':'A');
  }
  if(['respondItem','respondSale'].includes(effectiveType)&&ids.length)command.mirrorInstanceId=ids[0];
+ if(effectiveType==='declareBuy'){
+  command.buyInstanceId=ids[0];command.targetId=seat==='A'?'B':'A';
+ }
+ if(effectiveType==='exchange'){
+  command.exchangeInstanceId=ids[0];
+  command.allocation={...exchangeDraft};
+ }
+ if(effectiveType==='decideBuy')command.accept=accept;
  if(effectiveType==='declareSale'){
   command.targetId=seat==='A'?'B':'A';
   command.saleInstanceId=ids[0];command.soldInstanceId=ids[1];
@@ -6828,6 +6896,17 @@ $('retry').addEventListener('click',retryPending);
 $('attack').addEventListener('click',()=>send('playCards'));
 $('useItem').addEventListener('click',()=>send('useItem'));
 $('sell').addEventListener('click',()=>send('declareSale'));
+$('buy').addEventListener('click',()=>send('declareBuy'));
+$('buyAccept').addEventListener('click',()=>send('decideBuy',true));
+$('buyDecline').addEventListener('click',()=>send('decideBuy',false));
+$('exchange').addEventListener('click',()=>send('exchange'));
+for(const [key,id] of [['hp','exchangeHp'],['mp','exchangeMp'],['money','exchangeMoney']]){
+ $(id).addEventListener('input',()=>{
+  if(!exchangeDraft)return;
+  exchangeDraft[key]=$(id).value===''?NaN:Number($(id).value);
+  render();
+ });
+}
 $('itemTarget').addEventListener('click',()=>{itemTarget=itemTarget==='self'?'other':'self';render();});
 $('defend').addEventListener('click',()=>send('defend'));
 $('pray').addEventListener('click',()=>send('pray'));
