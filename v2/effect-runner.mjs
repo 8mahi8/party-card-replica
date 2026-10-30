@@ -14,7 +14,7 @@ import {planIncomingHandTransfer} from './hand-overflow.mjs';
 import {previewBuyOfferFixture,previewBuyChoiceFixture} from './trade-buy.mjs';
 import {previewExchangeFixture} from './trade-exchange.mjs';
 import {planZeroHpRecoveryFixture} from './zero-hp-recovery.mjs';
-import {planDiseaseExposure,planDiseaseTurnEnd} from './disease-rules.mjs';
+import {planDiseaseExposure,planDiseaseTurnEnd,planDiseaseCure} from './disease-rules.mjs';
 import {drawRandom32} from './foundation.mjs';
 import {inspectHitOutcomeBoundaryFixture} from './hit-outcome-boundary.mjs';
 import {retireDreamAppearancesFixture,validateDreamOwnershipFixture} from './dream-appearance.mjs';
@@ -204,6 +204,19 @@ export function runEffectQueueFixture(state,catalog,queue,{
        fail('Invalid grantDraw count');
      spent[p.id]=(spent[p.id]??0)+effect.count;
      events.push({type:'grantDraw',playerId:p.id,count:effect.count});
+   } else if(effect.type==='cleanseAfflictions'){
+     if(Object.keys(effect).length!==3||typeof effect.playerId!=='string'||
+        !['minor','all'].includes(effect.scope))
+       fail('Malformed original Shell cleansing effect');
+     const p=who(s,effect.playerId);
+     if(p.hp<=0)fail('Cannot cure defeated target');
+     // The only active G7 affliction is the four-stage disease family.
+     // No fabricated dream/mist/flash/cloud flags are introduced here.
+     const plan=planDiseaseCure(p.disease??null,effect.scope);
+     p.disease=plan.disease;
+     events.push({type:'cleanseAfflictions',playerId:p.id,
+       scope:effect.scope,diseaseBefore:plan.before,
+       diseaseAfter:plan.disease,curedDisease:plan.cured});
    } else if(effect.type==='heavenHerb'){
      if(Object.keys(effect).length!==2||typeof effect.playerId!=='string')
        fail('Malformed Heaven Grass action');
