@@ -437,6 +437,70 @@ try{
  await liveSoapTrial(false);
  await liveSoapTrial(true);
 
+ // Heaven Grass: live RTDB must agree on public illness status, MP recovery,
+ // Mirror timing and later end-of-turn healing. No live config is modified.
+ async function liveHeavenTrial(mirror){
+  await a.goto('about:blank');await b.goto('about:blank');
+  await cleanup();code=null;roomHostId=null;
+  await a.goto(url,{waitUntil:'load',timeout:20000});
+  await a.locator('#labPreset').selectOption('heaven');
+  await a.locator('#create').tap();
+  await a.waitForFunction(()=>/ルーム \d{5}/.test(
+   document.querySelector('#roomLabel')?.textContent||''),null,{timeout:20000});
+  code=(await a.locator('#roomLabel').textContent()).match(/\d{5}/)[0];
+  const initial=await dbRead(code);
+  if(!initial?.meta?.hostId||initial?.meta?.guestId!=null)
+   throw Error('Heaven Grass room creation failed');
+  roomHostId=initial.meta.hostId;
+  await b.goto(url,{waitUntil:'load',timeout:20000});
+  await b.locator('#joinCode').fill(code);
+  await b.locator('#join').tap();
+  await b.locator('#hand button').first().waitFor({timeout:20000});
+  await a.locator('#hand button').first().tap();
+  if(!(await a.locator('#itemTarget').textContent()).includes('相手'))
+   throw Error('Heaven Grass was not targeting opponent');
+  await a.locator('#useItem').tap();
+  await b.waitForFunction(()=>document.querySelector('#phase')?.textContent
+    .includes('雑貨への対応'),null,{timeout:20000});
+  const pending=await dbRead(code);
+  if(pending.views?.B?.pending?.declaredItem?.definitionId!=='i016'||
+     pending.views?.B?.players?.[1]?.disease!==null)
+   throw Error('Heaven Grass illness was applied before Mirror decision');
+  if(mirror)await b.locator('#hand button').first().tap();
+  await b.locator('#defend').tap();
+  await Promise.all([a,b].map(page=>page.waitForFunction(({mirror})=>{
+   const scores=document.querySelectorAll('.score');
+   return scores[mirror?0:1]?.textContent?.includes('MP 30')&&
+     scores[mirror?0:1]?.textContent?.includes('天国病')&&
+     scores[mirror?1:0]?.textContent?.includes('MP 10');
+  },{mirror},{timeout:20000})));
+  const resolved=await dbRead(code);
+  if(resolved.views.A.revision!==3||resolved.views.B.revision!==3||
+     resolved.views.A.players[mirror?0:1].disease!=='heaven'||
+     resolved.views.B.players[mirror?1:0].disease!==null||
+     resolved.views.B.players[0].hand!==undefined||
+     resolved.views.A.players[1].hand!==undefined)
+   throw Error('Heaven Grass RTDB target, Mirror or privacy mismatch');
+  await a.locator('#hand button').first().tap();
+  await a.locator('#attack').tap();
+  await b.waitForFunction(()=>document.querySelector('#phase')?.textContent
+   .includes('あなたの防御'),null,{timeout:20000});
+  await b.locator('#defend').tap();
+  await a.waitForFunction(()=>document.querySelector('#phase')?.textContent
+   .includes('相手の攻撃待ち'),null,{timeout:20000});
+  const after=await dbRead(code);
+  if(after.views.A.players[0].hp!==(mirror?45:40)||
+     after.views.B.players[0].hp!==(mirror?45:40)||
+     after.views.A.players[mirror?0:1].disease!=='heaven'||
+     after.views.A.activePlayerId!=='B')
+   throw Error('Heaven Disease did not tick exactly on afflicted owner turn end');
+  if(errors.length)throw Error('Heaven Grass browser error: '+errors.join(' | '));
+  console.log(mirror?'G7_LIVE_HEAVEN_MIRROR_SUCCESS':'G7_LIVE_HEAVEN_PASS_SUCCESS');
+ }
+ await liveHeavenTrial(false);
+ await liveHeavenTrial(true);
+
+
 
 
 
