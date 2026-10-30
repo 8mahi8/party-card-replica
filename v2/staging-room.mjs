@@ -250,9 +250,9 @@ export function applyStagingCommand(state,command,catalog,{authorizedSeatId}={})
       throw new Error('Only a plain owned recovery item may be used');
     const target=command.targetId===undefined?actor:seat(state,id(command.targetId,'item target ID'));
     if(target.hp<=0)throw new Error('Item target has already been defeated');
-    const risky=def.effects[0].type==='flipHpRisk';
-    if(!risky&&target.id!==actor.id)
-      throw new Error('Other-player use for this restorative needs original verification');
+    // The original allows targeted consumables, including plain HP/MP
+    // restoration. A living non-self target gets the same single Mirror/pass
+    // response as the previously audited risky tear.
     pending={type:'useItem',originalAttackerId:actor.id,
       targetId:target.id,instanceId:physical.instanceId,defense:null};
     phase=target.id===actor.id?'resolving':'itemDefense';
