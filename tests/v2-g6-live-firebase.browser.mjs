@@ -219,6 +219,56 @@ try{
  if(errors.length)throw Error('G7 browser errors: '+errors.join(' | '));
  console.log('G7_LIVE_RECOVERY_SUCCESS: portable HTML, real RTDB, both seats recover HP/MP and attack within same turn, revision14, private hands');
 
+ // Independent live RTDB session for the G7 opponent-target and mirror path.
+ // Close both contexts' pages before deleting the previously created room;
+ // never touch any room unless it matches the stored host identity.
+ await a.goto('about:blank');await b.goto('about:blank');
+ await cleanup();code=null;roomHostId=null;
+ await a.goto(url,{waitUntil:'load',timeout:20000});
+ await a.locator('#labPreset').selectOption('tear');
+ await a.locator('#create').tap();
+ await a.waitForFunction(()=>/ルーム \\d{5}/.test(
+  document.querySelector('#roomLabel')?.textContent||''),null,{timeout:20000});
+ code=(await a.locator('#roomLabel').textContent()).match(/\\d{5}/)[0];
+ const tearCreated=await dbRead(code);
+ if(!tearCreated?.meta?.hostId||tearCreated?.meta?.guestId!=null)
+  throw Error('G7 target/mirror room creation failed');
+ roomHostId=tearCreated.meta.hostId;
+ await b.goto(url,{waitUntil:'load',timeout:20000});
+ await b.locator('#joinCode').fill(code);
+ await b.locator('#join').tap();
+ await b.locator('#hand button').nth(3).waitFor({timeout:20000});
+ if(!(await b.locator('#hand button').nth(3).textContent()).includes('スーパーミラー'))
+  throw Error('G7 mirror card missing in source-backed lab hand');
+ await a.locator('#hand button').first().tap();
+ await a.locator('#itemTarget').tap();
+ await a.locator('#useItem').tap();
+ await b.waitForFunction(()=>document.querySelector('#phase')?.textContent
+  .includes('雑貨への対応'),null,{timeout:20000});
+ const pendingTear=await dbRead(code);
+ if(pendingTear.views.B.pending?.declaredItem?.definitionId!=='i013'||
+    pendingTear.views.B.players[0].hand!==undefined||
+    pendingTear.views.A.players[1].hp!==40)
+  throw Error('G7 risky tear was prematurely resolved or private hand leaked');
+ await b.locator('#hand button').nth(3).tap();
+ await b.locator('#defend').tap();
+ await Promise.all([a,b].map(page=>page.waitForFunction(()=>{
+  const score=document.querySelectorAll('.score');
+  return score[0]?.textContent?.includes('HP 50')&&
+    score[1]?.textContent?.includes('HP 40');
+ },null,{timeout:20000})));
+ const mirrored=await dbRead(code);
+ if(mirrored.views?.A?.revision!==3||mirrored.views?.B?.revision!==3||
+    mirrored.views.A.players[0].hp!==50||
+    mirrored.views.B.players[1].hp!==40||
+    mirrored.views.B.players[1].hand.some(c=>c.definitionId==='i002')||
+    mirrored.views.B.players[0].hand!==undefined||
+    mirrored.views.A.players[1].hand!==undefined)
+  throw Error('G7 real RTDB targeted item mirror did not settle once with private views');
+ if(errors.length)throw Error('G7 item mirror browser errors: '+errors.join(' | '));
+ console.log('G7_LIVE_TARGET_MIRROR_SUCCESS: real RTDB, source-backed tear target, Super Mirror before RNG, revision3, private hands');
+
+
 }catch(error){
  console.error('G6_LIVE_TEST_FAILURE',String(error?.stack||error));
  const snapshots=[];
