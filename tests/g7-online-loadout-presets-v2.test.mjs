@@ -10,21 +10,22 @@ const {byId:catalog,summary}=migrateLegacyCatalog();
 const literal=page.match(/const LAB_PRESETS=(Object\.freeze\(\{[\s\S]*?\}\));/);
 if(!literal)throw Error('Expected source-backed lab presets in online demo');
 const presets=vm.runInNewContext(literal[1]);
-test('online trial room offers four explicitly named fixture hand sets, never fake random draws',()=>{
+test('online trial room offers five explicitly named fixture hand sets, never fake random draws',()=>{
  assert.match(page,/<select id="labPreset"/);
  assert.match(page,/<option value="basic">/);
  assert.match(page,/<option value="elements">/);
  assert.match(page,/<option value="dark">/);
  assert.match(page,/<option value="recovery">/);
+ assert.match(page,/<option value="tear">/);
  assert.match(page,/id="useItem"/);
  assert.match(page,/原作の山札ではありません/);
  assert.match(page,/LAB_PRESETS\[\$\('labPreset'\)\.value\]/);
  assert.match(page,/handDefinitionIds:\[\.\.\.preset\.A\]/);
  assert.match(page,/handDefinitionIds:\[\.\.\.preset\.B\]/);
- assert.deepEqual(Object.keys(presets).sort(),['basic','dark','elements','recovery']);
+ assert.deepEqual(Object.keys(presets).sort(),['basic','dark','elements','recovery','tear']);
  assert.equal(summary.complete,false,'deck not audited for real weighted draws');
 });
-test('all four fixed presets contain valid catalog definitions and four cards per seat',()=>{
+test('all five fixed presets contain valid catalog definitions and four cards per seat',()=>{
  for(const [name,hands] of Object.entries(presets)){
   for(const seat of ['A','B']){
    assert.equal(hands[seat].length,4,name+' '+seat);
