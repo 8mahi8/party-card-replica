@@ -14,6 +14,8 @@ import {planIncomingHandTransfer} from './hand-overflow.mjs';
 import {previewBuyOfferFixture,previewBuyChoiceFixture} from './trade-buy.mjs';
 import {previewExchangeFixture} from './trade-exchange.mjs';
 import {planZeroHpRecoveryFixture} from './zero-hp-recovery.mjs';
+import {planDiseaseExposure,planDiseaseTurnEnd} from './disease-rules.mjs';
+import {drawRandom32} from './foundation.mjs';
 import {inspectHitOutcomeBoundaryFixture} from './hit-outcome-boundary.mjs';
 import {retireDreamAppearancesFixture,validateDreamOwnershipFixture} from './dream-appearance.mjs';
 import {previewSelfSaleFixture} from './trade-self-sale.mjs';
@@ -97,7 +99,37 @@ export function runEffectQueueFixture(state,catalog,queue,{
      if(amount)events.push({type:'refill',playerId:p.id,added});
    }
  }
+ function resolveIllnessZeroHp(p,beforeHp,{alreadyRefilled=false}={}){
+   const recovered=planZeroHpRecoveryFixture({
+     player:{...p,hp:beforeHp},catalog,hpAfter:0});
+   p.hp=recovered.hpAfter;
+   if(recovered.kind==='revived'){
+     const index=p.hand.findIndex(c=>c.instanceId===recovered.consumedInstanceId);
+     if(index<0)fail('Illness revival charm disappeared');
+     p.hand.splice(index,1);
+     forgetDream(p,[recovered.consumedInstanceId]);
+     if(alreadyRefilled){
+       if(p.hand.length<MAX_HAND_SIZE)
+         p.hand.push(createInstance(fixtureDrawDefinitionId,s.nextInstanceSerial++,catalog));
+     }else spent[p.id]=(spent[p.id]??0)+1;
+     events.push({type:'revive',playerId:p.id,revivedHp:10,
+       consumedInstanceId:recovered.consumedInstanceId,
+       consumedDefinitionId:recovered.consumedDefinitionId});
+   }
+ }
  function advanceSettled(afterId){
+   const ending=who(s,afterId);
+   if(ending.hp>0 && ending.disease){
+     const random=drawRandom32(s.rngSeed);
+     const priorHp=ending.hp;
+     const next=planDiseaseTurnEnd(ending.disease,priorHp,random.value);
+     s.rngSeed=random.nextSeed;
+     ending.disease=next.disease;ending.hp=next.hpAfter;
+     events.push({type:'diseaseTurnEnd',playerId:ending.id,
+       hpBefore:priorHp,hpAfter:next.hpAfter,
+       disease:next.disease,advanced:next.advanced,fatal:next.fatal});
+     if(ending.hp===0)resolveIllnessZeroHp(ending,priorHp,{alreadyRefilled:true});
+   }
    const living=s.players.filter(p=>p.hp>0);
    if(living.length<=1){
      s.phase='finished';s.activePlayerId=null;
@@ -172,6 +204,22 @@ export function runEffectQueueFixture(state,catalog,queue,{
        fail('Invalid grantDraw count');
      spent[p.id]=(spent[p.id]??0)+effect.count;
      events.push({type:'grantDraw',playerId:p.id,count:effect.count});
+   } else if(effect.type==='heavenHerb'){
+     if(Object.keys(effect).length!==2||typeof effect.playerId!=='string')
+       fail('Malformed Heaven Grass action');
+     const p=who(s,effect.playerId);
+     if(p.hp<=0)fail('Cannot use Heaven Grass on defeated target');
+     const before=p.mp;
+     p.mp=Math.min(99,p.mp+20);
+     const oldDisease=p.disease??null;
+     const result=planDiseaseExposure(oldDisease);
+     p.disease=result.disease;
+     events.push({type:'heavenHerb',playerId:p.id,mpRestored:p.mp-before,
+       diseaseBefore:oldDisease,diseaseAfter:p.disease,fatal:result.fatal});
+     if(result.fatal){
+       const beforeHp=p.hp;
+       resolveIllnessZeroHp(p,beforeHp);
+     }
    } else if(effect.type==='restoreResource'){
      // Ordinary item recovery is not a strike, must not revive a fallen
      // player, and caps HP/MP at the source game's maximum of 99.
