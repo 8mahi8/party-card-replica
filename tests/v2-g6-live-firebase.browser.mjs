@@ -379,6 +379,64 @@ try{
  await liveBroomTrial(false);
  await liveBroomTrial(true);
 
+ // Soap erases learned miracles, NOT physical hand cards. Each case
+ // uses only its own newly created room, with host-identity cleanup.
+ async function liveSoapTrial(mirror){
+  await a.goto('about:blank');await b.goto('about:blank');
+  await cleanup();code=null;roomHostId=null;
+  await a.goto(url,{waitUntil:'load',timeout:20000});
+  await a.locator('#labPreset').selectOption('soap');
+  await a.locator('#create').tap();
+  await a.waitForFunction(()=>/ルーム \d{5}/.test(
+   document.querySelector('#roomLabel')?.textContent||''),null,{timeout:20000});
+  code=(await a.locator('#roomLabel').textContent()).match(/\d{5}/)[0];
+  const created=await dbRead(code);
+  if(!created?.meta?.hostId||created?.meta?.guestId!=null)
+   throw Error('G7 Soap fixture room creation failed');
+  roomHostId=created.meta.hostId;
+  await b.goto(url,{waitUntil:'load',timeout:20000});
+  await b.locator('#joinCode').fill(code);
+  await b.locator('#join').tap();
+  await b.locator('#hand button').first().waitFor({timeout:20000});
+  const initial=await dbRead(code);
+  if(initial.views?.A?.players?.[0]?.learned?.length!==3||
+     initial.views?.B?.players?.[1]?.learned?.length!==3)
+   throw Error('G7 learned Soap research setup was not seeded');
+  await a.locator('#hand button').first().tap();
+  if(!(await a.locator('#itemTarget').textContent()).includes('相手'))
+   throw Error('G7 Soap did not target opponent by default');
+  await a.locator('#useItem').tap();
+  await b.waitForFunction(()=>document.querySelector('#phase')?.textContent
+   .includes('雑貨への対応'),null,{timeout:20000});
+  const waiting=await dbRead(code);
+  if(waiting.views?.B?.pending?.declaredItem?.definitionId!=='i015'||
+     waiting.views?.B?.players?.[1]?.learned?.length!==3||
+     waiting.views?.B?.players?.[0]?.learned!==undefined)
+   throw Error('G7 Soap prematurely forgot miracles or exposed opponent data');
+  if(mirror)await b.locator('#hand button').first().tap();
+  await b.locator('#defend').tap();
+  await Promise.all([a,b].map((page,i)=>page.waitForFunction(({mirror,i})=>{
+   const text=document.querySelector('#learnedMiracles')?.textContent||'';
+   const expected=i===0?(mirror?1:3):(mirror?3:1);
+   return text.startsWith('習得した奇跡：')&&text.split(' · ').length===expected;
+  },{mirror,i},{timeout:20000})));
+  const end=await dbRead(code);
+  if(end.views?.A?.revision!==3||end.views?.B?.revision!==3||
+     end.views.A.players[0].learned.length!==(mirror?1:3)||
+     end.views.B.players[1].learned.length!==(mirror?3:1)||
+     end.views.A.players[0].handCount!==4||
+     end.views.B.players[1].handCount!==4||
+     end.views.A.players[1].hand!==undefined||
+     end.views.A.players[1].learned!==undefined||
+     end.views.B.players[0].hand!==undefined||
+     end.views.B.players[0].learned!==undefined)
+   throw Error('G7 live Soap learned-miracle, refill or private-view resolution failed');
+  if(errors.length)throw Error('G7 Soap errors: '+errors.join(' | '));
+  console.log(mirror?'G7_LIVE_SOAP_MIRROR_SUCCESS':'G7_LIVE_SOAP_PASS_SUCCESS');
+ }
+ await liveSoapTrial(false);
+ await liveSoapTrial(true);
+
 
 
 
