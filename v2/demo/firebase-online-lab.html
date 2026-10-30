@@ -492,7 +492,8 @@ function render(){
  const standalone=learnedAlone?catalog.get(first.slice(2)):null;
  const canCastAlone=!learnedAlone||((standalone?.stats.attack??0)>0||
   standalone?.effects.some(e=>e.when==='onDeclare'&&e.type==='inflictDisease'));
- $('attack').disabled=!usable||!selection.size||!canCastAlone;
+ $('attack').disabled=!usable||!selection.size||!canCastAlone||
+  (saleDef?.effects.some(e=>e.when==='onDeclare'&&e.type==='forceSale'));
  $('useItem').disabled=!usable||!itemEffect;
  $('sell').disabled=!usable||!saleValid;
  $('discard').disabled=!usable||!selection.size||selectedIds.length!==selection.size;
