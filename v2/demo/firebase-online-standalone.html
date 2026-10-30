@@ -97,6 +97,7 @@ main{padding:0 6px 8px}.brandline{margin:0 -6px}
 <option value="basic">基本対戦（従来の固定4枚）</option>
 <option value="elements">属性防御（火・水）</option>
 <option value="dark">闇属性と高防御</option>
+<option value="recovery">HP・MP回復と反撃</option>
 </select></div>
 <p id="presetNotice">原作の山札ではありません。選択した4枚セットで効果を試します。</p>
 <div class="inline"><button id="create" class="primary">部屋を作る</button></div>
@@ -115,6 +116,7 @@ main{padding:0 6px 8px}.brandline{margin:0 -6px}
 </div>
 <div id="actions" hidden>
 <button id="attack" class="primary">攻撃する</button>
+<button id="useItem">回復を使う</button>
 <button id="defend" class="primary">防御する／許す</button>
 <button id="pray">祈る</button>
 <button id="discard">捨てる</button>
@@ -492,6 +494,16 @@ const VERIFIED_BASIC_CARDS = Object.freeze([
   Object.freeze({id:'m009',referenceName:'大木',kind:'miracle',role:'attack',category:'miracle',element:'wood',attack:6,mpCost:3,price:0,weight:1}),
   Object.freeze({id:'m010',referenceName:'岩',kind:'miracle',role:'attack',category:'miracle',element:'earth',attack:8,mpCost:4,price:0,weight:1}),
   Object.freeze({id:'m011',referenceName:'滝',kind:'miracle',role:'attack',category:'miracle',element:'water',attack:25,mpCost:12,price:0,weight:1}),
+  // Source: Piong other artifacts (updated 2026-10-24), GFGA 2024,
+  // Macaron 2026. Only plain HP/MP recovery, no status-creating herbs.
+  // Weight 12/8/4/1 means 2.4/1.6/0.8/0.2% of 500.
+  Object.freeze({id:'i006',referenceName:'スマイルのしずく',kind:'support_item',category:'item',element:'none',effect:'restore_hp',restoreAmount:5,price:1,weight:12}),
+  Object.freeze({id:'i007',referenceName:'ハートのしずく',kind:'support_item',category:'item',element:'none',effect:'restore_hp',restoreAmount:10,price:3,weight:8}),
+  Object.freeze({id:'i008',referenceName:'ロマンスウォーター',kind:'support_item',category:'item',element:'none',effect:'restore_hp',restoreAmount:15,price:5,weight:4}),
+  Object.freeze({id:'i009',referenceName:'天の川のおいしい水',kind:'support_item',category:'item',element:'none',effect:'restore_hp',restoreAmount:20,price:20,weight:1}),
+  Object.freeze({id:'i010',referenceName:'スマイルの花',kind:'support_item',category:'item',element:'none',effect:'restore_mp',restoreAmount:5,price:1,weight:12}),
+  Object.freeze({id:'i011',referenceName:'ハートの花',kind:'support_item',category:'item',element:'none',effect:'restore_mp',restoreAmount:10,price:3,weight:8}),
+  Object.freeze({id:'i012',referenceName:'ロマンスの香木',kind:'support_item',category:'item',element:'none',effect:'restore_mp',restoreAmount:15,price:5,weight:4}),
   Object.freeze({id:'i003',referenceName:'精霊のぬいぐるみ',kind:'support_item',category:'item',element:'none',effect:'free_previous_miracle',price:5,weight:2}),
   Object.freeze({id:'i004',referenceName:'ちからの粉',kind:'support_item',category:'item',element:'none',effect:'add_attack',attackBonus:10,price:15,weight:2}),
   // Passive: held charm consumes ONE instance at HP0, revives at HP10.
@@ -525,12 +537,12 @@ const __online_module_2 = (() => {
  */
 const FAMILIES = new Set(['weapon','armor','miracle','item','trade']);
 const ELEMENTS = new Set(['none','fire','water','wood','earth','light','dark']);
-const MODES = new Set(['mainAttack','addAttack','defend','cast','support','trade','passive']);
+const MODES = new Set(['mainAttack','addAttack','defend','cast','support','trade','passive','use']);
 // Some original artifacts return to the hand and cost HP when discarded.
 // Until sourced effects are implemented, explicitly gate those definitions.
 const DISCARD_POLICIES = new Set(['ordinary','forbidden','requiresSpecialResolution']);
 const EFFECT_TRIGGERS = new Set(['onDeclare','onCost','beforeHit','onDefense','afterHit','onTurnEnd','onZeroHp']);
-const EFFECT_TYPES = new Set(['redirectAttack','stripElement','multiplyAttack','addAttack','stopAttack','waivePreviousMp','setAttackElement','forceSale','requestBuy','reallocateResources','reviveAtZeroHp','absorbHp','repeatAttack','widenAttack']);
+const EFFECT_TYPES = new Set(['redirectAttack','stripElement','multiplyAttack','addAttack','stopAttack','waivePreviousMp','setAttackElement','forceSale','requestBuy','reallocateResources','reviveAtZeroHp','absorbHp','repeatAttack','widenAttack','restoreResource']);
 
 function plainObject(v) { return v !== null && typeof v === 'object' && !Array.isArray(v); }
 function nonnegative(n) { return Number.isSafeInteger(n) && n >= 0; }
@@ -560,6 +572,11 @@ function freezeEffect(effect) {
   if(effect.type==='repeatAttack'&&
       (effect.when!=='onDeclare'||Object.keys(params).length!==1||params.count!==2))
     throw new Error('Invalid repeatAttack effect data');
+  if(effect.type==='restoreResource'&&
+     (effect.when!=='onDeclare'||Object.keys(params).length!==2||
+      !['hp','mp'].includes(params.resource)||
+      !Number.isSafeInteger(params.amount)||params.amount<1||params.amount>99))
+    throw new Error('Invalid restoreResource effect data');
   if(effect.type==='absorbHp'&&
       (effect.when!=='afterHit'||Object.keys(params).length!==1||params.amount!=='damage'))
     throw new Error('Invalid absorbHp effect data');
@@ -928,7 +945,7 @@ const {VERIFIED_BASIC_CARDS,PARTIAL_CARD_SOURCE} = __online_module_1;
 const KNOWN_KEYS=new Set([
   'id','referenceName','kind','category','slot','element','attack','guard',
   'attackBonus','price','weight','reaction','reactionScope','stopScope',
-  'role','boost','plusAttack','mpCost','effect','attackElementOverride','discardPolicy','tradeAction','hpAbsorb','repeatHits'
+  'role','boost','plusAttack','mpCost','effect','attackElementOverride','discardPolicy','tradeAction','hpAbsorb','repeatHits','restoreAmount'
 ]);
 const CATEGORY_BY_KIND=Object.freeze({weapon:'weapon_single',armor:'armor_normal',miracle:'miracle',defense_item:'item',support_item:'item',trade:'trade'});
 const mk=(when,type,params={})=>({when,type,params});
@@ -1049,6 +1066,15 @@ function convertLegacyCard(card,{ruleset=PARTIAL_CARD_SOURCE}={}) {
       attack=card.attackBonus;
       modes.push('addAttack');
       effects.push(mk('onDeclare','addAttack',{scope:'weapon',stacking:'single'}));
+    }else if(['restore_hp','restore_mp'].includes(card.effect)){
+      if(!truthyInt(card.restoreAmount)||card.restoreAmount<1||
+         card.restoreAmount>99||card.element!=='none')
+        throw new Error('Invalid source-backed recovery item amount');
+      modes.push('use');
+      effects.push(mk('onDeclare','restoreResource',{
+        resource:card.effect==='restore_hp'?'hp':'mp',
+        amount:card.restoreAmount
+      }));
     }else if(card.effect==='sun_revive'){
       if(card.discardPolicy!=='forbidden')
         throw new Error('Passive Sun Charm discard policy mismatch');
@@ -1803,6 +1829,7 @@ const MAX_PLAYERS=9;
 const MAX_HAND=18;
 const ALLOWED_KEYS={
   pray:new Set(['commandId','expectedRevision','actorId','type']),
+  useItem:new Set(['commandId','expectedRevision','actorId','type','instanceId']),
   discard:new Set(['commandId','expectedRevision','actorId','type','orderedInstanceIds']),
   declareSale:new Set(['commandId','expectedRevision','actorId','type','targetId','saleInstanceId','soldInstanceId']),
   respondSale:new Set(['commandId','expectedRevision','actorId','type','mirrorInstanceId']),
@@ -2016,7 +2043,19 @@ function applyStagingCommand(state,command,catalog,{authorizedSeatId}={}) {
   let pending;
   let phase;
   let activePlayerId;
-  if(command.type==='exchange'){
+  if(command.type==='useItem'){
+    if(state.phase!=='turn'||actor.hp<=0)
+      throw new Error('Recovery items may only be used during a living turn');
+    id(command.instanceId,'recovery item instance ID');
+    const physical=actor.hand.find(card=>card.instanceId===command.instanceId);
+    const def=catalog.get(physical?.definitionId);
+    if(!physical||def?.family!=='item'||!def.playModes.includes('use')||
+      def.effects.length!==1||
+      !def.effects.some(e=>e.when==='onDeclare'&&e.type==='restoreResource'))
+      throw new Error('Only a plain owned recovery item may be used');
+    pending={type:'useItem',originalAttackerId:actor.id,instanceId:physical.instanceId};
+    phase='resolving';activePlayerId=null;
+  } else if(command.type==='exchange'){
     if(state.phase!=='turn'||actor.hp<=0)
       throw new Error('Exchange only during a living turn');
     id(command.exchangeInstanceId,'Exchange card ID');
@@ -2466,6 +2505,18 @@ function runEffectQueueFixture(state,catalog,queue,{
        fail('Invalid grantDraw count');
      spent[p.id]=(spent[p.id]??0)+effect.count;
      events.push({type:'grantDraw',playerId:p.id,count:effect.count});
+   } else if(effect.type==='restoreResource'){
+     // Ordinary item recovery is not a strike, must not revive a fallen
+     // player, and caps HP/MP at the source game's maximum of 99.
+     if(!['hp','mp'].includes(effect.resource)||
+        !Number.isSafeInteger(effect.amount)||effect.amount<1||effect.amount>99)
+       fail('Invalid plain recovery effect');
+     const p=who(s,effect.playerId);
+     if(p.hp<=0)fail('Cannot use a recovery item after defeat');
+     const before=p[effect.resource];
+     p[effect.resource]=Math.min(99,before+effect.amount);
+     events.push({type:'restoreResource',playerId:p.id,resource:effect.resource,
+       requested:effect.amount,restored:p[effect.resource]-before});
    } else if(effect.type==='mp'){
      const p=who(s,effect.playerId);
      if(!positiveCount(effect.cost)||p.mp<effect.cost)fail('Invalid MP payment');
@@ -2912,6 +2963,14 @@ function runEffectQueueFixture(state,catalog,queue,{
        hitCount:effect.attackContext.hitCount,targetId:target.id});
    } else if(effect.type==='refill'){
      refillSettled();
+   } else if(effect.type==='resumeTurn'){
+     // Plain healing does not consume the player's attack opportunity.
+     // A separate attack/prayer/discard can still finish the same turn.
+     const p=who(s,effect.playerId);
+     if(p.hp<=0||s.phase!=='resolving'||s.pending!==null)
+       fail('Cannot resume item turn');
+     s.phase='turn';s.activePlayerId=p.id;
+     events.push({type:'resumeTurn',playerId:p.id});
    } else if(effect.type==='advance'){
      advanceSettled(effect.afterId);
    } else fail('Unknown queued effect: '+String(effect.type));
@@ -4578,6 +4637,26 @@ function resolveStagedFixture(state,catalog,{
     fail('Unknown fixture draw card');
   if(state?.schemaVersion!==2||state.phase!=='resolving')
     fail('No attack waiting for resolution');
+  if(state.pending?.type==='useItem'){
+    const p=state.pending;
+    const actor=state.players.find(x=>x.id===p.originalAttackerId);
+    const card=actor?.hand.find(x=>x.instanceId===p.instanceId);
+    const def=catalog.get(card?.definitionId);
+    const effect=def?.effects.find(e=>e.when==='onDeclare'&&e.type==='restoreResource');
+    if(!card||!actor||actor.hp<=0||def?.family!=='item'||
+       !def.playModes.includes('use')||def.effects.length!==1||!effect)
+      fail('Invalid pending recovery item');
+    const result=runEffectQueueFixture(state,catalog,[
+      {type:'spend',playerId:actor.id,instanceIds:[card.instanceId]},
+      {type:'restoreResource',playerId:actor.id,
+        resource:effect.params.resource,amount:effect.params.amount},
+      {type:'refill'},
+      {type:'resumeTurn',playerId:actor.id}
+    ],{labOnly:true,fixtureDrawDefinitionId});
+    return {...result,plan:Object.freeze({type:'useItem',
+      playerId:actor.id,definitionId:def.id,
+      resource:effect.params.resource,amount:effect.params.amount})};
+  }
   if(state.pending?.type==='pray')
     return resolvePrayFixture(state,catalog,{labOnly,fixtureDrawDefinitionId});
   if(state.pending?.type==='discard')
@@ -5788,6 +5867,10 @@ const LAB_PRESETS=Object.freeze({
  dark:Object.freeze({
   A:Object.freeze(['w051','w054','d030','d034']),
   B:Object.freeze(['w052','w053','d030','d034'])
+ }),
+ recovery:Object.freeze({
+  A:Object.freeze(['i006','i010','w016','d003']),
+  B:Object.freeze(['i007','i011','w027','d003'])
  })
 });
 const url='https://mygame-df915-default-rtdb.firebaseio.com/';
@@ -5904,9 +5987,13 @@ function render(){
  }
  // Preview the printed stats, NOT a resolved damage estimate: elements,
  // reflections, multi-hits and special effects belong to the battle engine.
- $('selectionTotal').textContent=index?
-  'カード記載値の合計（参考） · '+(defense?'守 '+guardSum:'攻 '+attackSum)+
-   (mpSum?' · MP '+mpSum:''):'';
+ const selectedIds=[...selection],recovery=selectedIds.length===1?
+   catalog.get(cardsById.get(selectedIds[0])?.definitionId)?.effects.find(
+    e=>e.when==='onDeclare'&&e.type==='restoreResource'):null;
+ $('selectionTotal').textContent=recovery?
+   (recovery.params.resource==='hp'?'HP':'MP')+'+'+recovery.params.amount+'（最大99）':
+   index?'カード記載値の合計（参考） · '+(defense?'守 '+guardSum:'攻 '+attackSum)+
+    (mpSum?' · MP '+mpSum:''):'';
 
  const hand=$('hand'),scroll=hand.scrollLeft;
  hand.replaceChildren();
@@ -5923,7 +6010,10 @@ function render(){
   const label=document.createElement('span');label.className='cardname';
   label.textContent=name;
   const stat=document.createElement('span');stat.className='cardstats';
-  stat.textContent=[stats.attack?'攻'+stats.attack:'',
+  const restored=def?.effects.find(e=>e.type==='restoreResource');
+  stat.textContent=restored?
+   (restored.params.resource==='hp'?'HP':'MP')+'+'+restored.params.amount:
+   [stats.attack?'攻'+stats.attack:'',
     stats.guard?'守'+stats.guard:'',
     stats.mpCost?'MP'+stats.mpCost:''].filter(Boolean).join(' · ')||'神器';
   const price=document.createElement('span');price.className='cardprice';
@@ -5942,9 +6032,11 @@ function render(){
  hand.scrollLeft=scroll;
  const usable=mine&&!busy;
  $('actions').hidden=!(turn||defense);
- $('attack').hidden=!turn;$('pray').hidden=!turn;$('discard').hidden=!turn;
+ $('attack').hidden=!turn;$('useItem').hidden=!turn;
+ $('pray').hidden=!turn;$('discard').hidden=!turn;
  $('defend').hidden=!defense;
  $('attack').disabled=!usable||!selection.size;
+ $('useItem').disabled=!usable||!recovery;
  $('discard').disabled=!usable||!selection.size;
  $('pray').disabled=!usable||player.hand?.some(c=>catalog.get(c.definitionId)?.family==='weapon');
  $('defend').disabled=!usable;
@@ -5956,6 +6048,7 @@ async function send(type){
  const ids=[...selection];
  const command={commandId:randomId(),expectedRevision:view.revision,actorId:seat,type};
  if(type==='playCards'||type==='defend'||type==='discard')command.orderedInstanceIds=ids;
+ if(type==='useItem')command.instanceId=ids[0];
  if(type==='playCards')command.targetId=seat==='A'?'B':'A';
  waiting=true;pendingId=command.commandId;pendingCommand=command;
  feedback('操作を送信しています…');render();
@@ -6023,6 +6116,7 @@ $('join').addEventListener('click',async()=>{
 });
 $('retry').addEventListener('click',retryPending);
 $('attack').addEventListener('click',()=>send('playCards'));
+$('useItem').addEventListener('click',()=>send('useItem'));
 $('defend').addEventListener('click',()=>send('defend'));
 $('pray').addEventListener('click',()=>send('pray'));
 $('discard').addEventListener('click',()=>send('discard'));
