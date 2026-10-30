@@ -5,6 +5,15 @@
 
 > **この文書は引き継ぎ入口であり、実装の真実は常に開発ブランチの最新コードとGitHub Actions。** コミットSHA・テスト件数・カード数は作業のたびに変わる。本文の日付や数値を確認せず永久に正しいと扱わないこと。
 
+## 2026-10-31 G6｜本物Firebase・オンライン取引5経路の2席検証【最新】
+
+- **今回の優先作業**：「売る」「買う」「両替」の新UIは模擬RTDBでしか検証していなかった。実Firebaseに2独立WebKitブラウザから接続し、友達同士のオンライン試合を模した5つの研究シナリオを実行した。
+- **実装**：`tests/v2-g6-live-trades.browser.mjs`を追加し、`sale`受け入れ／単スーパーミラー反射、`buy`購入／見送り、`exchange`資源配分の**5経路**を別々の実Firebaseルームで試験。実際の単体HTMLと実Firebase compat SDKを利用。両席の公開revision・正しい手番・所持金/MP/HP・移動カード・未公開相手手札の非配信を検査。**ゲームの既存戦闘エンジンやFirebase通信・Rules・認証方式は変更していない。**
+- **成功結果**：[GitHub Actions run 41143745866](https://github.com/8mahi8/party-card-replica/actions/runs/41143745866) **5経路すべて合格・全60チェック成功**。新たな5つの一時ルームはそれぞれ`hostId`・versionを照合して削除成功。試験用workflow `.github/workflows/g6-live-trades-20261031.yml`は起動後すぐ**手動専用に復帰**。Node・WebKit/Chromium既存テストも継続成功（最新HEADのCIを別途確認）。
+- **初回試験に限る注意**：[run 41143614910](https://github.com/8mahi8/party-card-replica/actions/runs/41143614910) は、テストコードがRTDBの`null`値の省略を未考慮でエラーになった。**ゲーム本体の不具合ではない**。所有者識別前に安全のため削除を拒否したので、最初に作った**試験用ルーム1件が残った可能性**がある。ルームコードを記録していなかったため他データを推測で削除しない。テストコードは所有者IDを先に確保して再試験成功。
+- **詳細**：[V2_G6_LIVE_TRADES_SMOKE_2026-10-31.md](docs/V2_G6_LIVE_TRADES_SMOKE_2026-10-31.md)。学校のiPad Safari実機およびGoogle Sitesへ直接貼り付けたHTMLでの対戦は**未検証**。学校版・GitHub mainは変更なし。研究固定手札18セット、台帳174種類・435/500参考枠、`complete:false`は不変。
+- **次工程**：学校Safariで取引ボタン・数字入力・画面高さを試遊。原作未確認の「買う」のスーパーミラー反射などは根拠なしに実装しない。次は原作資料と比較しながら未実装カード・正規山札とUIの完成度を優先。
+
 ## 2026-10-31 G6｜オンライン取引「買う」「両替」のタップUI【今回】
 
 - **実装**：G4の既存`staged-buy.mjs`（`declareBuy`→`buyDefense`→`buyDecision`→`decideBuy`）と`trade-exchange.mjs`（`exchange`）を**オンライン研究UI**へ接続。新規戦闘効果、独自のランダム抽選や再計算は作成していない。
