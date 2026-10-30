@@ -697,6 +697,117 @@ try{
  }
  for(const mode of ['wind','heaven','angel','mirror'])await liveWindMiracleTrial(mode);
 
+ // Two deflection destinations and post-infection cure verified against real
+ // host-authoritative RTDB, not just a pair of simulated browser tabs.
+ async function liveTurbulenceTrial(mode){
+  await a.goto('about:blank');await b.goto('about:blank');
+  await cleanup();code=null;roomHostId=null;
+  await a.goto(url,{waitUntil:'load',timeout:20000});
+  await a.locator('#labPreset').selectOption(mode==='self'?'turbulenceSelf':'turbulenceBack');
+  await a.locator('#create').tap();
+  await a.waitForFunction(()=>/ルーム \d{5}/.test(
+   document.querySelector('#roomLabel')?.textContent||''),null,{timeout:20000});
+  code=(await a.locator('#roomLabel').textContent()).match(/\d{5}/)[0];
+  const made=await dbRead(code);
+  if(!made?.meta?.hostId||made.meta.guestId!=null)
+   throw Error('Turbulence trial creation mismatch');
+  roomHostId=made.meta.hostId;
+  await b.goto(url,{waitUntil:'load',timeout:20000});
+  await b.locator('#joinCode').fill(code);
+  await b.locator('#join').tap();
+  await b.locator('#hand button').first().waitFor({timeout:20000});
+  await a.locator('#hand button').first().tap();
+  await a.locator('#attack').tap();
+  await b.waitForFunction(()=>document.querySelector('#phase')?.textContent
+    .includes('あなたの防御'),null,{timeout:20000});
+  const pending=await dbRead(code);
+  if(pending.views?.B?.players?.[1]?.disease!=null||
+     pending.views?.B?.players?.[0]?.hand!==undefined)
+   throw Error('Turbulence pending damage or private card leak');
+  await b.locator('#hand button').first().tap();
+  await b.locator('#defend').tap();
+  if(mode!=='self'){
+   await a.waitForFunction(()=>document.querySelector('#phase')?.textContent
+     .includes('あなたの防御'),null,{timeout:20000});
+   if(mode==='angel')await a.locator('#hand button')
+     .filter({hasText:'エンゼルの小手'}).tap();
+   await a.locator('#defend').tap();
+  }
+  await b.waitForFunction(()=>document.querySelector('#phase')?.textContent
+    .includes('あなたの攻撃'),null,{timeout:20000});
+  await a.waitForFunction(()=>document.querySelector('#phase')?.textContent
+    .includes('相手の攻撃待ち'),null,{timeout:20000});
+  const end=await dbRead(code);
+  const aa=end.views?.A?.players?.[0],bb=end.views?.B?.players?.[1];
+  if(aa?.mp!==19||bb?.mp!==5||
+     (aa?.disease??null)!==(mode==='accept'?'cold':null)||
+     (bb?.disease??null)!==(mode==='self'?'cold':null)||
+     aa?.hp!==(mode==='accept'?39:40)||bb?.hp!==40||
+     !aa?.learned?.includes('m013')||!bb?.learned?.includes('m007')||
+     end.views?.A?.activePlayerId!=='B'||
+     end.views?.B?.revision!==end.views?.A?.revision||
+     end.views?.A?.players?.[1]?.hand!==undefined||
+     end.views?.B?.players?.[0]?.hand!==undefined)
+   throw Error('Turbulence RTDB illness, MP or secrecy mismatch '+mode+
+     ' '+JSON.stringify({aDisease:aa?.disease??null,bDisease:bb?.disease??null,
+       aHp:aa?.hp,bHp:bb?.hp,aMp:aa?.mp,bMp:bb?.mp}));
+  console.log('G7_LIVE_TURBULENCE_'+mode.toUpperCase()+'_SUCCESS');
+ }
+ for(const mode of ['self','angel','accept'])await liveTurbulenceTrial(mode);
+
+ async function liveWindCureTrial(miracle){
+  await a.goto('about:blank');await b.goto('about:blank');
+  await cleanup();code=null;roomHostId=null;
+  await a.goto(url,{waitUntil:'load',timeout:20000});
+  await a.locator('#labPreset').selectOption('windMiracles');
+  await a.locator('#create').tap();
+  await a.waitForFunction(()=>/ルーム \d{5}/.test(
+   document.querySelector('#roomLabel')?.textContent||''),null,{timeout:20000});
+  code=(await a.locator('#roomLabel').textContent()).match(/\d{5}/)[0];
+  const made=await dbRead(code);
+  if(!made?.meta?.hostId||made.meta.guestId!=null)
+   throw Error('Wind cure trial creation mismatch');
+  roomHostId=made.meta.hostId;
+  await b.goto(url,{waitUntil:'load',timeout:20000});
+  await b.locator('#joinCode').fill(code);
+  await b.locator('#join').tap();
+  await b.locator('#hand button').first().waitFor({timeout:20000});
+  await a.locator('#hand button').nth(miracle==='heaven'?1:0).tap();
+  await a.locator('#attack').tap();
+  await b.waitForFunction(()=>document.querySelector('#phase')?.textContent
+    .includes('あなたの防御'),null,{timeout:20000});
+  await b.locator('#defend').tap();
+  await b.waitForFunction(({miracle})=>
+    document.querySelector('#phase')?.textContent?.includes('あなたの攻撃')&&
+    document.querySelectorAll('.score')[1]?.textContent?.includes(
+      miracle==='heaven'?'天国病':'風邪'),{miracle},{timeout:20000});
+  await b.locator('#hand button').filter({hasText:'ハートの貝がら'}).tap();
+  await b.locator('#useItem').tap();
+  await b.waitForFunction(()=>document.querySelector('#phase')?.textContent
+    .includes('あなたの攻撃')&&
+    !document.querySelectorAll('.score')[1]?.textContent?.includes('災い：'),null,
+   {timeout:20000});
+  await b.locator('#hand button').filter({hasText:'攻10'}).first().tap();
+  await b.locator('#attack').tap();
+  await a.waitForFunction(()=>document.querySelector('#phase')?.textContent
+    .includes('あなたの防御'),null,{timeout:20000});
+  await a.locator('#defend').tap();
+  await a.waitForFunction(()=>document.querySelector('#phase')?.textContent
+    .includes('あなたの攻撃'),null,{timeout:20000});
+  const end=await dbRead(code);
+  if((end.views?.A?.players?.[1]?.disease??null)!==null||
+     end.views?.A?.players?.[1]?.hp!==40||
+     end.views?.A?.players?.[0]?.hp!==30||
+     end.views?.A?.activePlayerId!=='A'||
+     end.views?.B?.activePlayerId!=='A'||
+     end.views?.B?.revision!==end.views?.A?.revision||
+     end.views?.B?.players?.[0]?.hand!==undefined)
+   throw Error('Wind to Heart shell to attack full round mismatch '+miracle);
+  console.log('G7_LIVE_WIND_CURE_'+miracle.toUpperCase()+'_SUCCESS');
+ }
+ for(const miracle of ['wind','heaven'])await liveWindCureTrial(miracle);
+
+
 
 
 
