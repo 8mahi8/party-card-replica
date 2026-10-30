@@ -17,8 +17,10 @@ G6の最新版HTMLでの実Firebase 2席試験（Actions run 40973710968）は�
 
 - [Piong その他神器（2026-10-24）](https://w.atwiki.jp/piong/pages/19.html)、[GFGA神器一覧](https://w.atwiki.jp/gfplusa/pages/18.html)で回復データを二重照合。対応エンジンの範囲は[G7回復資料](V2_G7_PLAIN_RECOVERY_ITEMS_2026-10-30.md)参照。
 - [Firebase RTDBのWeb公式資料](https://firebase.google.com/docs/database/web/read-and-write)を確認したが、既存のWeb SDKと通信方式を維持し、新たな認証等は導入しない。
-- **今回の変更時点で、G7を実Firebaseで再実行した事実はない**。旧模擬RTDBのWebKit 49/49 PASSと、旧G6基本セットの実Firebase成功を分けて扱う。
+- **今回、実FirebaseのG6基本対戦とG7回復対戦を本当に実行し、両方とも成功した。** 一時的に開発PRでlive workflowを一度起動させ、完了後に元の `workflow_dispatch` のみに復帰。 [Actions run 41050294774](https://github.com/8mahi8/party-card-replica/actions/runs/41050294774) の実行ログに `G6_LIVE_TWO_BROWSER_SUCCESS`（revision6）、`G7_LIVE_RECOVERY_SUCCESS`（revision14）、2回の `G6_LIVE_CLEANUP_SUCCESS` が存在し、ジョブ全体もsuccess。G7模擬WebKitの49/49は独立した以前の根拠である。
 
-## 次に行う検証
+## 検証結果と次の作業
 
-開発PRのNode CIで構文テストが通った後、必要に応じて手動のG6 live Firebaseワークフローを起動し、G6_LIVE_TWO_BROWSER_SUCCESS、G7_LIVE_RECOVERY_SUCCESS、各一時ルームのG6_LIVE_CLEANUP_SUCCESSを確認する。成功が確認できるまで本物のFirebaseでG7成功とは言わない。学校のiPad Safari＋Google Sites実機での試験は別途必要。
+- **実Firebase検証：成功**。[run 41050294774](https://github.com/8mahi8/party-card-replica/actions/runs/41050294774) のジョブ成功と明示ログを確認。G6 basic 2往復とG7 recovery双方が通過し、各試験用ルームはホストID照合後に削除した。
+- **常時CIの状態**：試験トリガーを一時変更したコミットでは、手動限定を監査する通常Nodeテストが意図どおり失敗した。ライブ検証後にworkflowは元の手動限定へ復帰。復帰後のCIを確認すること。
+- **残課題**：学校iPad SafariとGoogle Sitesコード埋込の実機確認、正規の353種類/500枠の原作カードデータ、残りの個別効果と9枚の本番配布。
