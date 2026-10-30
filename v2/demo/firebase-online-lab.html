@@ -103,6 +103,7 @@ main{padding:0 6px 8px}.brandline{margin:0 -6px}
 <option value="soap">女神の石けん・奇跡を忘れる</option>
 <option value="heaven">天国草・病のターン終了効果</option>
 <option value="shells">貝がら・軽い病と重い病の治療</option>
+<option value="illnessAttack">病を付ける攻撃・防御と反射</option>
 <option value="tear">ドキドキ涙・運試し</option>
 </select></div>
 <p id="presetNotice">原作の山札ではありません。選択した4枚セットで効果を試します。</p>
@@ -179,6 +180,11 @@ const LAB_PRESETS=Object.freeze({
  heaven:Object.freeze({
   A:Object.freeze(['i016','w016','d003','i005']),
   B:Object.freeze(['i002','i016','w027','d003']),
+  rngSeed:12345
+ }),
+ illnessAttack:Object.freeze({
+  A:Object.freeze(['w056','w059','i018','d003']),
+  B:Object.freeze(['i002','d009','i017','d003']),
   rngSeed:12345
  }),
  shells:Object.freeze({
