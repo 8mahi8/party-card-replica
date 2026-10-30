@@ -137,6 +137,88 @@ try{
   throw Error('Seat view contained opponents hidden hand');
  if(errors.length)throw Error('Browser error: '+errors.join(' | '));
  console.log('G6_LIVE_TWO_BROWSER_SUCCESS: portable HTML, real RTDB, A-to-B and B-to-A, revision6, public attack HUD, private hands');
+
+ // G7 extension: use the CURRENT portable build with the G7 research loadout.
+ // Keep the older two-way G6 check intact; release its temporary room before
+ // creating the second test. No other database nodes are read or deleted.
+ await a.goto('about:blank');await b.goto('about:blank');
+ await cleanup();code=null;roomHostId=null;
+ await a.goto(url,{waitUntil:'load',timeout:20000});
+ await a.locator('#labPreset').selectOption('recovery');
+ await a.locator('#create').tap();
+ await a.waitForFunction(()=>/ルーム \d{5}/.test(
+  document.querySelector('#roomLabel')?.textContent||''),null,{timeout:20000});
+ code=(await a.locator('#roomLabel').textContent()).match(/\d{5}/)[0];
+ const g7Created=await dbRead(code);
+ if(!g7Created?.meta?.hostId||g7Created?.meta?.guestId!=null)
+  throw Error('G7 recovery test room creation failed');
+ roomHostId=g7Created.meta.hostId;
+ await b.goto(url,{waitUntil:'load',timeout:20000});
+ await b.locator('#joinCode').fill(code);
+ await b.locator('#join').tap();
+ await b.locator('#hand button').first().waitFor({timeout:20000});
+ if(!(await a.locator('#hand button').first().textContent()).includes('スマイルのしずく')||
+    !(await b.locator('#hand button').first().textContent()).includes('ハートのしずく'))
+  throw Error('G7 real RTDB preset did not distribute expected source cards');
+ // Host HP recovery; both viewers must see the new HP without seeing the
+ // opponent's unrevealed hand. The same player retains the attacking turn.
+ await a.locator('#hand button').first().tap();
+ await a.locator('#useItem').tap();
+ await a.waitForFunction(()=>document.querySelector('.score')?.textContent?.includes('HP 45')&&
+  document.querySelector('#phase')?.textContent?.includes('あなたの攻撃'),
+  null,{timeout:20000});
+ await b.waitForFunction(()=>document.querySelector('.score')?.textContent?.includes('HP 45'),
+  null,{timeout:20000});
+ const g7Hp=await dbRead(code);
+ if(g7Hp.views?.A?.players?.[0]?.hp!==45||
+    g7Hp.views?.B?.players?.[0]?.hp!==45||
+    g7Hp.views.B.players[0].hand!==undefined)
+  throw Error('G7 host HP recovery or hidden hand projection failed in RTDB');
+ // Host MP recovery then a real attack in the SAME turn.
+ await a.locator('#hand button').first().tap();
+ await a.locator('#useItem').tap();
+ await a.waitForFunction(()=>document.querySelector('.score')?.textContent?.includes('MP 15')&&
+  document.querySelector('#phase')?.textContent?.includes('あなたの攻撃'),
+  null,{timeout:20000});
+ await a.locator('#hand button').first().tap();
+ await a.locator('#attack').tap();
+ await b.waitForFunction(()=>document.querySelector('#incomingAttack')?.textContent
+  .includes('ワンダーソード'),null,{timeout:20000});
+ await b.locator('#defend').tap();
+ await b.waitForFunction(()=>document.querySelector('#phase')?.textContent
+  .includes('あなたの攻撃'),null,{timeout:20000});
+ await b.waitForFunction(()=>document.querySelectorAll('.score')[1]?.textContent
+  .includes('HP 30'),null,{timeout:20000});
+ // Repeat from the GUEST side: guest commands must be resolved by the
+ // authoritative host even when they are recovery rather than attack.
+ await b.locator('#hand button').first().tap();
+ await b.locator('#useItem').tap();
+ await Promise.all([a,b].map(page=>page.waitForFunction(()=>
+   document.querySelectorAll('.score')[1]?.textContent?.includes('HP 40'),
+  null,{timeout:20000})));
+ await b.locator('#hand button').first().tap();
+ await b.locator('#useItem').tap();
+ await Promise.all([a,b].map(page=>page.waitForFunction(()=>
+   document.querySelectorAll('.score')[1]?.textContent?.includes('MP 20'),
+  null,{timeout:20000})));
+ await b.locator('#hand button').first().tap();
+ await b.locator('#attack').tap();
+ await a.waitForFunction(()=>document.querySelector('#incomingAttack')?.textContent
+  .includes('反射剣'),null,{timeout:20000});
+ await a.locator('#defend').tap();
+ await Promise.all([a,b].map(page=>page.waitForFunction(()=>
+   document.querySelectorAll('.score')[0]?.textContent?.includes('HP 35'),
+  null,{timeout:20000})));
+ const g7End=await dbRead(code);
+ const g7A=g7End.views?.A,g7B=g7End.views?.B;
+ if(g7A?.revision!==14||g7B?.revision!==14||
+    g7A.players[0].hp!==35||g7A.players[0].mp!==15||
+    g7B.players[1].hp!==40||g7B.players[1].mp!==20||
+    g7A.players[1].hand!==undefined||g7B.players[0].hand!==undefined)
+  throw Error('G7 live recovery/attack synchronization, revision or hand privacy failed');
+ if(errors.length)throw Error('G7 browser errors: '+errors.join(' | '));
+ console.log('G7_LIVE_RECOVERY_SUCCESS: portable HTML, real RTDB, both seats recover HP/MP and attack within same turn, revision14, private hands');
+
 }catch(error){
  console.error('G6_LIVE_TEST_FAILURE',String(error?.stack||error));
  const snapshots=[];
