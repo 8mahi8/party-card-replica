@@ -38,8 +38,8 @@ function action(endpoint,type,id=null,override={}){
 test('seven plain HP/MP artifacts are individually sourced, typed and leave deck incomplete',()=>{
  assert.equal(summary.unique,RESEARCH_CATALOG_CONTRACT.unique);
  assert.equal(summary.slots,RESEARCH_CATALOG_CONTRACT.slots);
- assert.equal(summary.unique,163);
- assert.equal(summary.slots,408);
+ assert.equal(summary.unique,164);
+ assert.equal(summary.slots,409);
  assert.equal(summary.complete,false);
  for(const [id,name,resource,amount,price,weight] of sourced){
   const src=VERIFIED_BASIC_CARDS.find(c=>c.id===id),def=catalog.get(id);
