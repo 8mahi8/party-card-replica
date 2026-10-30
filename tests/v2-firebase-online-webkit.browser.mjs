@@ -286,6 +286,52 @@ try{
  }
  await trialPreset('elements','たいまつ','アイスアーマー');
  await trialPreset('dark','コブラ','はがねのよろい');
+ // Recovery items are neither weapons nor a substitute for an attack:
+ // consuming two items must leave A's turn open, then allow A to attack B.
+ const ha=await context.newPage(),gb=await context.newPage();
+ for(const p of [ha,gb])p.on('pageerror',error=>errors.push(error.message));
+ try{
+  await ha.goto(target);
+  await ha.locator('#labPreset').selectOption('recovery');
+  await ha.locator('#create').tap();
+  await ha.waitForFunction(()=>/\b\d{5}\b/.test(
+    document.querySelector('#roomLabel')?.textContent||''));
+  const roomNumber=(await ha.locator('#roomLabel').textContent()).match(/\d{5}/)[0];
+  await gb.goto(target);
+  await gb.locator('#joinCode').fill(roomNumber);
+  await gb.locator('#join').tap();
+  await gb.locator('#hand button').first().waitFor();
+  check(await ha.locator('#hand button').first().textContent().then(s=>s.includes('スマイルのしずく')),
+   'recovery fixture begins with source-backed HP consumable');
+  await ha.locator('#hand button').first().tap();
+  check(await ha.locator('#selectionTotal').textContent().then(s=>s.includes('HP+5')),
+   'HP restorative selection shows printed +5');
+  check(await ha.locator('#useItem').isEnabled(),
+   'recovery action available to active player');
+  await ha.locator('#useItem').tap();
+  await ha.waitForFunction(()=>document.querySelector('.score')?.textContent?.includes('HP 45')&&
+    document.querySelector('#phase')?.textContent?.includes('あなたの攻撃'));
+  check(await gb.locator('.score').first().textContent().then(s=>s.includes('HP 45')),
+   'guest sees HP recovery without private hand disclosure');
+  await ha.locator('#hand button').first().tap();
+  check(await ha.locator('#selectionTotal').textContent().then(s=>s.includes('MP+5')),
+   'MP restorative selection shows printed +5');
+  await ha.locator('#useItem').tap();
+  await ha.waitForFunction(()=>document.querySelector('.score')?.textContent?.includes('MP 25')&&
+    document.querySelector('#phase')?.textContent?.includes('あなたの攻撃'));
+  check(await ha.locator('#hand button').first().textContent().then(s=>s.includes('ワンダーソード')),
+   'after two restoratives original attack weapon stays playable');
+  await ha.locator('#hand button').first().tap();
+  check(await ha.locator('#attack').isEnabled(),'same player may attack after both restoratives');
+  await ha.locator('#attack').tap();
+  await gb.waitForFunction(()=>document.querySelector('#phase')?.textContent?.includes('あなたの防御'));
+  await gb.locator('#hand button').nth(3).tap();
+  await gb.locator('#defend').tap();
+  await gb.waitForFunction(()=>document.querySelector('.score')?.textContent?.includes('HP 45')&&
+    document.querySelector('#phase')?.textContent?.includes('あなたの攻撃'));
+  check(await gb.locator('.score').nth(1).textContent().then(s=>s.includes('HP 33')),
+   'recovery and attack then armor defense resolve without stalled turn');
+ }finally{await ha.close();await gb.close();}
  check(errors.length===0,'all preset trials have no script errors');
  console.log('FIREBASE_ONLINE_WEBKIT_SUCCESS checks='+checks+
   ' two tabs with mock RTDB, viewport=390x430');
