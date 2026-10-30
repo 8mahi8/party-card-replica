@@ -5,6 +5,15 @@
 
 > **この文書は引き継ぎ入口であり、実装の真実は常に開発ブランチの最新コードとGitHub Actions。** コミットSHA・テスト件数・カード数は作業のたびに変わる。本文の日付や数値を確認せず永久に正しいと扱わないこと。
 
+## 2026-10-30 G7｜通常HP・MP回復7種の他者指定・事前スーパーミラー【最新・実Firebase成功】
+
+- **原作再調査**：[God Field初心者向けルール](https://godfield-beginner.game-info.wiki/) は雑貨を味方へ使用しHP/MPを回復できると説明し、[アニヲタWiki](https://w.atwiki.jp/aniwotawiki/pages/47010.html) も雑貨を相手に使用可能とする。前G7の `i006`～`i012` が自分専用なのは再現漏れ。HP/MP値と確率は既存 [Piong資料](https://w.atwiki.jp/piong/pages/19.html)・[GFGA](https://w.atwiki.jp/gfplusa/pages/18.html) を維持。原作の実画面で各回復雑貨を鏡にかけた実測は別途未実施（既存 `redirectAttack:reflect scope:any` を採用）。
+- **実装**：`v2/staging-room.mjs` は普通の `restoreResource` も `useItem.targetId` で他プレイヤーを選べるように変更。自分は従来の即時回復、他者には `itemDefense` を開き、相手の `respondItem`（許す/スーパーミラー）を待つ。`v2/room-transition.mjs` は許した対象、または鏡で戻された使用者を回復する。元のエフェクトキュー・99上限・鏡の消費と補充・手番継続を再利用。新カードや乱数抽選の追加なし。研究カタログは**163種類・408/500参考枠、`complete:false`**。
+- **画面・研究セット**：`v2/demo/firebase-online-lab.html` の `対象：自分／相手` 切替を全7種類にも表示。6つ目の固定研究セット `support` はホストのHP/MP回復とゲストのスーパーミラーを試せる。旧5セットは維持。旧研究版・V2オフライン・V2オンラインの単体HTML計3種類を再生成し、開発ブランチに保存。自動バンドル生成は検証後に**元の手動専用**へ戻した。
+- **テスト実測**：Node **952/952 PASS** [run 41055931609](https://github.com/8mahi8/party-card-replica/actions/runs/41055931609)、Chromium **PASS** [run 41055931348](https://github.com/8mahi8/party-card-replica/actions/runs/41055931348)、WebKitオンライン **87/87 PASS**＋既存画面 **339/339 PASS** [run 41055931571](https://github.com/8mahi8/party-card-replica/actions/runs/41055931571)。`tests/g7-targetable-plain-recovery-v2.test.mjs` は7種類の自分以外対象・鏡反射・補充・99上限・再送・手番継続を検査。WebKitの2画面で他者へのHP/MP使用と反射を実タップ模擬検証。
+- **本物Firebase成功**：[run 41056408728](https://github.com/8mahi8/party-card-replica/actions/runs/41056408728) で、既存G6/G7の3シナリオに加え `G7_LIVE_SUPPORT_RECOVERY_SUCCESS`（HP+5をスーパーミラーで反射、次にMP+5を相手が許す、revision6、手札秘匿）を確認。**4つの試験部屋をすべて安全に削除**。初回のライブ検証だけ期待revisionを5と記述し失敗したが、実状態は正しく6だったためテストを修正・再実行成功。ライブworkflowも**元の手動実行**へ戻した。
+- **資料と境界**：[今回のG7実装・根拠・実測](docs/V2_G7_TARGETABLE_HP_MP_RECOVERY_2026-10-30.md)。学校iPad Safari＋Google Sitesの実際のHTML埋込では未検証。学校版HTML、main、Firebase Security Rules・認証は変更なし。正規353種/500枠の本家抽選は依然無効。次はG7未実装の特殊雑貨や状態異常、原作UIの調査と実装を続ける。
+
 ## 2026-10-30 G7｜ドキドキ涙の相手指定・事前スーパーミラー【最新・実Firebase成功】
 
 - **前担当の修正点**：研究版のドキドキ涙 `i013` は50%回復/50%自傷まで実装したが「自分にしか使えない」と扱っていた。原作攻略記事 [2020](https://ameblo.jp/shibransk/entry-12647363984.html)・[2025](https://kankurou53.hatenablog.com/entry/2025/07/19/165703) を再調査し、**相手にも使用でき、効果が確定する前にスーパーミラーで反射を選べる**と確認。オリジナルルールからのズレを優先して修正。
