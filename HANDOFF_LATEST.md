@@ -5,6 +5,14 @@
 
 > **この文書は引き継ぎ入口であり、実装の真実は常に開発ブランチの最新コードとGitHub Actions。** コミットSHA・テスト件数・カード数は作業のたびに変わる。本文の日付や数値を確認せず永久に正しいと扱わないこと。
 
+## 2026-10-30 G7｜出典照合済み通常神器5種・山札研究を前進【最新】
+
+- **研究データを追加**：Piongの2026-03-18単体武器表、GFガイド＋α(2024)、まかろんの2026一覧を照合し、`src/verified-basic-cards.mjs`に闇属性の通常武器`w051`コブラ(攻3/¥10)、`w052`さよならの剣(攻4/¥10)、`w053`キラーフォーク(攻5/¥10)、`w054`死神のカマ(攻10/¥20)、および攻13/守1/¥3の兼用`w055`伝説の剣のさやを追加。すべて参考出現率0.2%=1/500枠。カード名別の効果分岐なし。**研究カタログは125種類・314/500参考枠**に前進（元120種/309枠）。
+- **実装・回帰**：`tests/g7-ordinary-dark-weapons-v2.test.mjs`で定義/入手枠/闇の無防御即死/完全防御なら生存/部分防御なら即死/`w055`の攻守兼用を検証。Dream・Mirage・2回攻撃テストに残っていた古い件数の直書きは`tests/helpers/research-catalog-contract.mjs`から取得する形へ修正。
+- **実測CI**：Node **913/913 PASS** [run 41033541202](https://github.com/8mahi8/party-card-replica/actions/runs/41033541202)、Chromium **28/28 PASS** [run 41033541345](https://github.com/8mahi8/party-card-replica/actions/runs/41033541345)、Playwright WebKit旧UI **339/339 PASS**＋オンライン2画面 **28/28 PASS** [run 41033541187](https://github.com/8mahi8/party-card-replica/actions/runs/41033541187)。テスト途中は古いHTMLと古い研究件数による失敗があったが解消し、**全3配布HTML**（`demo/standalone.html`、`v2/demo/standalone.html`、`v2/demo/firebase-online-standalone.html`）をGitHub Actionsで再生成・開発ブランチに保存（bot commit `b93cb1da290b6d77b3f386a0038829f28c54e706`）。再生成workflowは終了後手動起動へ復帰。
+- **最重要の境界**：Piongの500枠復元抽選は二次資料上確認済みだが、研究125種/314枠は未完成。`src/catalog-audit.mjs`の完全性監査は`complete:false`であり、**部分デッキを正規抽選として動かしていない**。現在のG6オンラインは引き続き固定4枚・固定`d001`補充。出典と実装範囲は[`docs/V2_G7_DARK_WEAPONS_CATALOG_2026-10-30.md`](docs/V2_G7_DARK_WEAPONS_CATALOG_2026-10-30.md)。
+- **次工程**：原作で数値・効果の確認できた個別神器を継続登録。完成した個別効果と353種/500枠の正規山札監査が揃ってから復元抽選と初期9枚へ移行。学校iPad Safari実機試遊はまだ未検証で、Google Sites HTML・GitHub`main`・Firebase Security Rules/認証は変更していない。
+
 ## 2026-10-30 G6更新｜最新版単体HTMLで実Firebaseの双方向対戦成功【最新・優先】
 
 - **実ネット通信を確認済み**：現在の原作風HUDを含む`v2/demo/firebase-online-standalone.html`で、**本物のFirebase RTDBに対して独立WebKit2ブラウザでAが攻撃→Bが許す→Bが攻撃→Aが許す**を完走。両席`revision=6`一致、HP変化と宣言済み攻撃神器「ワンダーソード／攻10」・未使用手札秘匿を確認。テストした5桁ルームは`meta.hostId`を再検証して削除した。GitHub Actions [live run 40973710968](https://github.com/8mahi8/party-card-replica/actions/runs/40973710968)で `G6_LIVE_TWO_BROWSER_SUCCESS` と `G6_LIVE_CLEANUP_SUCCESS` を確認。**学校の別々のiPad実機ではなく、CI環境の2ブラウザコンテキストによる実Firebase通信。**
