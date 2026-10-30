@@ -11,7 +11,7 @@ const MODES = new Set(['mainAttack','addAttack','defend','cast','support','trade
 // Until sourced effects are implemented, explicitly gate those definitions.
 const DISCARD_POLICIES = new Set(['ordinary','forbidden','requiresSpecialResolution']);
 const EFFECT_TRIGGERS = new Set(['onDeclare','onCost','beforeHit','onDefense','afterHit','onTurnEnd','onZeroHp']);
-const EFFECT_TYPES = new Set(['redirectAttack','stripElement','multiplyAttack','addAttack','stopAttack','waivePreviousMp','setAttackElement','forceSale','requestBuy','reallocateResources','reviveAtZeroHp','absorbHp','repeatAttack','widenAttack','restoreResource','flipHpRisk']);
+const EFFECT_TYPES = new Set(['redirectAttack','stripElement','multiplyAttack','addAttack','stopAttack','waivePreviousMp','setAttackElement','forceSale','requestBuy','reallocateResources','reviveAtZeroHp','absorbHp','repeatAttack','widenAttack','restoreResource','flipHpRisk','sweepHand']);
 
 function plainObject(v) { return v !== null && typeof v === 'object' && !Array.isArray(v); }
 function nonnegative(n) { return Number.isSafeInteger(n) && n >= 0; }
@@ -46,6 +46,9 @@ function freezeEffect(effect) {
       !['hp','mp'].includes(params.resource)||
       !Number.isSafeInteger(params.amount)||params.amount<1||params.amount>99))
     throw new Error('Invalid restoreResource effect data');
+  if(effect.type==='sweepHand'&&
+     (effect.when!=='onDeclare'||Object.keys(params).length!==1||params.count!==3))
+    throw new Error('Invalid sweepHand effect data');
   if(effect.type==='flipHpRisk'&&
      (effect.when!=='onDeclare'||Object.keys(params).length!==3||
       params.heal!==10||params.damage!==10||params.healChance!==0.5))
