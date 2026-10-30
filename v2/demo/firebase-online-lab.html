@@ -344,7 +344,7 @@ function render(){
  const usable=mine&&!busy;
  $('actions').hidden=!(turn||defense);
  $('attack').hidden=!turn;$('useItem').hidden=!turn;
- $('itemTarget').hidden=!turn||itemEffect?.type!=='flipHpRisk';
+ $('itemTarget').hidden=!turn||!itemEffect;
  $('itemTarget').textContent='対象：'+(itemTarget==='self'?'自分':'相手');
  $('itemTarget').disabled=!usable;
  $('pray').hidden=!turn;$('discard').hidden=!turn;
