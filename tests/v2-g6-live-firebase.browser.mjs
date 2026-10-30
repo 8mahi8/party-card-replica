@@ -227,9 +227,9 @@ try{
  await a.goto(url,{waitUntil:'load',timeout:20000});
  await a.locator('#labPreset').selectOption('tear');
  await a.locator('#create').tap();
- await a.waitForFunction(()=>/ルーム \\d{5}/.test(
+ await a.waitForFunction(()=>/ルーム \d{5}/.test(
   document.querySelector('#roomLabel')?.textContent||''),null,{timeout:20000});
- code=(await a.locator('#roomLabel').textContent()).match(/\\d{5}/)[0];
+ code=(await a.locator('#roomLabel').textContent()).match(/\d{5}/)[0];
  const tearCreated=await dbRead(code);
  if(!tearCreated?.meta?.hostId||tearCreated?.meta?.guestId!=null)
   throw Error('G7 target/mirror room creation failed');
