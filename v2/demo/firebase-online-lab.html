@@ -104,6 +104,7 @@ main{padding:0 6px 8px}.brandline{margin:0 -6px}
 <option value="heaven">天国草・病のターン終了効果</option>
 <option value="shells">貝がら・軽い病と重い病の治療</option>
 <option value="illnessAttack">病を付ける攻撃・防御と反射</option>
+<option value="windMiracles">奇跡・風と天国風の災い</option>
 <option value="tear">ドキドキ涙・運試し</option>
 </select></div>
 <p id="presetNotice">原作の山札ではありません。選択した4枚セットで効果を試します。</p>
@@ -181,6 +182,11 @@ const LAB_PRESETS=Object.freeze({
   A:Object.freeze(['i016','w016','d003','i005']),
   B:Object.freeze(['i002','i016','w027','d003']),
   rngSeed:12345
+ }),
+ windMiracles:Object.freeze({
+  A:Object.freeze(['m013','m014','i003','d003']),
+  B:Object.freeze(['i002','d018','w016','i018']),
+  mpA:25,rngSeed:12345
  }),
  illnessAttack:Object.freeze({
   A:Object.freeze(['w056','w059','i018','d003']),
@@ -467,6 +473,13 @@ $('create').addEventListener('click',async()=>{
    seats:[{id:'A',handDefinitionIds:[...preset.A]},
     {id:'B',handDefinitionIds:[...preset.B]}],
    rulesetId:'partial-reference-v2-lab',rngSeed:preset.rngSeed??71},catalog);
+  for(const [index,mp] of [[0,preset.mpA],[1,preset.mpB]]){
+   if(mp!==undefined){
+    if(!Number.isSafeInteger(mp)||mp<0||mp>99)
+     throw Error('研究用MP設定が不正です');
+    initialState.players[index].mp=mp;
+   }
+  }
   for(const [index,disease] of [[0,preset.diseaseA],[1,preset.diseaseB]]){
    if(disease!==undefined){
     if(!['cold','fever','hell','heaven'].includes(disease))
