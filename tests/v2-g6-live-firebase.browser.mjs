@@ -500,6 +500,68 @@ try{
  await liveHeavenTrial(false);
  await liveHeavenTrial(true);
 
+ // Live Shell matrix: Smile may cure only fever/cold while Heart cures
+ // every modeled disease. Mirror must reflect beneficial cleansing too.
+ async function liveShellTrial(heart,mirror){
+  await a.goto('about:blank');await b.goto('about:blank');
+  await cleanup();code=null;roomHostId=null;
+  await a.goto(url,{waitUntil:'load',timeout:20000});
+  await a.locator('#labPreset').selectOption('shells');
+  await a.locator('#create').tap();
+  await a.waitForFunction(()=>/ルーム \d{5}/.test(
+   document.querySelector('#roomLabel')?.textContent||''),null,{timeout:20000});
+  code=(await a.locator('#roomLabel').textContent()).match(/\d{5}/)[0];
+  const made=await dbRead(code);
+  if(!made?.meta?.hostId||made?.meta?.guestId!=null)
+   throw Error('Shell room creation mismatch');
+  roomHostId=made.meta.hostId;
+  await b.goto(url,{waitUntil:'load',timeout:20000});
+  await b.locator('#joinCode').fill(code);
+  await b.locator('#join').tap();
+  await b.locator('#hand button').first().waitFor({timeout:20000});
+  const initial=await dbRead(code);
+  if(initial.views?.A?.players?.[0]?.disease!=='heaven'||
+     initial.views?.B?.players?.[1]?.disease!=='fever')
+   throw Error('Shell fixed source-backed disease fixture mismatch');
+  await a.locator('#hand button').nth(heart?1:0).tap();
+  await a.locator('#itemTarget').tap();
+  await a.locator('#useItem').tap();
+  await b.waitForFunction(()=>document.querySelector('#phase')?.textContent
+   .includes('雑貨への対応'),null,{timeout:20000});
+  const waiting=await dbRead(code);
+  if(waiting.views?.B?.pending?.declaredItem?.definitionId!==(heart?'i018':'i017')||
+     waiting.views?.B?.players?.[1]?.disease!=='fever'||
+     waiting.views?.B?.players?.[0]?.disease!=='heaven'||
+     waiting.views?.B?.players?.[0]?.hand!==undefined)
+   throw Error('Shell applied before authenticated response or exposed hand');
+  if(mirror)await b.locator('#hand button').first().tap();
+  await b.locator('#defend').tap();
+  await Promise.all([a,b].map(page=>page.waitForFunction(({heart,mirror})=>{
+   const scores=document.querySelectorAll('.score');
+   const aHeaven=scores[0]?.textContent?.includes('天国病');
+   const bFever=scores[1]?.textContent?.includes('熱病');
+   return aHeaven===!(heart&&mirror)&&bFever===mirror&&
+    scores[0]?.textContent?.includes('手札 4')&&
+    scores[1]?.textContent?.includes('手札 4');
+  },{heart,mirror},{timeout:20000})));
+  const end=await dbRead(code);
+  if(end.views?.A?.revision!==3||end.views?.B?.revision!==3||
+     (end.views.A.players[0].disease??null)!==(heart&&mirror?null:'heaven')||
+     (end.views.B.players[1].disease??null)!==(mirror?'fever':null)||
+     end.views.A.players[0].handCount!==4||
+     end.views.B.players[1].handCount!==4||
+     end.views.A.activePlayerId!=='A'||
+     end.views.A.players[1].hand!==undefined||
+     end.views.B.players[0].hand!==undefined)
+   throw Error('Shell live RTDB cure or turn/privacy/refill mismatch');
+  if(errors.length)throw Error('Shell client errors: '+errors.join(' | '));
+  console.log('G7_LIVE_SHELL_'+(heart?'HEART':'SMILE')+'_'+(mirror?'MIRROR':'PASS')+'_SUCCESS');
+ }
+ for(const heart of [false,true])
+  for(const mirror of [false,true])
+   await liveShellTrial(heart,mirror);
+
+
 
 
 
