@@ -46,6 +46,10 @@ function freezeEffect(effect) {
       !['hp','mp'].includes(params.resource)||
       !Number.isSafeInteger(params.amount)||params.amount<1||params.amount>99))
     throw new Error('Invalid restoreResource effect data');
+  if(effect.type==='heavenHerb'&&
+     (effect.when!=='onDeclare'||Object.keys(params).length!==2||
+      params.mp!==20||params.disease!=='heaven'))
+    throw new Error('Invalid heavenHerb effect data');
   if(effect.type==='forgetLearned'&&
      (effect.when!=='onDeclare'||Object.keys(params).length!==1||params.count!==2))
     throw new Error('Invalid forgetLearned effect data');
