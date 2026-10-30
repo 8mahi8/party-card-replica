@@ -134,7 +134,7 @@ export function resolveStagedFixture(state,catalog,{
     const card=actor?.hand.find(x=>x.instanceId===p.instanceId);
     const def=catalog.get(card?.definitionId);
     const effect=def?.effects.find(e=>e.when==='onDeclare'&&
-      ['restoreResource','flipHpRisk','sweepHand'].includes(e.type));
+      ['restoreResource','flipHpRisk','sweepHand','forgetLearned'].includes(e.type));
     if(!card||!actor||actor.hp<=0||!target||target.hp<=0||
        def?.family!=='item'||!def.playModes.includes('use')||
        def.effects.length!==1||!effect)
