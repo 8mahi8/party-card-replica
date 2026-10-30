@@ -158,6 +158,22 @@ export function resolveStagedFixture(state,catalog,{
       }
     }else if(p.defense!==null&&p.defense!==undefined)
       fail('Cannot defend against an item used on oneself');
+    if(effect.type==='cleanseAfflictions'){
+      if(!['minor','all'].includes(effect.params.scope))
+        fail('Invalid pending Shell cure scope');
+      const queue=[
+        {type:'spend',playerId:actor.id,instanceIds:[card.instanceId]},
+        ...(mirrorId===null?[]:[{type:'spend',playerId:target.id,instanceIds:[mirrorId]}]),
+        {type:'cleanseAfflictions',playerId:recipient.id,scope:effect.params.scope},
+        {type:'refill'},
+        {type:'resumeTurn',playerId:actor.id}
+      ];
+      const result=runEffectQueueFixture(state,catalog,queue,
+        {labOnly:true,fixtureDrawDefinitionId});
+      return {...result,plan:Object.freeze({type:'useItem',
+        playerId:actor.id,targetId:recipient.id,definitionId:def.id,
+        scope:effect.params.scope,reflected:mirrorId!==null})};
+    }
     if(effect.type==='heavenHerb'){
       if(effect.params.mp!==20||effect.params.disease!=='heaven')
         fail('Invalid Heaven Grass compound effect');
