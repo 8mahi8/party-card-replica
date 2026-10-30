@@ -104,6 +104,7 @@ main{padding:0 6px 8px}.brandline{margin:0 -6px}
 <option value="heaven">天国草・病のターン終了効果</option>
 <option value="shells">貝がら・軽い病と重い病の治療</option>
 <option value="illnessAttack">病を付ける攻撃・防御と反射</option>
+<option value="windMiracles">奇跡・風と天国風の災い</option>
 <option value="tear">ドキドキ涙・運試し</option>
 </select></div>
 <p id="presetNotice">原作の山札ではありません。選択した4枚セットで効果を試します。</p>
@@ -507,6 +508,9 @@ const VERIFIED_BASIC_CARDS = Object.freeze([
   Object.freeze({id:'m009',referenceName:'大木',kind:'miracle',role:'attack',category:'miracle',element:'wood',attack:6,mpCost:3,price:0,weight:1}),
   Object.freeze({id:'m010',referenceName:'岩',kind:'miracle',role:'attack',category:'miracle',element:'earth',attack:8,mpCost:4,price:0,weight:1}),
   Object.freeze({id:'m011',referenceName:'滝',kind:'miracle',role:'attack',category:'miracle',element:'water',attack:25,mpCost:12,price:0,weight:1}),
+  // GFGA, Piong, Macaron 2026: zero-damage affliction miracles. Reusable after learning.
+  Object.freeze({id:'m013',referenceName:'風',kind:'miracle',role:'afflict',disease:'cold',category:'miracle',element:'none',mpCost:6,price:0,weight:1}),
+  Object.freeze({id:'m014',referenceName:'天国風',kind:'miracle',role:'afflict',disease:'heaven',category:'miracle',element:'none',mpCost:15,price:0,weight:1}),
   // Source: Piong other artifacts (updated 2026-10-24), GFGA 2024,
   // Macaron 2026. Only plain HP/MP recovery, no status-creating herbs.
   // Weight 12/8/4/1 means 2.4/1.6/0.8/0.2% of 500.
@@ -606,8 +610,9 @@ function freezeEffect(effect) {
       !['minor','all'].includes(params.scope)))
     throw new Error('Invalid cleanseAfflictions effect data');
   if(effect.type==='inflictDisease'&&
-     (effect.when!=='afterHit'||Object.keys(params).length!==1||
-      !['cold','hell'].includes(params.disease)))
+     (Object.keys(params).length!==1||
+      !((effect.when==='afterHit'&&['cold','hell'].includes(params.disease))||
+        (effect.when==='onDeclare'&&['cold','heaven'].includes(params.disease)))))
     throw new Error('Invalid inflictDisease effect data');
   if(effect.type==='heavenHerb'&&
      (effect.when!=='onDeclare'||Object.keys(params).length!==2||
@@ -991,7 +996,7 @@ const {VERIFIED_BASIC_CARDS,PARTIAL_CARD_SOURCE} = __online_module_1;
 const KNOWN_KEYS=new Set([
   'id','referenceName','kind','category','slot','element','attack','guard',
   'attackBonus','price','weight','reaction','reactionScope','stopScope',
-  'role','boost','plusAttack','mpCost','effect','attackElementOverride','discardPolicy','tradeAction','hpAbsorb','repeatHits','restoreAmount','diseaseOnHit'
+  'role','boost','plusAttack','mpCost','effect','attackElementOverride','discardPolicy','tradeAction','hpAbsorb','repeatHits','restoreAmount','diseaseOnHit','disease'
 ]);
 const CATEGORY_BY_KIND=Object.freeze({weapon:'weapon_single',armor:'armor_normal',miracle:'miracle',defense_item:'item',support_item:'item',trade:'trade'});
 const mk=(when,type,params={})=>({when,type,params});
@@ -1082,6 +1087,12 @@ function convertLegacyCard(card,{ruleset=PARTIAL_CARD_SOURCE}={}) {
           stacking:VERIFIED_IDENTICAL_PLUS_PAIRS.has(card.id)?'identicalPair':'single'
         }));
       } else if(card.plusAttack!==undefined)throw new Error('Unknown plus-attack flag');
+    } else if(card.role==='afflict') {
+      if(card.element!=='none'||card.attack!==undefined||
+         !['cold','heaven'].includes(card.disease)||
+         card.mpCost!==(card.disease==='cold'?6:15))
+        throw new Error('Unverified miracle affliction definition');
+      modes.push('cast');effects.push(mk('onDeclare','inflictDisease',{disease:card.disease}));
     } else if(card.role==='stop') {
       if(card.stopScope!=='neutral_weapon')throw new Error('Unmapped miracle stop scope');
       modes.push('defend');effects.push(mk('onDefense','stopAttack',{scope:'neutralWeapon'}));
@@ -2041,7 +2052,7 @@ function takeLegalSelection(player,instanceIds,catalog,mode,{allowEmpty=false}={
       throw new Error('Not a structural attack selection');
     const first=defs[0];
     if(first.family!=='weapon' &&
-       !(first.family==='miracle' && first.playModes.includes('cast') && first.stats.attack>0))
+       !(first.family==='miracle' && first.playModes.includes('cast') && (first.stats.attack>0||first.effects.some(e=>e.when==='onDeclare'&&e.type==='inflictDisease'))))
       throw new Error('Attack must start with a weapon or offensive miracle');
     // Exact later combination legality is compiled in G3, not guessed here.
   } else if(mode==='defense') {
@@ -2074,7 +2085,7 @@ function takeOrderedPlays(actor,plays,catalog){
       if(!def||!def.playModes.some(mode=>['mainAttack','addAttack','cast','support'].includes(mode)))
         throw new Error('Not a structural attack selection');
       if(index===0 && def.family!=='weapon' &&
-         !(def.family==='miracle' && def.playModes.includes('cast') && def.stats.attack>0))
+         !(def.family==='miracle' && def.playModes.includes('cast') && (def.stats.attack>0||def.effects.some(e=>e.when==='onDeclare'&&e.type==='inflictDisease'))))
         throw new Error('Sequence must begin with weapon or offensive miracle');
       return {instanceId};
     }
@@ -2381,7 +2392,7 @@ function applyStagingCommand(state,command,catalog,{authorizedSeatId}={}) {
       learned=catalog.get(command.learnedDefinitionId);
       if(!actor.learned.includes(command.learnedDefinitionId)||
         learned?.family!=='miracle'||!learned.playModes.includes('cast')||
-        learned.stats.attack<=0)
+        (learned.stats.attack<=0&&!learned.effects.some(e=>e.when==='onDeclare'&&e.type==='inflictDisease')))
         throw new Error('Offensive miracle not learned');
     } else if(command.type==='playCards'){
       selected=takeLegalSelection(actor,command.orderedInstanceIds,catalog,'attack');
@@ -2865,6 +2876,33 @@ function runEffectQueueFixture(state,catalog,queue,{
        events.push({type:'revive',playerId:p.id,revivedHp:10,
          consumedInstanceId:recovery.consumedInstanceId,
          consumedDefinitionId:recovery.consumedDefinitionId});
+     }
+   } else if(effect.type==='castDisease'){
+     const p=who(s,effect.targetId),pending=state.pending;
+     if(Object.keys(effect).length!==4||pending?.type!=='attack'||
+       pending.targetId!==p.id||typeof effect.miracleId!=='string'||
+       !['cold','heaven'].includes(effect.disease))
+       fail('Invalid affliction miracle action');
+     const miracle=catalog.get(effect.miracleId);
+     if(miracle?.family!=='miracle'||miracle.element!=='none'||
+       miracle.stats.attack!==0||
+       !miracle.effects.some(x=>x.when==='onDeclare'&&
+         x.type==='inflictDisease'&&x.params.disease===effect.disease))
+       fail('Unrecognized affliction miracle definition');
+     const original=who(state,pending.originalAttackerId);
+     const declaredId=pending.attackContext?.miracleId ??
+       (pending.attackLearnedDefinitionId ??
+        catalog.get(original.hand.find(c=>
+          c.instanceId===pending.attackInstanceIds?.[0])?.definitionId)?.id);
+     if(declaredId!==effect.miracleId)
+       fail('Affliction miracle was not originally declared');
+     if(p.hp>0){
+       const before=p.disease??null;
+       const next=planDiseaseExposure(before,effect.disease);
+       p.disease=next.disease;
+       events.push({type:'castDisease',targetId:p.id,miracleId:miracle.id,
+         diseaseBefore:before,diseaseAfter:p.disease,fatal:next.fatal});
+       if(next.fatal)resolveIllnessZeroHp(p,p.hp);
      }
    } else if(effect.type==='inflictDisease'){
      if(Object.keys(effect).length!==3||!['cold','hell'].includes(effect.disease))
@@ -4583,7 +4621,7 @@ function compileSoloMiracleResolution(state,catalog) {
  const p=state.pending;
  const cached=p.attackContext??null;
  if(cached&&(cached.attackKind!=='miracle'||typeof cached.miracleId!=='string'||
-    !Number.isSafeInteger(cached.attack)||cached.attack<=0||
+    !Number.isSafeInteger(cached.attack)||cached.attack<0||
     typeof cached.element!=='string'))fail('Unsupported cached miracle attack');
  const caster=person(state,p.originalAttackerId),target=person(state,p.targetId);
  if(caster.hp<=0||target.hp<=0)fail('Caster or target is dead');
@@ -4614,10 +4652,16 @@ function compileSoloMiracleResolution(state,catalog) {
  if(!miracle)fail('Missing learned miracle definition');
  // A +attack miracle selected FIRST is an offensive miracle, not a
  // weapon modifier. Its onDeclare/addAttack tag is inert in this position.
- const soloEffectsSupported=miracle.effects.length===0 ||
+ const affliction=miracle.effects.length===1&&
+   miracle.effects[0].when==='onDeclare'&&
+   miracle.effects[0].type==='inflictDisease'&&
+   ['cold','heaven'].includes(miracle.effects[0].params.disease)&&
+   miracle.stats.attack===0&&miracle.element==='none';
+ const soloEffectsSupported=affliction||miracle.effects.length===0 ||
    (miracle.effects.length===1&&miracle.effects[0].when==='onDeclare'&&
     miracle.effects[0].type==='addAttack'&&miracle.effects[0].params.scope==='weapon');
- if(miracle.family!=='miracle'||!miracle.playModes.includes('cast')||miracle.stats.attack<=0||
+ if(miracle.family!=='miracle'||!miracle.playModes.includes('cast')||
+    (miracle.stats.attack<=0&&!affliction)||
     !soloEffectsSupported)fail('Not a supported solo attack miracle');
  if(cached&&(cached.attack!==miracle.stats.attack||cached.element!==miracle.element))
    fail('Cached miracle payload mismatch');
@@ -4665,7 +4709,7 @@ function compileSoloMiracleResolution(state,catalog) {
  const guard=sumLegalArmor(angel?'none':miracle.element,physicalShields,
    {rainbowCurtain:stripElement});
  const stopped=angel;
- const hit=stopped?Object.freeze({damage:0,hpAfter:target.hp,instantDefeat:false,effectiveElement:miracle.element})
+ const hit=stopped||affliction?Object.freeze({damage:0,hpAfter:target.hp,instantDefeat:false,effectiveElement:miracle.element})
   :calculateHit({attack:miracle.stats.attack,element:miracle.element,armor:guard,hp:target.hp,rainbowCurtain:stripElement});
  const queue=Object.freeze([
    ...(cached?[]:[
@@ -4676,7 +4720,10 @@ function compileSoloMiracleResolution(state,catalog) {
      item('learn',{playerId:caster.id,definitionId:miracle.id})
    ]),
    ...(self?[]:[item('spend',{playerId:target.id,instanceIds:defense.map(x=>x.instance.instanceId)})]),
-   item('hit',{targetId:target.id,...hit,stopped}),
+   ...(affliction?
+     (stopped?[]:[item('castDisease',{targetId:target.id,
+       miracleId:miracle.id,disease:miracle.effects[0].params.disease})]):
+     [item('hit',{targetId:target.id,...hit,stopped})]),
    item('refill'),item('advance',{afterId:caster.id})
  ]);
  return Object.freeze({miracleId:miracle.id,attack:miracle.stats.attack,element:miracle.element,
@@ -6327,6 +6374,11 @@ const LAB_PRESETS=Object.freeze({
   B:Object.freeze(['i002','i016','w027','d003']),
   rngSeed:12345
  }),
+ windMiracles:Object.freeze({
+  A:Object.freeze(['m013','m014','i003','d003']),
+  B:Object.freeze(['i002','d018','w016','i018']),
+  mpA:25,rngSeed:12345
+ }),
  illnessAttack:Object.freeze({
   A:Object.freeze(['w056','w059','i018','d003']),
   B:Object.freeze(['i002','d009','i017','d003']),
@@ -6612,6 +6664,13 @@ $('create').addEventListener('click',async()=>{
    seats:[{id:'A',handDefinitionIds:[...preset.A]},
     {id:'B',handDefinitionIds:[...preset.B]}],
    rulesetId:'partial-reference-v2-lab',rngSeed:preset.rngSeed??71},catalog);
+  for(const [index,mp] of [[0,preset.mpA],[1,preset.mpB]]){
+   if(mp!==undefined){
+    if(!Number.isSafeInteger(mp)||mp<0||mp>99)
+     throw Error('研究用MP設定が不正です');
+    initialState.players[index].mp=mp;
+   }
+  }
   for(const [index,disease] of [[0,preset.diseaseA],[1,preset.diseaseB]]){
    if(disease!==undefined){
     if(!['cold','fever','hell','heaven'].includes(disease))
