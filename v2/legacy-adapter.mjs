@@ -139,6 +139,11 @@ export function convertLegacyCard(card,{ruleset=PARTIAL_CARD_SOURCE}={}) {
         resource:card.effect==='restore_hp'?'hp':'mp',
         amount:card.restoreAmount
       }));
+    }else if(card.effect==='coin_flip_hp'){
+      if(card.restoreAmount!==10||card.element!=='none')
+        throw new Error('Invalid source-backed coin-flip HP item');
+      modes.push('use');
+      effects.push(mk('onDeclare','flipHpRisk',{heal:10,damage:10,healChance:0.5}));
     }else if(card.effect==='sun_revive'){
       if(card.discardPolicy!=='forbidden')
         throw new Error('Passive Sun Charm discard policy mismatch');
