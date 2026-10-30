@@ -443,6 +443,10 @@ function render(){
  const saleValid=selection.size===2&&saleIds.length===2&&
   saleDef?.effects.some(e=>e.when==='onDeclare'&&e.type==='forceSale'&&e.params.kind==='sell');
  const saleGood=catalog.get(cardsById.get(saleIds[1])?.definitionId);
+ const tradeOnly=selection.size===1&&!([...selection][0]||'').startsWith('l:')?
+  catalog.get(cardsById.get([...selection][0])?.definitionId):null;
+ const buyValid=tradeOnly?.effects.some(e=>e.when==='onDeclare'&&e.type==='requestBuy'&&e.params.kind==='buy');
+ const exchangeValid=tradeOnly?.effects.some(e=>e.when==='onDeclare'&&e.type==='reallocateResources'&&e.params.kind==='exchange');
  const mirrorChoice=selection.size===1&&catalog.get(
    cardsById.get(selectedIds[0])?.definitionId)?.effects.some(e=>
     e.when==='onDefense'&&e.type==='redirectAttack'&&
@@ -513,7 +517,28 @@ function render(){
  hand.scrollLeft=scroll;
  const usable=mine&&!busy;
  $('actions').hidden=!(turn||defense);
+ $('buyDecision').hidden=!buyDecision||!mine;
+ const purchaseAllowed=!!buyOffer&&player.money>=buyOffer.price;
+ $('buyNotice').textContent=buyOffer?
+   '価格 ¥'+buyOffer.price+'／手持ち ¥'+player.money+
+   (purchaseAllowed?' · 買う／買わないを選択':' · 貧乏：所持金不足なので買えません'):'';
+ $('buyAccept').disabled=!mine||busy||!purchaseAllowed;
+ $('buyDecline').disabled=!mine||busy;
+ const exchangePanel=$('exchangePanel');
+ exchangePanel.hidden=!turn||!mine||!exchangeValid;
+ if(!exchangePanel.hidden){
+  if(!exchangeDraft)exchangeDraft={hp:player.hp,mp:player.mp,money:player.money};
+  for(const [key,id] of [['hp','exchangeHp'],['mp','exchangeMp'],['money','exchangeMoney']])
+   if(document.activeElement!==$(id))$(id).value=String(exchangeDraft[key]);
+  const total=player.hp+player.mp+player.money;
+  const sum=exchangeDraft.hp+exchangeDraft.mp+exchangeDraft.money;
+  const valid=Number.isSafeInteger(sum)&&sum===total&&exchangeDraft.hp>=1&&
+   ['mp','money'].every(k=>Number.isSafeInteger(exchangeDraft[k])&&exchangeDraft[k]>=0);
+  $('exchangeTotal').textContent='配分合計 '+sum+' / '+total+(valid?' · OK':' · 合計を合わせてください');
+  $('exchange').disabled=!usable||!valid;
+ }
  $('attack').hidden=!turn;$('useItem').hidden=!turn;$('sell').hidden=!turn;
+ $('buy').hidden=!turn;
  $('itemTarget').hidden=!turn||!itemEffect;
  $('itemTarget').textContent='対象：'+(itemTarget==='self'?'自分':'相手');
  $('itemTarget').disabled=!usable;
@@ -525,13 +550,15 @@ function render(){
  const canCastAlone=!learnedAlone||((standalone?.stats.attack??0)>0||
   standalone?.effects.some(e=>e.when==='onDeclare'&&e.type==='inflictDisease'));
  $('attack').disabled=!usable||!selection.size||!canCastAlone||
-  (saleDef?.effects.some(e=>e.when==='onDeclare'&&e.type==='forceSale'));
+  (catalog.get(cardsById.get(selectedIds[0])?.definitionId)?.family==='trade');
  $('useItem').disabled=!usable||!itemEffect;
  $('sell').disabled=!usable||!saleValid;
+ $('buy').disabled=!usable||!buyValid;
  $('discard').disabled=!usable||!selection.size||selectedIds.length!==selection.size;
  $('pray').disabled=!usable||player.hand?.some(c=>catalog.get(c.definitionId)?.family==='weapon');
  $('defend').disabled=!usable||((itemDefense||saleDefense)&&selection.size>0&&!mirrorChoice);
- $('defend').textContent=saleDefense?
+ $('defend').textContent=buyDefense?'購入依頼を通す（反射未対応）':
+  saleDefense?
    (mirrorChoice?'スーパーミラーで反射':'売買を受け入れる'):
   itemDefense?
    (mirrorChoice?'スーパーミラーで反射':'許す（反射なし）'):
