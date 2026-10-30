@@ -141,6 +141,16 @@ export function runEffectQueueFixture(state,catalog,queue,{
      if(before-p.hand.length!==ids.size)fail('Discarded card not in hand');
      forgetDream(p,effect.instanceIds);
      events.push({type:'discard',playerId:p.id,count:ids.size});
+   } else if(effect.type==='forgetLearned'){
+     if(!Array.isArray(effect.definitionIds)||effect.definitionIds.length>2)
+       fail('Invalid Soap learned-miracle IDs');
+     const p=who(s,effect.playerId),ids=new Set(effect.definitionIds);
+     if(ids.size!==effect.definitionIds.length ||
+        effect.definitionIds.some(id=>typeof id!=='string'||
+          !p.learned.includes(id)||catalog.get(id)?.family!=='miracle'))
+       fail('Soap can only forget owned learned miracles');
+     p.learned=p.learned.filter(id=>!ids.has(id));
+     events.push({type:'forgetLearned',playerId:p.id,count:ids.size});
    } else if(effect.type==='sweep'){
      // Unlike voluntary discard, a Broom forcibly sweeps ANY physical
      // artifact (including those with forbidden discard policies). This
