@@ -144,6 +144,11 @@ export function convertLegacyCard(card,{ruleset=PARTIAL_CARD_SOURCE}={}) {
         throw new Error('Invalid source-backed coin-flip HP item');
       modes.push('use');
       effects.push(mk('onDeclare','flipHpRisk',{heal:10,damage:10,healChance:0.5}));
+    }else if(card.effect==='sweep_hand'){
+      if(card.element!=='none'||card.price!==10||card.weight!==1)
+        throw new Error('Invalid source-backed broom item');
+      modes.push('use');
+      effects.push(mk('onDeclare','sweepHand',{count:3}));
     }else if(card.effect==='sun_revive'){
       if(card.discardPolicy!=='forbidden')
         throw new Error('Passive Sun Charm discard policy mismatch');
