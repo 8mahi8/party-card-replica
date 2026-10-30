@@ -21,6 +21,7 @@ const MAX_PLAYERS=9;
 const MAX_HAND=18;
 const ALLOWED_KEYS={
   pray:new Set(['commandId','expectedRevision','actorId','type']),
+  useItem:new Set(['commandId','expectedRevision','actorId','type','instanceId']),
   discard:new Set(['commandId','expectedRevision','actorId','type','orderedInstanceIds']),
   declareSale:new Set(['commandId','expectedRevision','actorId','type','targetId','saleInstanceId','soldInstanceId']),
   respondSale:new Set(['commandId','expectedRevision','actorId','type','mirrorInstanceId']),
@@ -234,7 +235,19 @@ export function applyStagingCommand(state,command,catalog,{authorizedSeatId}={})
   let pending;
   let phase;
   let activePlayerId;
-  if(command.type==='exchange'){
+  if(command.type==='useItem'){
+    if(state.phase!=='turn'||actor.hp<=0)
+      throw new Error('Recovery items may only be used during a living turn');
+    id(command.instanceId,'recovery item instance ID');
+    const physical=actor.hand.find(card=>card.instanceId===command.instanceId);
+    const def=catalog.get(physical?.definitionId);
+    if(!physical||def?.family!=='item'||!def.playModes.includes('use')||
+      def.effects.length!==1||
+      !def.effects.some(e=>e.when==='onDeclare'&&e.type==='restoreResource'))
+      throw new Error('Only a plain owned recovery item may be used');
+    pending={type:'useItem',originalAttackerId:actor.id,instanceId:physical.instanceId};
+    phase='resolving';activePlayerId=null;
+  } else if(command.type==='exchange'){
     if(state.phase!=='turn'||actor.hp<=0)
       throw new Error('Exchange only during a living turn');
     id(command.exchangeInstanceId,'Exchange card ID');
