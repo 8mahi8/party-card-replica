@@ -100,6 +100,7 @@ main{padding:0 6px 8px}.brandline{margin:0 -6px}
 <option value="recovery">HP・MP回復と反撃</option>
 <option value="support">相手への回復と反射</option>
 <option value="broom">夜空のホウキ・手札除去</option>
+<option value="soap">女神の石けん・奇跡を忘れる</option>
 <option value="tear">ドキドキ涙・運試し</option>
 </select></div>
 <p id="presetNotice">原作の山札ではありません。選択した4枚セットで効果を試します。</p>
@@ -115,7 +116,7 @@ main{padding:0 6px 8px}.brandline{margin:0 -6px}
 <div id="scores" class="scores" aria-label="プレイヤーのHP・MP・所持金"></div>
 <div class="arena">
 <div class="selected-tray"><header>選択中の神器 · タップ順</header><div id="selectionPreview"><span class="empty">カードをタップして選択</span></div><div id="selectionTotal" aria-live="polite"></div></div>
-<div class="phase-area"><div id="phase"></div><div id="combatRoute"></div><div id="incomingAttack" aria-live="polite" hidden></div><div id="battleHint">手札の神器をタップ</div></div>
+<div class="phase-area"><div id="phase"></div><div id="combatRoute"></div><div id="incomingAttack" aria-live="polite" hidden></div><div id="battleHint">手札の神器をタップ</div><div id="learnedMiracles" aria-live="polite"></div></div>
 </div>
 <div id="actions" hidden>
 <button id="attack" class="primary">攻撃する</button>
@@ -173,6 +174,12 @@ const LAB_PRESETS=Object.freeze({
   A:Object.freeze(['i014','w016','d003','i006']),
   B:Object.freeze(['i002','w027','d003','i005'])
  }),
+ soap:Object.freeze({
+  A:Object.freeze(['i015','w016','d003','i006']),
+  B:Object.freeze(['i002','w027','d003','i005']),
+  learnedA:Object.freeze(['m008','m009','m010']),
+  learnedB:Object.freeze(['m005','m008','m009'])
+ }),
  tear:Object.freeze({
   A:Object.freeze(['i013','i005','w016','d003']),
   B:Object.freeze(['i013','w027','d003','i002'])
@@ -224,6 +231,9 @@ function render(){
  const active=view.activePlayerId===seat,turn=view.phase==='turn',
   itemDefense=view.phase==='itemDefense',defense=view.phase==='defense'||itemDefense;
  const player=view.players.find(p=>p.id===seat);
+ $('learnedMiracles').textContent=player.learned?.length?
+  '習得した奇跡：'+player.learned.map(id=>names.get(id)||id).join(' · '):
+  '習得した奇跡：なし';
  const stats=$('scores');
  stats.replaceChildren();
  for(const p of view.players){
@@ -300,7 +310,7 @@ function render(){
  // reflections, multi-hits and special effects belong to the battle engine.
  const selectedIds=[...selection],itemEffect=selectedIds.length===1?
    catalog.get(cardsById.get(selectedIds[0])?.definitionId)?.effects.find(
-    e=>e.when==='onDeclare'&&['restoreResource','flipHpRisk','sweepHand'].includes(e.type)):null;
+    e=>e.when==='onDeclare'&&['restoreResource','flipHpRisk','sweepHand','forgetLearned'].includes(e.type)):null;
  const mirrorChoice=selectedIds.length===1&&catalog.get(
    cardsById.get(selectedIds[0])?.definitionId)?.effects.some(e=>
     e.when==='onDefense'&&e.type==='redirectAttack'&&
@@ -308,7 +318,8 @@ function render(){
  $('selectionTotal').textContent=itemDefense?
    (mirrorChoice?'スーパーミラーで雑貨を反射':'許す／スーパーミラーを選択'):
    itemEffect?
-   (itemEffect.type==='sweepHand'?'対象の神器を無作為に最大3枚除去':
+   (itemEffect.type==='forgetLearned'?'対象の習得済み奇跡を無作為に最大2つ忘れさせる':
+    itemEffect.type==='sweepHand'?'対象の神器を無作為に最大3枚除去':
     itemEffect.type==='flipHpRisk'?'HP+10 / 10ダメージ（各50%）':
     (itemEffect.params.resource==='hp'?'HP':'MP')+'+'+itemEffect.params.amount+'（最大99）'):
    index?'カード記載値の合計（参考） · '+(defense?'守 '+guardSum:'攻 '+attackSum)+
@@ -329,9 +340,10 @@ function render(){
   const label=document.createElement('span');label.className='cardname';
   label.textContent=name;
   const stat=document.createElement('span');stat.className='cardstats';
-  const restored=def?.effects.find(e=>['restoreResource','flipHpRisk','sweepHand'].includes(e.type));
+  const restored=def?.effects.find(e=>['restoreResource','flipHpRisk','sweepHand','forgetLearned'].includes(e.type));
   stat.textContent=restored?
-   (restored.type==='sweepHand'?'神器を3枚除去':
+   (restored.type==='forgetLearned'?'習得奇跡を2つ消す':
+    restored.type==='sweepHand'?'神器を3枚除去':
     restored.type==='flipHpRisk'?'HP±10（50%）':
     (restored.params.resource==='hp'?'HP':'MP')+'+'+restored.params.amount):
    [stats.attack?'攻'+stats.attack:'',
@@ -349,7 +361,7 @@ function render(){
    if(selection.has(c.instanceId))selection.delete(c.instanceId);
    else {
     selection.add(c.instanceId);
-    if(def?.effects.some(e=>e.type==='sweepHand'))itemTarget='other';
+    if(def?.effects.some(e=>['sweepHand','forgetLearned'].includes(e.type)))itemTarget='other';
    }
    render();
   });
@@ -384,7 +396,7 @@ async function send(type){
   command.instanceId=ids[0];
   const effect=catalog.get(view.players.find(p=>p.id===seat)?.hand?.find(c=>
     c.instanceId===ids[0])?.definitionId)?.effects.find(e=>
-     ['restoreResource','flipHpRisk','sweepHand'].includes(e.type));
+     ['restoreResource','flipHpRisk','sweepHand','forgetLearned'].includes(e.type));
   if(effect)command.targetId=itemTarget==='self'?seat:(seat==='A'?'B':'A');
  }
  if(effectiveType==='respondItem'&&ids.length)command.mirrorInstanceId=ids[0];
@@ -425,6 +437,15 @@ $('create').addEventListener('click',async()=>{
    seats:[{id:'A',handDefinitionIds:[...preset.A]},
     {id:'B',handDefinitionIds:[...preset.B]}],
    rulesetId:'partial-reference-v2-lab',rngSeed:71},catalog);
+  // Host-owned fixed lab data, never accepted from a guest command.
+  for(const [index,ids] of [[0,preset.learnedA],[1,preset.learnedB]]){
+   if(ids!==undefined){
+    if(ids.length>6||new Set(ids).size!==ids.length||
+      ids.some(id=>catalog.get(id)?.family!=='miracle'))
+     throw Error('研究用習得済み奇跡の定義が不正です');
+    initialState.players[index].learned=[...ids];
+   }
+  }
   for(let i=0;i<5;i++){
    try{
     const roomCode=code();
