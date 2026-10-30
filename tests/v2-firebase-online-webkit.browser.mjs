@@ -581,8 +581,8 @@ try{
     },{mirror,i},{timeout:15000})));
    check((await attacker.locator('#phase').textContent()).includes('あなたの攻撃'),
     'Soap does not consume the original attack opportunity');
-   check((await defender.locator('#hand button').nth(1).textContent()).includes(''),
-    'physical hand cards are unaffected by learned-miracle removal');
+   check((await defender.locator('#hand button').count())===4,
+    'Soap never discards physical hand cards (Mirror gets one replacement)');
   }finally{await attacker.close();await defender.close();}
  }
  await goddessSoapTrial(false);
