@@ -201,6 +201,8 @@ export const VERIFIED_BASIC_CARDS = Object.freeze([
   Object.freeze({id:'i014',referenceName:'夜空のホウキ',kind:'support_item',category:'item',element:'none',effect:'sweep_hand',price:10,weight:1}),
   // Piong (2026-10-24), GFGA, Macaron (2026): randomly forget up to 2 already-learned miracles.
   Object.freeze({id:'i015',referenceName:'女神の石けん',kind:'support_item',category:'item',element:'none',effect:'forget_learned',price:10,weight:1}),
+  // Piong 2026-10-24: 0.2%, ¥20, MP+20 and heaven disease exposure.
+  Object.freeze({id:'i016',referenceName:'天国草',kind:'support_item',category:'item',element:'none',effect:'heaven_herb',restoreAmount:20,price:20,weight:1}),
   Object.freeze({id:'i003',referenceName:'精霊のぬいぐるみ',kind:'support_item',category:'item',element:'none',effect:'free_previous_miracle',price:5,weight:2}),
   Object.freeze({id:'i004',referenceName:'ちからの粉',kind:'support_item',category:'item',element:'none',effect:'add_attack',attackBonus:10,price:15,weight:2}),
   // Passive: held charm consumes ONE instance at HP0, revives at HP10.
