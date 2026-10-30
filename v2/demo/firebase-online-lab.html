@@ -118,6 +118,7 @@ main{padding:0 6px 8px}.brandline{margin:0 -6px}
 <div id="actions" hidden>
 <button id="attack" class="primary">攻撃する</button>
 <button id="useItem">雑貨を使う</button>
+<button id="itemTarget" type="button" hidden>対象：自分</button>
 <button id="defend" class="primary">防御する／許す</button>
 <button id="pray">祈る</button>
 <button id="discard">捨てる</button>
@@ -168,7 +169,7 @@ const LAB_PRESETS=Object.freeze({
  })
 });
 const url='https://mygame-df915-default-rtdb.firebaseio.com/';
-let db=null,session=null,view=null,seat=null,joined=false,waiting=false,selection=new Set(),lastRevision=-1,pendingId=null,pendingCommand=null,retrying=false;
+let db=null,session=null,view=null,seat=null,joined=false,waiting=false,selection=new Set(),lastRevision=-1,pendingId=null,pendingCommand=null,retrying=false,itemTarget="self";
 const randomId=()=>{const a=new Uint32Array(2);crypto.getRandomValues(a);return Array.from(a,x=>x.toString(36)).join('-');};
 const code=()=>{const a=new Uint32Array(1);crypto.getRandomValues(a);return String(10000+a[0]%90000);};
 const feedback=s=>{$('status').textContent=String(s);};
@@ -184,7 +185,7 @@ function callbacks(){
  return {
   onView(next){
    if(!next)return;
-   if(next.revision!==lastRevision){selection.clear();lastRevision=next.revision;}
+   if(next.revision!==lastRevision){selection.clear();itemTarget='self';lastRevision=next.revision;}
    view=next;render();
   },
   onStatus(info){
@@ -211,7 +212,7 @@ function render(){
  if(!session)return;
  if(!view){feedback('相手の画面情報を読み込んでいます');return}
  const active=view.activePlayerId===seat,turn=view.phase==='turn',
-  defense=view.phase==='defense';
+  itemDefense=view.phase==='itemDefense',defense=view.phase==='defense'||itemDefense;
  const player=view.players.find(p=>p.id===seat);
  const stats=$('scores');
  stats.replaceChildren();
@@ -238,21 +239,27 @@ function render(){
  }
  const mine=active&&(seat!=='A'||joined),busy=waiting;
  $('phase').textContent=view.phase==='finished'?'対戦終了':
+  itemDefense?(mine?'雑貨への対応':'相手の対応待ち'):
   defense?(mine?'あなたの防御':'相手の防御待ち'):
   turn?(mine?'あなたの攻撃':'相手の攻撃待ち'):'処理中…';
  $('battleHint').textContent=busy?'操作結果を待っています':
+  itemDefense?(mine?'スーパーミラーで反射、または許す':'相手の選択を待っています'):
   defense?(mine?'防具を選ぶか、「許す」':'相手の選択を待っています'):
   turn?(mine?'神器を選び、攻撃を確定':'相手の操作を待っています'):
   '試合結果を確認してください';
  const selected=player.hand||[];
- const route=view.pending?.type==='attack'?
+ const route=['attack','useItem'].includes(view.pending?.type)?
   {source:view.pending.sourceId,target:view.pending.targetId}:
   turn?{source:view.activePlayerId,target:view.players.find(p=>p.id!==view.activePlayerId)?.id}:null;
  $('combatRoute').textContent=route?.source&&route?.target?
-  '攻撃対象  '+showSeatLabel(route.source)+' → '+showSeatLabel(route.target):'';
- const announced=defense?view.pending?.declaredAttack:null;
- $('incomingAttack').hidden=!announced?.cards?.length;
- $('incomingAttack').textContent=announced?.cards?.length?
+  '対象  '+showSeatLabel(route.source)+' → '+showSeatLabel(route.target):'';
+ const announced=view.phase==='defense'?view.pending?.declaredAttack:null;
+ const announcedItem=itemDefense?view.pending?.declaredItem:null;
+ $('incomingAttack').hidden=!announced?.cards?.length&&!announcedItem?.definitionId;
+ $('incomingAttack').textContent=announcedItem?.definitionId?
+   '相手の雑貨：'+(names.get(announcedItem.definitionId)||announcedItem.definitionId)+
+   ' ／ スーパーミラーのみ対応可能':
+   announced?.cards?.length?
    '相手の攻撃：'+announced.cards.map(c=>names.get(c.definitionId)||c.definitionId).join(' ＋ ')+
    ' ／ 攻'+announced.printedAttackTotal+'（記載値）':'';
  $('handCount').textContent=selected.length+'枚 / 横にスライド';
@@ -284,7 +291,13 @@ function render(){
  const selectedIds=[...selection],itemEffect=selectedIds.length===1?
    catalog.get(cardsById.get(selectedIds[0])?.definitionId)?.effects.find(
     e=>e.when==='onDeclare'&&['restoreResource','flipHpRisk'].includes(e.type)):null;
- $('selectionTotal').textContent=itemEffect?
+ const mirrorChoice=selectedIds.length===1&&catalog.get(
+   cardsById.get(selectedIds[0])?.definitionId)?.effects.some(e=>
+    e.when==='onDefense'&&e.type==='redirectAttack'&&
+    e.params.mode==='reflect'&&e.params.scope==='any');
+ $('selectionTotal').textContent=itemDefense?
+   (mirrorChoice?'スーパーミラーで雑貨を反射':'許す／スーパーミラーを選択'):
+   itemEffect?
    (itemEffect.type==='flipHpRisk'?'HP+10 / 10ダメージ（各50%）':
     (itemEffect.params.resource==='hp'?'HP':'MP')+'+'+itemEffect.params.amount+'（最大99）'):
    index?'カード記載値の合計（参考） · '+(defense?'守 '+guardSum:'攻 '+attackSum)+
@@ -317,7 +330,9 @@ function render(){
   btn.append(art,label,stat,price);
   btn.setAttribute('aria-label',name+' '+stat.textContent);
   btn.setAttribute('aria-pressed',String(picked));
-  btn.disabled=!active||waiting;
+  btn.disabled=!active||waiting||(itemDefense&&!def?.effects.some(e=>
+    e.when==='onDefense'&&e.type==='redirectAttack'&&
+    e.params.mode==='reflect'&&e.params.scope==='any'));
   btn.addEventListener('click',()=>{
    if(selection.has(c.instanceId))selection.delete(c.instanceId);
    else selection.add(c.instanceId);
@@ -329,22 +344,34 @@ function render(){
  const usable=mine&&!busy;
  $('actions').hidden=!(turn||defense);
  $('attack').hidden=!turn;$('useItem').hidden=!turn;
+ $('itemTarget').hidden=!turn||itemEffect?.type!=='flipHpRisk';
+ $('itemTarget').textContent='対象：'+(itemTarget==='self'?'自分':'相手');
+ $('itemTarget').disabled=!usable;
  $('pray').hidden=!turn;$('discard').hidden=!turn;
  $('defend').hidden=!defense;
  $('attack').disabled=!usable||!selection.size;
  $('useItem').disabled=!usable||!itemEffect;
  $('discard').disabled=!usable||!selection.size;
  $('pray').disabled=!usable||player.hand?.some(c=>catalog.get(c.definitionId)?.family==='weapon');
- $('defend').disabled=!usable;
- $('defend').textContent=selection.size?'防御する':'許す（防御なし）';
+ $('defend').disabled=!usable||(itemDefense&&selection.size>0&&!mirrorChoice);
+ $('defend').textContent=itemDefense?
+   (mirrorChoice?'スーパーミラーで反射':'許す（反射なし）'):
+   selection.size?'防御する':'許す（防御なし）';
  if(seat==='A'&&!joined)feedback('相手が5桁のルーム番号で参加するのを待っています');
 }
 async function send(type){
  if(!session||!view||waiting||view.activePlayerId!==seat||seat==='A'&&!joined)return;
  const ids=[...selection];
- const command={commandId:randomId(),expectedRevision:view.revision,actorId:seat,type};
+ const effectiveType=type==='defend'&&view.phase==='itemDefense'?'respondItem':type;
+ const command={commandId:randomId(),expectedRevision:view.revision,actorId:seat,type:effectiveType};
  if(type==='playCards'||type==='defend'||type==='discard')command.orderedInstanceIds=ids;
- if(type==='useItem')command.instanceId=ids[0];
+ if(type==='useItem'){
+  command.instanceId=ids[0];
+  const effect=catalog.get(view.players.find(p=>p.id===seat)?.hand?.find(c=>
+    c.instanceId===ids[0])?.definitionId)?.effects.find(e=>e.type==='flipHpRisk');
+  if(effect)command.targetId=itemTarget==='self'?seat:(seat==='A'?'B':'A');
+ }
+ if(effectiveType==='respondItem'&&ids.length)command.mirrorInstanceId=ids[0];
  if(type==='playCards')command.targetId=seat==='A'?'B':'A';
  waiting=true;pendingId=command.commandId;pendingCommand=command;
  feedback('操作を送信しています…');render();
@@ -413,6 +440,7 @@ $('join').addEventListener('click',async()=>{
 $('retry').addEventListener('click',retryPending);
 $('attack').addEventListener('click',()=>send('playCards'));
 $('useItem').addEventListener('click',()=>send('useItem'));
+$('itemTarget').addEventListener('click',()=>{itemTarget=itemTarget==='self'?'other':'self';render();});
 $('defend').addEventListener('click',()=>send('defend'));
 $('pray').addEventListener('click',()=>send('pray'));
 $('discard').addEventListener('click',()=>send('discard'));
