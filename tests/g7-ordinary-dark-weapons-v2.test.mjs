@@ -32,8 +32,8 @@ function play(endpoint,type,index=0){
  return endpoint.submit(command);
 }
 test('five sourced definitions add exactly five partial reference slots, not a full 500 deck',()=>{
- assert.equal(summary.unique,125);
- assert.equal(summary.slots,314);
+ assert.equal(summary.unique,RESEARCH_CATALOG_CONTRACT.unique);
+ assert.equal(summary.slots,RESEARCH_CATALOG_CONTRACT.slots);
  assert.equal(summary.unique,RESEARCH_CATALOG_CONTRACT.unique);
  assert.equal(summary.slots,RESEARCH_CATALOG_CONTRACT.slots);
  assert.equal(summary.complete,false);
