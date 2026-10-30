@@ -185,6 +185,16 @@ export const VERIFIED_BASIC_CARDS = Object.freeze([
   Object.freeze({id:'m009',referenceName:'大木',kind:'miracle',role:'attack',category:'miracle',element:'wood',attack:6,mpCost:3,price:0,weight:1}),
   Object.freeze({id:'m010',referenceName:'岩',kind:'miracle',role:'attack',category:'miracle',element:'earth',attack:8,mpCost:4,price:0,weight:1}),
   Object.freeze({id:'m011',referenceName:'滝',kind:'miracle',role:'attack',category:'miracle',element:'water',attack:25,mpCost:12,price:0,weight:1}),
+  // Source: Piong other artifacts (updated 2026-10-24), GFGA 2024,
+  // Macaron 2026. Only plain HP/MP recovery, no status-creating herbs.
+  // Weight 12/8/4/1 means 2.4/1.6/0.8/0.2% of 500.
+  Object.freeze({id:'i006',referenceName:'スマイルのしずく',kind:'support_item',category:'item',element:'none',effect:'restore_hp',restoreAmount:5,price:1,weight:12}),
+  Object.freeze({id:'i007',referenceName:'ハートのしずく',kind:'support_item',category:'item',element:'none',effect:'restore_hp',restoreAmount:10,price:3,weight:8}),
+  Object.freeze({id:'i008',referenceName:'ロマンスウォーター',kind:'support_item',category:'item',element:'none',effect:'restore_hp',restoreAmount:15,price:5,weight:4}),
+  Object.freeze({id:'i009',referenceName:'天の川のおいしい水',kind:'support_item',category:'item',element:'none',effect:'restore_hp',restoreAmount:20,price:20,weight:1}),
+  Object.freeze({id:'i010',referenceName:'スマイルの花',kind:'support_item',category:'item',element:'none',effect:'restore_mp',restoreAmount:5,price:1,weight:12}),
+  Object.freeze({id:'i011',referenceName:'ハートの花',kind:'support_item',category:'item',element:'none',effect:'restore_mp',restoreAmount:10,price:3,weight:8}),
+  Object.freeze({id:'i012',referenceName:'ロマンスの香木',kind:'support_item',category:'item',element:'none',effect:'restore_mp',restoreAmount:15,price:5,weight:4}),
   Object.freeze({id:'i003',referenceName:'精霊のぬいぐるみ',kind:'support_item',category:'item',element:'none',effect:'free_previous_miracle',price:5,weight:2}),
   Object.freeze({id:'i004',referenceName:'ちからの粉',kind:'support_item',category:'item',element:'none',effect:'add_attack',attackBonus:10,price:15,weight:2}),
   // Passive: held charm consumes ONE instance at HP0, revives at HP10.
