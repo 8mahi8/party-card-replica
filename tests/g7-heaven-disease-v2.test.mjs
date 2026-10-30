@@ -48,7 +48,7 @@ test('Heaven Grass: MP+20, Heaven Disease, price20, 0.2%, deck stays partial',()
  const def=catalog.get('i016');
  assert.deepEqual(def.playModes,['use']);
  assert.deepEqual(def.effects,[{when:'onDeclare',type:'heavenHerb',params:{mp:20,disease:'heaven'}}]);
- assert.deepEqual([summary.unique,summary.slots,summary.complete],[172,433,false]);
+ assert.deepEqual([summary.unique,summary.slots,summary.complete],[174,435,false]);
  assert.equal(RESEARCH_CATALOG_CONTRACT.unique,summary.unique);
  assert.equal(RESEARCH_CATALOG_CONTRACT.slots,summary.slots);
  assert.throws(()=>convertLegacyCard({...c,price:10}),/Invalid source-backed heaven grass/);
