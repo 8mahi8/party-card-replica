@@ -5,6 +5,15 @@
 
 > **この文書は引き継ぎ入口であり、実装の真実は常に開発ブランチの最新コードとGitHub Actions。** コミットSHA・テスト件数・カード数は作業のたびに変わる。本文の日付や数値を確認せず永久に正しいと扱わないこと。
 
+## 2026-10-30 G7｜天国草・病系4段階のターン終了エンジン【最新・実Firebase成功】
+
+- **原作照合**：[Piongその他神器（2026-10-24）](https://w.atwiki.jp/piong/pages/19.html)・[まかろん神器表](https://macarongamemo.com/entry/godfield-artifact)により**天国草=¥20/0.2%（1/500）/MP+20と天国病**。[Piong災い一覧](https://w.atwiki.jp/piong/pages/23.html)・[初心者向けルール](https://godfield-beginner.game-info.wiki/)により病4段階は風邪(-HP1)→熱病(-HP2)→地獄病(-HP5)→天国病(+HP5)、所有者のターン終了時に5%で次段階へ悪化（天国病なら発作でHP0）。追加の病付与でも悪化し、太陽のお守り復活では病が残る。原作ゲームでの直接実機確認は未実施。厳密な演出/HP変化と5%抽選順は出典を踏まえて実装し、今後現行原作で直接照合する。
+- **設計・コード**：`src/verified-basic-cards.mjs`に `i016` 天国草、`v2/foundation.mjs`＋`v2/legacy-adapter.mjs`に `heavenHerb({mp:20,disease:'heaven'})`。新しい `v2/disease-rules.mjs` は**病系4つだけ**の純粋な付与/ターン終了計算。`v2/staging-room.mjs` の `player.disease` は一般公開情報（他席の手札/習得奇跡は引き続き秘匿）。`v2/room-transition.mjs` は既存の雑貨指定とスーパーミラー判定後にMP+20と病を付与。`v2/effect-runner.mjs` の `advanceSettled` で病の持ち主がターンを終えたときだけHPの増減・5%進行。既存ゼロHP/太陽のお守りを流用、復活時も病は持続。未感染者は病判定乱数を消費しない。霧/夢/閃光などは今回未対象。
+- **UI・ビルド**：オンライン固定研究セットは**9つ目の`heaven`**（天国草・スーパーミラー、seed12345で初回の偶然発作を回避）。画面のHP/MPに`災い：天国病`等を表示。`v2/demo/bundle-modules.mjs`へ新規依存を登録し、旧/V2オフライン/V2オンライン単体HTML3本を開発ブランチへ再生成。生成ワークフローは一時PR起動後に**元の手動専用へ復帰**。研究台帳は**166種類・411/500参考枠、`complete:false`**、本家正規抽選無効。
+- **検証**：`tests/g7-heaven-disease-v2.test.mjs` 12件追加、Node **984/984 PASS** [run 41063205774](https://github.com/8mahi8/party-card-replica/actions/runs/41063205774)、Chromium **PASS** [run 41063205751](https://github.com/8mahi8/party-card-replica/actions/runs/41063205751)、WebKit 2席オンライン **132/132 PASS**＋既存画面 **339/339 PASS** [run 41063205454](https://github.com/8mahi8/party-card-replica/actions/runs/41063205454)。`tests/v2-g6-live-firebase.browser.mjs` で新しい `G7_LIVE_HEAVEN_PASS_SUCCESS` と `G7_LIVE_HEAVEN_MIRROR_SUCCESS` を実RTDBでも確認 [run 41063614609](https://github.com/8mahi8/party-card-replica/actions/runs/41063614609)。従来の8シナリオ＋天国草2シナリオの**計10ルーム全削除成功**。初回実RTDB試験の失敗はnull diseaseプロパティが省略されたケースをテストが誤判定したため。nullish対応に修正・再実行成功。live workflowは**手動専用へ復帰**。
+- **詳細資料**：[V2_G7_HEAVEN_GRASS_DISEASE_2026-10-30.md](docs/V2_G7_HEAVEN_GRASS_DISEASE_2026-10-30.md)。学校iPad Safari＋Google Sitesの実機は**未検証**。学校版直接埋込HTML、GitHub main、Firebase Security Rules/認証は変更なし。
+- **次工程**：原作にあるスマイル／ハートの貝がらや病を付与する他神器を、現在の病状態を活かしながら順次再現。霧・閃光・夢・暗雲は病系と効果が違うので、別途原作照合・UI設計してから着手。実機試遊とゲームUI品質も今後重点確認。
+
 ## 2026-10-30 G7｜女神の石けん・習得済み奇跡2つ忘却【最新・実Firebase成功】
 
 - **原作照合**：[Piong 2026-10-24 その他神器](https://w.atwiki.jp/piong/pages/19.html)、[GFGA](https://w.atwiki.jp/gfplusa/pages/18.html)、[まかろん2026](https://macarongamemo.com/entry/godfield-artifact)：**女神の石けん = ¥10・0.2%（1/500）・対象の習得済み奇跡を無作為に2つ忘れさせる**。[2023年原作論評](https://idea427.hatenablog.com/entry/2023/07/31/192159)：未使用の物理手札にある奇跡は消えない。[Piong守護神](https://w.atwiki.jp/piong/pages/27.html)：奇跡を1つも習得していない相手も指定可能。[2025年スーパーミラー検証](https://kankurou53.hatenablog.com/entry/2025/07/19/165703)：相手への石けんは反射可能。2013年の1つ忘却という旧情報ではなく現行の2つを採用。原作ゲームでの直接実機検証は未実施。
