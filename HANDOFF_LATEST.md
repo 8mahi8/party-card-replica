@@ -5,6 +5,16 @@
 
 > **この文書は引き継ぎ入口であり、実装の真実は常に開発ブランチの最新コードとGitHub Actions。** コミットSHA・テスト件数・カード数は作業のたびに変わる。本文の日付や数値を確認せず永久に正しいと扱わないこと。
 
+## 2026-10-30 G7｜4種の病付与武器・実ダメージ後の感染【最新・実Firebase成功】
+
+- **原作資料**：[2026年神器一覧](https://macarongamemo.com/entry/godfield-artifact)、[Piong災い一覧](https://w.atwiki.jp/piong/pages/23.html)、[風邪の進行の解説](https://note.com/hantama_dm/n/n8f690316f015)。**疾風剣**（攻9/¥10/0.2%）・**激烈疾風剣**（攻13/¥15/0.2%）は命中してHPダメージが通れば風邪。**風のカギ爪**（土属性・攻1/¥10/0.2%）は風邪。**地獄のハサミ**（攻8/¥15/0.2%）は地獄病。いずれもダメージ0なら病付与なし。既存の病に追加感染すると病の強さにかかわらずちょうど1段階悪化。天国病へ追撃すると発作。原作本体の特殊な死亡と復活の演出順は直接実測していない。
+- **コード**：`src/verified-basic-cards.mjs`に`w056`〜`w059`。既存データfactoryに`diseaseOnHit`、`v2/legacy-adapter.mjs`＋`v2/foundation.mjs`に`afterHit:inflictDisease({disease:'cold'|'hell'})`。`v2/ordered-attack.mjs`は不変な`attackContext.diseaseOnHit`を作り、`v2/basic-resolution.mjs`はHPダメージが実際に通った場合のみ感染命令を`hit`の直後に生成。`v2/effect-runner.mjs`は攻撃ソースと命中結果を検証し、既存`planDiseaseExposure(previous,incoming)`で病を付ける。**反射後は最終被弾者が感染**し、持ち主のターン終了時に既存病効果が適用される。天国病でさらに感染した場合の太陽のお守り復活は既存共通処理を利用。未照合の複雑な奇跡/武器同時選択との相互作用は無理に実装せず研究版で制限。
+- **UI・参考カード**：`v2/demo/firebase-online-lab.html`に11種目の研究セット`illnessAttack`。風邪・地獄病武器、相手の強い防具とスーパーミラー、治療用貝がらを固定手札として試せる。旧/V2オフライン/V2オンラインの単体HTML3本を開発ブランチで再生成。カード研究台帳は**172種類・433/500参考枠、`complete:false`**（正規353種/500枠の山札は未完成・本番抽選は無効）。
+- **検証成功**：追加`tests/g7-disease-on-hit-weapons-v2.test.mjs`で4武器値・属性・盾0/部分ダメージ・反射・重複感染・天国病発作・太陽のお守り復帰等11件。Node **1005/1005 PASS** [run 41070293489](https://github.com/8mahi8/party-card-replica/actions/runs/41070293489)、Chromium **PASS** [run 41070293285](https://github.com/8mahi8/party-card-replica/actions/runs/41070293285)、WebKit 2席タッチ **168/168 PASS**＋固定画面 **339/339 PASS** [run 41070397615](https://github.com/8mahi8/party-card-replica/actions/runs/41070397615)。
+- **実Firebaseも18ケース成功**：[run 41070847262](https://github.com/8mahi8/party-card-replica/actions/runs/41070847262)で従来14試験＋`G7_LIVE_DISEASE_WEAPON_COLD_SUCCESS`、`G7_LIVE_DISEASE_WEAPON_BLOCKED_SUCCESS`、`G7_LIVE_DISEASE_WEAPON_REFLECT_SUCCESS`、`G7_LIVE_DISEASE_WEAPON_HELL_SUCCESS`。18独立ルームを所有ホストID照合後**18件すべて削除成功**。失敗した最初の試験ではゲームの感染と同期は正常だったが、参加によって増えるrevisionをテストが数え落としたため、両席revision一致と防御前より増えていることを確認する方式へ修正・再試験成功。ライブ/単体HTML生成ワークフローは元の手動専用に戻した。
+- **詳細**：[V2_G7_DISEASE_WEAPONS_2026-10-30.md](docs/V2_G7_DISEASE_WEAPONS_2026-10-30.md)。学校iPad Safari＋Google Sites直貼りの実機試験は**未実施**。学校埋め込みHTML、GitHub main、Firebase Security Rules、認証方式は未変更。現状のG7は**研究・原作再現基盤フェーズ**で、完全に遊べる本家再現ゲームではない。
+- **次工程**：今回の風邪・地獄病命中→スマイル／ハートの貝がら治療の1試合シナリオをさらに自動・実機で確認。独立した奇跡〈風〉〈天国風〉を原作資料で調べ、攻撃の防御・反射とMP消費の順序を確定してから実装する。霧/夢/閃光/暗雲は別仕様として保留。
+
 ## 2026-10-30 G7｜貝がら2種・病系治療の範囲分岐【最新・実Firebase成功】
 
 - **原作照合**：[Piong神器一覧](https://w.atwiki.jp/piong/pages/19.html)、[Piong災い一覧](https://w.atwiki.jp/piong/pages/23.html)、[まかろん2026神器表](https://macarongamemo.com/entry/godfield-artifact)：**スマイルの貝がら=¥5・2.4%（12/500）・風邪/熱病/霧/閃光を払う**、**ハートの貝がら=¥15・1.2%（6/500）・あらゆる災いを払う**。スマイルは地獄病・天国病・夢・暗雲を治療できない。原作本体での直接演出は未実測（外部資料による照合）。
