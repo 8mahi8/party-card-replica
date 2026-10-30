@@ -10,7 +10,7 @@
 - **実装**：実装済みの`declareSale`→`tradeDefense`→`respondSale`と`staged-sale.mjs`をオンライン研究UIに接続。「売る」を選んだ後に売る神器を選んで専用ボタンで宣言。相手は商品名・参照価格を確認して受け入れるかスーパーミラー1枚で反射。通常防具と習得済み奇跡の取引防御は拒否。既存の戦闘ルール、資源徴収・カード移動・座席別情報分離は変更なし。
 - **研究セット**：16番目の`sale`セットを追加（A：「売る」t001／金のこん棒w003・¥25など、B：スーパーミラーi002など）。原作正規山札ではない。研究カードは前回と同じ**174種類・435/500参考枠、`complete:false`**。研究用固定補充のまま。
 - **研究根拠**：2026年の原作・プレイヤー攻略資料を再確認。金→MP→HPの支払い、スーパー・ミラーのみ対取引反射。**致死売却、連続反射、18枚・自己売却の細部は本家現行直接確認がなく既存エンジンの未対応を維持**。
-- **検証**：Node **1028/1028 PASS** [run 41088807761](https://github.com/8mahi8/party-card-replica/actions/runs/41088807761)、Chromium **PASS** [run 41088807932](https://github.com/8mahi8/party-card-replica/actions/runs/41088807932)。WebKit2画面模擬Firebaseに売却受入・1回反射のタップ試験を追加し、最終全体結果はGitHub Actions最新HEADを確認すること。オンライン単体HTMLを再生成・コミットして、ビルドworkflowは**手動専用に復帰**。
+- **検証**：Node **1028/1028 PASS** [run 41088807761](https://github.com/8mahi8/party-card-replica/actions/runs/41088807761)、Chromium **PASS** [run 41088807932](https://github.com/8mahi8/party-card-replica/actions/runs/41088807932)。WebKit2画面模擬Firebaseは[run 41088723615](https://github.com/8mahi8/party-card-replica/actions/runs/41088723615)で**オンライン231/231 PASS、既存画面339/339 PASS**。売却受入・1回反射のタップ操作と価格・MP/¥・移転先の検証を含む。オンライン単体HTMLを再生成・コミットして、ビルドworkflowは**手動専用に復帰**。
 - **詳細**：[V2_G6_ONLINE_SELL_2026-10-31.md](docs/V2_G6_ONLINE_SELL_2026-10-31.md)。学校iPad実機／Google Sites HTML直貼り／今回の新しい売る操作の実Firebaseは**未実施**。学校公開HTML、Firebase Security Rules、認証方式、GitHub mainは未変更。
 - **次工程**：WebKit全体の終了を確認し必要なら失敗修正、iPad Safariで実戦動作を確認。その後「買う」・「両替」の既存研究エンジンとUIへの接続を検討し、推測による未確定原作ルールを追加しない。
 
