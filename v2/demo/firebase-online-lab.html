@@ -368,7 +368,8 @@ async function send(type){
  if(type==='useItem'){
   command.instanceId=ids[0];
   const effect=catalog.get(view.players.find(p=>p.id===seat)?.hand?.find(c=>
-    c.instanceId===ids[0])?.definitionId)?.effects.find(e=>e.type==='flipHpRisk');
+    c.instanceId===ids[0])?.definitionId)?.effects.find(e=>
+     ['restoreResource','flipHpRisk'].includes(e.type));
   if(effect)command.targetId=itemTarget==='self'?seat:(seat==='A'?'B':'A');
  }
  if(effectiveType==='respondItem'&&ids.length)command.mirrorInstanceId=ids[0];
