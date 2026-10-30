@@ -404,6 +404,16 @@ const VERIFIED_BASIC_CARDS = Object.freeze([
   main('w049','リアルゴーストソード',12,15,1,{hpAbsorb:true}),
   // Source: Piong, Macaron (2026), and 2026 Mirage strategy analysis.
   main('w050','のこぶんぶん',3,10,1,{repeatHits:2}),
+  // Source: Piong (2026-03-18), GFGA (2024-06-17), Macaron (2026).
+  // Four normal dark weapons: damage > 0 already resolves instant defeat in
+  // the shared rule engine. Their source draw rate is 0.2%=1/500 EACH.
+  main('w051','コブラ',3,10,1,{element:'dark'}),
+  main('w052','さよならの剣',4,10,1,{element:'dark'}),
+  main('w053','キラーフォーク',5,10,1,{element:'dark'}),
+  main('w054','死神のカマ',10,20,1,{element:'dark'}),
+  // Source: Piong (2026-03-18) and Macaron (2026-02-28).
+  // Ordinary main attack that can also defend for 1.
+  main('w055','伝説の剣のさや',13,3,1,{guard:1}),
   // Source-checked plain weapons (2026-03-18 piong wiki, cross-checked with
   // 2024 GFGA where both agree). No special/condition/status behavior.
   // Preserve main/add factories so later cards need data, not name branches.
