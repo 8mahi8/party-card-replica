@@ -240,6 +240,53 @@ try{
  mkdirSync(ART,{recursive:true});
  await a.screenshot({path:path.join(ART,'firebase-online-webkit-host.png')});
  await b.screenshot({path:path.join(ART,'firebase-online-webkit-guest.png')});
+ // A host can choose a lab preset, and that selected hand must reach
+ // both separate guest/host browser views without leaking any hidden cards.
+ async function trialPreset(preset,weaponName,armorName){
+  const hostPage=await context.newPage(),guestPage=await context.newPage();
+  for(const p of [hostPage,guestPage])
+   p.on('pageerror',error=>errors.push(error.message));
+  try{
+   await hostPage.goto(target);
+   await hostPage.locator('#labPreset').selectOption(preset);
+   check(await hostPage.locator('#labPreset').inputValue()===preset,
+    'host can select fixture '+preset);
+   await hostPage.locator('#create').tap();
+   await hostPage.waitForFunction(()=>/\\b\\d{5}\\b/.test(
+    document.querySelector('#roomLabel')?.textContent||''));
+   const trialCode=(await hostPage.locator('#roomLabel').textContent()).match(/\\d{5}/)[0];
+   await guestPage.goto(target);
+   await guestPage.locator('#joinCode').fill(trialCode);
+   await guestPage.locator('#join').tap();
+   await guestPage.locator('#hand button').first().waitFor();
+   check((await hostPage.locator('#hand button').first().textContent()).includes(weaponName),
+    preset+' has its expected attacking hand');
+   check((await guestPage.locator('#hand button').nth(2).textContent()).includes(armorName),
+    preset+' has its expected defending hand');
+   await hostPage.locator('#hand button').first().tap();
+   await hostPage.waitForFunction(()=>!document.querySelector('#attack')?.disabled);
+   await hostPage.locator('#attack').tap();
+   await guestPage.waitForFunction(()=>document.querySelector('#phase')?.textContent
+    .includes('あなたの防御'));
+   check((await guestPage.locator('#incomingAttack').textContent()).includes(weaponName),
+    preset+' publishes its declared attack to the defending player');
+   await guestPage.locator('#hand button').nth(2).tap();
+   await guestPage.locator('#defend').tap();
+   await guestPage.waitForFunction(()=>document.querySelector('#phase')?.textContent
+    .includes('あなたの攻撃'));
+   check((await guestPage.locator('.score').allTextContents())[1].includes('HP 40'),
+    preset+' matching defense preserves 40 HP');
+   check(await guestPage.evaluate(()=>document.documentElement.scrollWidth<=
+    document.documentElement.clientWidth+2),
+    preset+' still fits the narrow iframe viewport');
+  }finally{
+   await hostPage.close();
+   await guestPage.close();
+  }
+ }
+ await trialPreset('elements','たいまつ','アイスアーマー');
+ await trialPreset('dark','コブラ','はがねのよろい');
+ check(errors.length===0,'all preset trials have no script errors');
  console.log('FIREBASE_ONLINE_WEBKIT_SUCCESS checks='+checks+
   ' two tabs with mock RTDB, viewport=390x430');
 }catch(error){
