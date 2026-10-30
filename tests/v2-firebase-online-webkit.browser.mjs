@@ -742,6 +742,57 @@ try{
   }finally{await a.close();await b.close();}
  }
  for(const mode of ['cold','blocked','reflect','hell'])await diseaseWeaponTrial(mode);
+ // Non-damaging Wind and Heaven Wind MUST retain miracle-specific
+ // MP, learned, Mirror and anti-miracle defense rules on touch WebKit.
+ async function windMiracleTrial(mode){
+  const a=await context.newPage(),b=await context.newPage();
+  for(const page of [a,b])page.on('pageerror',e=>errors.push(e.message));
+  try{
+   await a.goto(target);
+   await a.locator('#labPreset').selectOption('windMiracles');
+   await a.locator('#create').tap();
+   await a.waitForFunction(()=>/\b\d{5}\b/.test(
+    document.querySelector('#roomLabel')?.textContent||''));
+   const code=(await a.locator('#roomLabel').textContent()).match(/\d{5}/)[0];
+   await b.goto(target);
+   await b.locator('#joinCode').fill(code);
+   await b.locator('#join').tap();
+   await b.locator('#hand button').first().waitFor();
+   check((await a.locator('.score').first().textContent()).includes('MP 25'),
+    'Wind miracle research preset starts with enough MP for Heaven Wind');
+   await a.locator('#hand button').nth(mode==='heaven'?1:0).tap();
+   await a.locator('#attack').tap();
+   await b.waitForFunction(()=>document.querySelector('#phase')?.textContent
+    .includes('あなたの防御'));
+   check((await b.locator('#incomingAttack').textContent()).includes(
+    mode==='heaven'?'天国風':'風'),
+    'Wind/Heaven Wind is declared as a miracle before defender response');
+   if(mode==='angel')await b.locator('#hand button').nth(1).tap();
+   if(mode==='mirror')await b.locator('#hand button').first().tap();
+   await b.locator('#defend').tap();
+   if(mode==='mirror'){
+    await a.waitForFunction(()=>document.querySelector('#phase')?.textContent
+     .includes('あなたの防御'));
+    await a.locator('#defend').tap();
+   }
+   await Promise.all([a,b].map(page=>page.waitForFunction(({mode})=>{
+    const cards=document.querySelectorAll('.score');
+    const ac=cards[0]?.textContent||'',bc=cards[1]?.textContent||'';
+    if(!document.querySelector('#phase')?.textContent?.includes('相手の攻撃待ち')&&
+       !document.querySelector('#phase')?.textContent?.includes('あなたの攻撃'))return false;
+    return mode==='wind'?bc.includes('風邪')&&bc.includes('HP 40')&&ac.includes('MP 19'):
+     mode==='heaven'?bc.includes('天国病')&&bc.includes('HP 40')&&ac.includes('MP 10'):
+     mode==='angel'?!bc.includes('風邪')&&ac.includes('MP 19'):
+       ac.includes('風邪')&&ac.includes('HP 39')&&ac.includes('MP 19');
+   },{mode},{timeout:15000})));
+   check((await a.locator('#learnedMiracles').textContent()).includes(mode==='heaven'?'天国風':'風'),
+    'the cast affliction miracle becomes learned for the caster');
+   check(await b.evaluate(()=>document.documentElement.scrollWidth<=
+    document.documentElement.clientWidth+2),
+    'Wind magic remains usable inside narrow Safari iframe');
+  }finally{await a.close();await b.close();}
+ }
+ for(const mode of ['wind','heaven','angel','mirror'])await windMiracleTrial(mode);
  check(errors.length===0,'all preset trials have no script errors');
  console.log('FIREBASE_ONLINE_WEBKIT_SUCCESS checks='+checks+
   ' two tabs with mock RTDB, viewport=390x430');
