@@ -6,6 +6,7 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import {RESEARCH_CATALOG_CONTRACT} from './helpers/research-catalog-contract.mjs';
 import {migrateLegacyCatalog} from '../v2/legacy-adapter.mjs';
 import {createStagingRoom,viewStagingRoom} from '../v2/staging-room.mjs';
 import {submitAndResolveFixture} from '../v2/room-transition.mjs';
@@ -41,7 +42,7 @@ function whole(s){
 }
 test('Mirage is source-backed MP5 zero-price 1/500 and effect is typed',()=>{
  const def=catalog.get('m012');
- assert.equal(summary.unique,120);assert.equal(summary.slots,309);
+ assert.equal(summary.unique,RESEARCH_CATALOG_CONTRACT.unique);assert.equal(summary.slots,RESEARCH_CATALOG_CONTRACT.slots);
  assert.equal(def.family,'miracle');assert.equal(def.stats.mpCost,5);
  assert.equal(def.stats.price,0);assert.equal(def.drawWeight,1);
  assert.deepEqual(def.effects,[{when:'onDeclare',type:'widenAttack',
