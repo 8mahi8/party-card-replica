@@ -2,13 +2,15 @@ name: G6 temporary real Firebase trade smoke (development only)
 
 on:
   workflow_dispatch:
+  pull_request:
+    branches: [main]
 
 permissions:
   contents: read
 
 jobs:
   live-trades:
-    if: github.event_name == 'workflow_dispatch' && github.ref_name == 'refactor/v2-foundation-review-20261027'
+    if: (github.event_name == 'workflow_dispatch' && github.ref_name == 'refactor/v2-foundation-review-20261027') || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && github.head_ref == 'refactor/v2-foundation-review-20261027')
     runs-on: ubuntu-latest
     timeout-minutes: 8
     container:
