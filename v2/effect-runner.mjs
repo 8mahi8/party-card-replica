@@ -141,6 +141,21 @@ export function runEffectQueueFixture(state,catalog,queue,{
      if(before-p.hand.length!==ids.size)fail('Discarded card not in hand');
      forgetDream(p,effect.instanceIds);
      events.push({type:'discard',playerId:p.id,count:ids.size});
+   } else if(effect.type==='sweep'){
+     // Unlike voluntary discard, a Broom forcibly sweeps ANY physical
+     // artifact (including those with forbidden discard policies). This
+     // removes hand slots permanently; only the PLAYED broom/mirror refill.
+     if(!Array.isArray(effect.instanceIds)||effect.instanceIds.length>3)
+       fail('Invalid broom sweep IDs');
+     const p=who(s,effect.playerId),ids=new Set(effect.instanceIds);
+     if(ids.size!==effect.instanceIds.length)fail('Repeated broom sweep card');
+     if(effect.instanceIds.some(x=>typeof x!=='string'||!p.hand.some(c=>c.instanceId===x)))
+       fail('Broom sweep contains an unowned card');
+     const before=p.hand.length;
+     p.hand=p.hand.filter(c=>!ids.has(c.instanceId));
+     if(before-p.hand.length!==ids.size)fail('Broom sweep count mismatch');
+     forgetDream(p,effect.instanceIds);
+     events.push({type:'sweep',playerId:p.id,count:ids.size});
    } else if(effect.type==='grantDraw'){
      const p=who(s,effect.playerId);
      if(!positiveCount(effect.count)||effect.count<1||effect.count>18)
