@@ -252,9 +252,9 @@ try{
    check(await hostPage.locator('#labPreset').inputValue()===preset,
     'host can select fixture '+preset);
    await hostPage.locator('#create').tap();
-   await hostPage.waitForFunction(()=>/\\b\\d{5}\\b/.test(
+   await hostPage.waitForFunction(()=>/\b\d{5}\b/.test(
     document.querySelector('#roomLabel')?.textContent||''));
-   const trialCode=(await hostPage.locator('#roomLabel').textContent()).match(/\\d{5}/)[0];
+   const trialCode=(await hostPage.locator('#roomLabel').textContent()).match(/\d{5}/)[0];
    await guestPage.goto(target);
    await guestPage.locator('#joinCode').fill(trialCode);
    await guestPage.locator('#join').tap();
