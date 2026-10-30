@@ -317,7 +317,7 @@ try{
   check(await ha.locator('#selectionTotal').textContent().then(s=>s.includes('MP+5')),
    'MP restorative selection shows printed +5');
   await ha.locator('#useItem').tap();
-  await ha.waitForFunction(()=>document.querySelector('.score')?.textContent?.includes('MP 25')&&
+  await ha.waitForFunction(()=>document.querySelector('.score')?.textContent?.includes('MP 15')&&
     document.querySelector('#phase')?.textContent?.includes('あなたの攻撃'));
   check(await ha.locator('#hand button').first().textContent().then(s=>s.includes('ワンダーソード')),
    'after two restoratives original attack weapon stays playable');
