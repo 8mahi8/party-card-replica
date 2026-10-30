@@ -79,6 +79,9 @@ test('resources cap at 99 and recovery at cap still consumes only that physical 
  assert.equal(A.read().players[0].hp,99);
  const after=A.read();
  assert.equal(A.submit(cmd).duplicate,true,'repeated command ID cannot duplicate recovery');
+ const other=A.read().players[0].hand.find(x=>x.definitionId==='i012');
+ assert.throws(()=>A.submit({...cmd,instanceId:other.instanceId}),
+  /Conflicting commandId reuse/,'same command ID may not change the used item');
  assert.deepEqual(A.read(),after,'receipt retry is idempotent');
  const next=A.read().players[0].hand.find(c=>c.definitionId==='i012').instanceId;
  action(A,'useItem',next);
