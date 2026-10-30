@@ -130,44 +130,66 @@ export function resolveStagedFixture(state,catalog,{
   if(state.pending?.type==='useItem'){
     const p=state.pending;
     const actor=state.players.find(x=>x.id===p.originalAttackerId);
+    const target=state.players.find(x=>x.id===(p.targetId??p.originalAttackerId));
     const card=actor?.hand.find(x=>x.instanceId===p.instanceId);
     const def=catalog.get(card?.definitionId);
     const effect=def?.effects.find(e=>e.when==='onDeclare'&&
       ['restoreResource','flipHpRisk'].includes(e.type));
-    if(!card||!actor||actor.hp<=0||def?.family!=='item'||
-       !def.playModes.includes('use')||def.effects.length!==1||!effect)
+    if(!card||!actor||actor.hp<=0||!target||target.hp<=0||
+       def?.family!=='item'||!def.playModes.includes('use')||
+       def.effects.length!==1||!effect)
       fail('Invalid pending recovery item');
+    // Remote-targeted items pause BEFORE the random outcome is selected.
+    // Only Super Mirror can turn this item back on its original user.
+    let mirrorId=null,recipient=target;
+    if(target.id!==actor.id){
+      if(effect.type!=='flipHpRisk'||p.defense?.playerId!==target.id||
+         !Object.hasOwn(p.defense,'mirrorInstanceId'))
+        fail('Targeted item requires an authenticated defense response');
+      mirrorId=p.defense.mirrorInstanceId;
+      if(mirrorId!==null){
+        const mirror=target.hand.find(c=>c.instanceId===mirrorId);
+        const mirrorDef=catalog.get(mirror?.definitionId);
+        if(!mirror||!mirrorDef?.effects.some(e=>
+          e.when==='onDefense'&&e.type==='redirectAttack'&&
+          e.params.mode==='reflect'&&e.params.scope==='any'))
+          fail('Only Super Mirror reflects the risky item');
+        recipient=actor;
+      }
+    }else if(p.defense!==null&&p.defense!==undefined)
+      fail('Cannot defend against an item used on oneself');
     let staged=state,action,outcome=null;
     if(effect.type==='restoreResource'){
+      if(target.id!==actor.id)fail('Unverified third-party recovery');
       action={type:'restoreResource',playerId:actor.id,
         resource:effect.params.resource,amount:effect.params.amount};
     }else{
-      // One deterministic sample, exclusively at the authoritative host.
-      // The source's 50:50 item resolves as regular HP recovery or as an
-      // unpreventable self-hit, reusing the shared zero-HP charm handler.
       if(effect.params.heal!==10||effect.params.damage!==10||
          effect.params.healChance!==0.5)fail('Invalid coin-flip item');
       const sample=drawRandom32(state.rngSeed);
       staged={...state,rngSeed:sample.nextSeed};
-      const healed=sample.value<effect.params.healChance;
-      outcome=healed?'heal':'damage';
-      action=healed?{type:'restoreResource',playerId:actor.id,
-        resource:'hp',amount:10}:{type:'hit',targetId:actor.id,
-        damage:10,hpAfter:Math.max(0,actor.hp-10),instantDefeat:false};
+      outcome=sample.value<effect.params.healChance?'heal':'damage';
+      action=outcome==='heal'?
+        {type:'restoreResource',playerId:recipient.id,resource:'hp',amount:10}:
+        {type:'hit',targetId:recipient.id,damage:10,
+          hpAfter:Math.max(0,recipient.hp-10),instantDefeat:false};
     }
-    const fatal=outcome==='damage'&&actor.hp<=10&&!actor.hand.some(c=>
-      catalog.get(c.definitionId)?.effects.some(e=>e.when==='onZeroHp'&&
-        e.type==='reviveAtZeroHp'&&e.params.hp===10));
-    const result=runEffectQueueFixture(staged,catalog,[
+    const fatal=outcome==='damage'&&recipient.hp<=10&&
+      !recipient.hand.some(c=>catalog.get(c.definitionId)?.effects.some(e=>
+        e.when==='onZeroHp'&&e.type==='reviveAtZeroHp'&&e.params.hp===10));
+    const queue=[
       {type:'spend',playerId:actor.id,instanceIds:[card.instanceId]},
+      ...(mirrorId===null?[]:[{type:'spend',playerId:target.id,instanceIds:[mirrorId]}]),
       action,{type:'refill'},
       fatal?{type:'advance',afterId:actor.id}:{type:'resumeTurn',playerId:actor.id}
-    ],{labOnly:true,fixtureDrawDefinitionId});
+    ];
+    const result=runEffectQueueFixture(staged,catalog,queue,
+      {labOnly:true,fixtureDrawDefinitionId});
     return {...result,plan:Object.freeze({type:'useItem',
-      playerId:actor.id,definitionId:def.id,
+      playerId:actor.id,targetId:recipient.id,definitionId:def.id,
       ...(effect.type==='restoreResource'?{
         resource:effect.params.resource,amount:effect.params.amount
-      }:{outcome,heal:10,damage:10})})};
+      }:{outcome,heal:10,damage:10,reflected:mirrorId!==null})})};
   }
   if(state.pending?.type==='pray')
     return resolvePrayFixture(state,catalog,{labOnly,fixtureDrawDefinitionId});
