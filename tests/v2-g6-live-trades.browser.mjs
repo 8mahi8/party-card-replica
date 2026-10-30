@@ -56,9 +56,11 @@ async function withRoom(preset,fn){
    document.querySelector('#roomLabel')?.textContent||''),null,waitOpts);
   currentCode=(await a.locator('#roomLabel').textContent()).match(/\d{5}/)[0];
   const room=await readRoom(currentCode);
-  check(!!room?.meta?.hostId&&room?.meta?.version===1&&
-   room.meta.guestId===null,'unique real Firebase room created');
+  if(!room?.meta?.hostId||room?.meta?.version!==1)
+   throw Error('Missing new live Firebase room identity');
   currentHostId=room.meta.hostId;
+  check(room.meta.guestId==null,'new real Firebase room has no guest yet');
+  console.log('G6_LIVE_TRADES_ROOM_CREATED '+currentCode);
   await b.goto('http://127.0.0.1:'+server.address().port+
    '/v2/demo/firebase-online-standalone.html',{waitUntil:'load'});
   await b.locator('#joinCode').fill(currentCode);
