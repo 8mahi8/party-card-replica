@@ -158,6 +158,29 @@ export function resolveStagedFixture(state,catalog,{
       }
     }else if(p.defense!==null&&p.defense!==undefined)
       fail('Cannot defend against an item used on oneself');
+    if(effect.type==='heavenHerb'){
+      if(effect.params.mp!==20||effect.params.disease!=='heaven')
+        fail('Invalid Heaven Grass compound effect');
+      // Applying another illness to Heaven Disease triggers a fatal fit.
+      // Resolve passive Sun Charm using the same shared effect runner.
+      const fit=recipient.disease==='heaven';
+      const hasCharm=recipient.hand.some(c=>
+        catalog.get(c.definitionId)?.effects.some(e=>
+          e.when==='onZeroHp'&&e.type==='reviveAtZeroHp'&&e.params.hp===10));
+      const queue=[
+        {type:'spend',playerId:actor.id,instanceIds:[card.instanceId]},
+        ...(mirrorId===null?[]:[{type:'spend',playerId:target.id,instanceIds:[mirrorId]}]),
+        {type:'heavenHerb',playerId:recipient.id},
+        {type:'refill'},
+        fit&&!hasCharm?{type:'advance',afterId:actor.id}:
+          {type:'resumeTurn',playerId:actor.id}
+      ];
+      const result=runEffectQueueFixture(state,catalog,queue,
+        {labOnly:true,fixtureDrawDefinitionId});
+      return {...result,plan:Object.freeze({type:'useItem',
+        playerId:actor.id,targetId:recipient.id,definitionId:def.id,
+        mp:20,disease:'heaven',fit,reflected:mirrorId!==null})};
+    }
     if(effect.type==='forgetLearned'){
       if(effect.params.count!==2)fail('Invalid Soap forget count');
       // Authenticated target/mirror choice comes first. Learned miracles are
