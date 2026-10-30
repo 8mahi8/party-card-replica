@@ -95,7 +95,7 @@ test('4-card target retains only one card: RNG samples uniformly without replace
  const after=B.read();
  assert.equal(after.players[1].hand.length,1);
  assert.equal(after.players[1].hand[0].instanceId,expected[0].instanceId);
- assert.equal(after.players[1].handCount,undefined);
+ assert.equal(after.players[1].handCount,1);
  assert.equal(A.read().players[1].handCount,1);
 });
 test('Super Mirror consumes one physical Mirror and redirects the 3-card sweep',()=>{
