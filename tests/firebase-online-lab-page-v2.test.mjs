@@ -25,7 +25,7 @@ test('online page explicitly uses the isolated Firebase transport and working sc
  assert.doesNotMatch(page,/signInAnonymously/);
 });
 test('school-sized touch controls and safe per-seat rendering are present',()=>{
- for(const id of ['create','join','status','scores','hand','attack','defend','pray','discard']){
+ for(const id of ['create','join','status','scores','hand','attack','sell','defend','pray','discard']){
   assert(page.includes('id="'+id+'"'),'missing control '+id);
  }
  assert.match(page,/min-height:42px/);
@@ -89,4 +89,17 @@ test('Google Sites-style storage restriction never prevents guest join',()=>{
  assert.match(page,/try\{previousId=sessionStorage\.getItem\(key\)\}catch\{\}/);
  assert.match(page,/try\{sessionStorage\.setItem\(key,guestId\)\}catch\{\}/);
  assert.match(page,/const guestId=previousId\|\|randomId\(\)/);
+});
+
+test('source-backed Sell uses a dedicated action, reveals only offer and price, and accepts one Mirror',()=>{
+ assert.match(page,/id="sell"/);
+ assert.match(page,/id="incomingAttack"/);
+ assert.match(page,/saleOffer\?\.definitionId/);
+ assert.match(page,/saleOffer\.price/);
+ assert.match(page,/type==='defend'&&view\.phase==='tradeDefense'\?'respondSale':type/);
+ assert.match(page,/command\.saleInstanceId=ids\[0\]/);
+ assert.match(page,/command\.soldInstanceId=ids\[1\]/);
+ assert.match(page,/\['respondItem','respondSale'\]\.includes\(effectiveType\)/);
+ assert.match(page,/売買を受け入れる/);
+ assert.match(page,/スーパーミラーで反射/);
 });
