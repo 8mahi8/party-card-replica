@@ -11,10 +11,11 @@ export function assertDisease(value){
  return value??null;
 }
 /** Any new disease exposure escalates an existing stage by exactly one. */
-export function planDiseaseExposure(disease){
+export function planDiseaseExposure(disease,incoming='heaven'){
  const old=assertDisease(disease);
+ if(!STAGES.includes(incoming))throw new Error('Unknown incoming illness stage');
  if(old==='heaven')return Object.freeze({disease:'heaven',fatal:true,escalated:true});
- if(old===null)return Object.freeze({disease:'heaven',fatal:false,escalated:false});
+ if(old===null)return Object.freeze({disease:incoming,fatal:false,escalated:false});
  return Object.freeze({disease:STAGES[STAGES.indexOf(old)+1],
    fatal:false,escalated:true});
 }
