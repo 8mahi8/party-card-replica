@@ -80,8 +80,8 @@ test('catalog audit is deterministic, frozen and labels all researched cards wit
  assert.equal(a.sourceExcluded,20);
  // Newly source-backed recovery items are intentionally NOT declared
  // Dream-disguise compatible until original timing is independently checked.
- assert.equal(a.needsRuleReview,9);
- for(const id of ['i006','i007','i008','i009','i010','i011','i012','i013']){
+ assert.equal(a.needsRuleReview,10);
+ for(const id of ['i006','i007','i008','i009','i010','i011','i012','i013','i014']){
   const row=a.rows.find(x=>x.id===id);
   assert.equal(row?.status,'needs-rule-review',id);
   assert.equal(row?.reason,'nonstandard-or-passive-timing',id);
