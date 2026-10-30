@@ -101,6 +101,7 @@ main{padding:0 6px 8px}.brandline{margin:0 -6px}
 <option value="support">相手への回復と反射</option>
 <option value="broom">夜空のホウキ・手札除去</option>
 <option value="soap">女神の石けん・奇跡を忘れる</option>
+<option value="heaven">天国草・病のターン終了効果</option>
 <option value="tear">ドキドキ涙・運試し</option>
 </select></div>
 <p id="presetNotice">原作の山札ではありません。選択した4枚セットで効果を試します。</p>
@@ -173,6 +174,10 @@ const LAB_PRESETS=Object.freeze({
  broom:Object.freeze({
   A:Object.freeze(['i014','w016','d003','i006']),
   B:Object.freeze(['i002','w027','d003','i005'])
+ }),
+ heaven:Object.freeze({
+  A:Object.freeze(['i016','w016','d003','i005']),
+  B:Object.freeze(['i002','i016','w027','d003'])
  }),
  soap:Object.freeze({
   A:Object.freeze(['i015','w016','d003','i006']),
@@ -255,7 +260,13 @@ function render(){
    const span=document.createElement('span');span.className=key;
    span.textContent=label+' '+value;line.append(span);
   }
-  e.append(title,line);stats.append(e);
+  e.append(title,line);
+  if(p.disease){
+   const ailment=document.createElement('span');ailment.className='disease';
+   ailment.textContent='災い：'+({cold:'風邪',fever:'熱病',hell:'地獄病',heaven:'天国病'}[p.disease]||p.disease);
+   e.append(ailment);
+  }
+  stats.append(e);
  }
  const mine=active&&(seat!=='A'||joined),busy=waiting;
  $('phase').textContent=view.phase==='finished'?'対戦終了':
@@ -310,7 +321,7 @@ function render(){
  // reflections, multi-hits and special effects belong to the battle engine.
  const selectedIds=[...selection],itemEffect=selectedIds.length===1?
    catalog.get(cardsById.get(selectedIds[0])?.definitionId)?.effects.find(
-    e=>e.when==='onDeclare'&&['restoreResource','flipHpRisk','sweepHand','forgetLearned'].includes(e.type)):null;
+    e=>e.when==='onDeclare'&&['restoreResource','flipHpRisk','sweepHand','forgetLearned','heavenHerb'].includes(e.type)):null;
  const mirrorChoice=selectedIds.length===1&&catalog.get(
    cardsById.get(selectedIds[0])?.definitionId)?.effects.some(e=>
     e.when==='onDefense'&&e.type==='redirectAttack'&&
@@ -318,7 +329,8 @@ function render(){
  $('selectionTotal').textContent=itemDefense?
    (mirrorChoice?'スーパーミラーで雑貨を反射':'許す／スーパーミラーを選択'):
    itemEffect?
-   (itemEffect.type==='forgetLearned'?'対象の習得済み奇跡を無作為に最大2つ忘れさせる':
+   (itemEffect.type==='heavenHerb'?'MP+20・天国病（重ねがけで悪化）':
+    itemEffect.type==='forgetLearned'?'対象の習得済み奇跡を無作為に最大2つ忘れさせる':
     itemEffect.type==='sweepHand'?'対象の神器を無作為に最大3枚除去':
     itemEffect.type==='flipHpRisk'?'HP+10 / 10ダメージ（各50%）':
     (itemEffect.params.resource==='hp'?'HP':'MP')+'+'+itemEffect.params.amount+'（最大99）'):
@@ -340,9 +352,10 @@ function render(){
   const label=document.createElement('span');label.className='cardname';
   label.textContent=name;
   const stat=document.createElement('span');stat.className='cardstats';
-  const restored=def?.effects.find(e=>['restoreResource','flipHpRisk','sweepHand','forgetLearned'].includes(e.type));
+  const restored=def?.effects.find(e=>['restoreResource','flipHpRisk','sweepHand','forgetLearned','heavenHerb'].includes(e.type));
   stat.textContent=restored?
-   (restored.type==='forgetLearned'?'習得奇跡を2つ消す':
+   (restored.type==='heavenHerb'?'MP+20・天国病':
+    restored.type==='forgetLearned'?'習得奇跡を2つ消す':
     restored.type==='sweepHand'?'神器を3枚除去':
     restored.type==='flipHpRisk'?'HP±10（50%）':
     (restored.params.resource==='hp'?'HP':'MP')+'+'+restored.params.amount):
@@ -361,7 +374,7 @@ function render(){
    if(selection.has(c.instanceId))selection.delete(c.instanceId);
    else {
     selection.add(c.instanceId);
-    if(def?.effects.some(e=>['sweepHand','forgetLearned'].includes(e.type)))itemTarget='other';
+    if(def?.effects.some(e=>['sweepHand','forgetLearned','heavenHerb'].includes(e.type)))itemTarget='other';
    }
    render();
   });
@@ -396,7 +409,7 @@ async function send(type){
   command.instanceId=ids[0];
   const effect=catalog.get(view.players.find(p=>p.id===seat)?.hand?.find(c=>
     c.instanceId===ids[0])?.definitionId)?.effects.find(e=>
-     ['restoreResource','flipHpRisk','sweepHand','forgetLearned'].includes(e.type));
+     ['restoreResource','flipHpRisk','sweepHand','forgetLearned','heavenHerb'].includes(e.type));
   if(effect)command.targetId=itemTarget==='self'?seat:(seat==='A'?'B':'A');
  }
  if(effectiveType==='respondItem'&&ids.length)command.mirrorInstanceId=ids[0];
