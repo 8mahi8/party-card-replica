@@ -1,10 +1,6 @@
 name: G6 one-off commit portable HTML to development branch
 
 on:
-  pull_request:
-    paths:
-      - 'v2/**'
-      - '.github/workflows/g6-commit-portable-html.yml'
   workflow_dispatch:
 
 permissions:
