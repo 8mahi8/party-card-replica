@@ -41,3 +41,15 @@ export function planDiseaseTurnEnd(disease,hp,roll){
  }
  return Object.freeze({disease:stage,hpAfter:adjusted,advanced:false,fatal:false});
 }
+
+/**
+ * Current disease-only boundary. Original Smile Shell also cures mist and
+ * flash; Heart Shell also cures dream/cloud. Those afflictions are not yet
+ * represented in the active V2 room model, so never pretend they were cured.
+ */
+export function planDiseaseCure(disease,scope){
+ const current=assertDisease(disease);
+ if(!['minor','all'].includes(scope))throw new Error('Invalid affliction cure scope');
+ const cures=current!==null&&(scope==='all'||['cold','fever'].includes(current));
+ return Object.freeze({before:current,disease:cures?null:current,cured:cures});
+}
