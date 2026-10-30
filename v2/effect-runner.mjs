@@ -331,6 +331,37 @@ export function runEffectQueueFixture(state,catalog,queue,{
          consumedInstanceId:recovery.consumedInstanceId,
          consumedDefinitionId:recovery.consumedDefinitionId});
      }
+   } else if(effect.type==='inflictDisease'){
+     if(Object.keys(effect).length!==3||!['cold','hell'].includes(effect.disease))
+       fail('Malformed on-hit illness effect');
+     const p=who(s,effect.targetId),pending=state.pending;
+     if(pending?.type!=='attack'||pending.targetId!==p.id||
+        queue.filter(q=>q?.type==='inflictDisease').length!==1||
+        !queue.some(q=>q?.type==='hit'&&q.targetId===p.id&&q.damage>0))
+       fail('An illness requires one authentic damaging strike');
+     // After a redirect, the physical weapon may have been consumed in
+     // an earlier defense hop. The immutable cached context survives.
+     const sourcedDisease=pending.attackContext?
+       pending.attackContext.diseaseOnHit:
+       pending.attackInstanceIds?.map(id=>{
+         const original=who(state,pending.originalAttackerId);
+         const held=original.hand.find(c=>c.instanceId===id);
+         return catalog.get(held?.definitionId)?.effects.find(e=>
+           e.when==='afterHit'&&e.type==='inflictDisease')?.params.disease;
+       }).filter(Boolean).at(0);
+     if(sourcedDisease!==effect.disease)
+       fail('Illness not authorized by the original attack card');
+     if(p.hp>0){
+       const beforeDisease=p.disease??null;
+       const change=planDiseaseExposure(beforeDisease);
+       p.disease=change.disease;
+       events.push({type:'inflictDisease',targetId:p.id,
+         diseaseBefore:beforeDisease,diseaseAfter:p.disease,fatal:change.fatal});
+       if(change.fatal){
+         const beforeHp=p.hp;
+         resolveIllnessZeroHp(p,beforeHp);
+       }
+     }
    } else if(effect.type==='exchange'){
      // All Exchange allocations are server-side staged and self-directed.
      // There is no opposing defense and no change of total HP+MP+money.
