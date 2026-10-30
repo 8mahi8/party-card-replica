@@ -89,6 +89,12 @@ main{padding:0 6px 8px}.brandline{margin:0 -6px}
 .hand button{flex-basis:78px;width:78px;min-height:101px}.hand .artmark{height:36px}
 }
 @media(max-height:520px){.notice p{display:none}.arena{min-height:86px}.hand button{min-height:94px}.hand .artmark{height:30px}}
+.trade-panel{padding:7px;margin:4px 0;background:#e5fff1;border:1px solid #6ca79d;border-radius:7px}
+.trade-panel p{margin:2px 0 6px;font-size:11px;line-height:1.35}
+.exchange-fields{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.exchange-fields label{font-size:11px;font-weight:800;display:flex;flex-direction:column;gap:2px}
+.exchange-fields input{width:74px;max-width:24vw;min-height:36px;border:1px solid #318b82;border-radius:5px;padding:4px;font-size:16px}
+.trade-panel .inline{margin-top:5px}
 </style>
 </head>
 <body><main>
@@ -113,6 +119,8 @@ main{padding:0 6px 8px}.brandline{margin:0 -6px}
 <option value="windMiracles">奇跡・風と天国風の災い</option>
 <option value="learnedTrial">習得済み奇跡・攻撃と防御</option>
 <option value="sale">取引「売る」・受け入れと反射</option>
+<option value="buy">取引「買う」・購入と見送り</option>
+<option value="exchange">取引「両替」・HP/MP/¥振替</option>
 <option value="turbulenceBack">乱気流・攻撃者へ弾く</option>
 <option value="turbulenceSelf">乱気流・自分へ弾く</option>
 <option value="tear">ドキドキ涙・運試し</option>
@@ -137,11 +145,19 @@ main{padding:0 6px 8px}.brandline{margin:0 -6px}
 <button id="attack" class="primary">攻撃する</button>
 <button id="useItem">雑貨を使う</button>
 <button id="sell" class="primary">売る（選んだ神器を売却）</button>
+<button id="buy" class="primary">買う（相手の神器を抽選）</button>
 <button id="itemTarget" type="button" hidden>対象：自分</button>
 <button id="defend" class="primary">防御する／許す</button>
 <button id="pray">祈る</button>
 <button id="discard">捨てる</button>
 </div>
+<section id="buyDecision" class="trade-panel" hidden><p id="buyNotice"></p>
+<div class="inline"><button id="buyAccept" class="primary">買う</button><button id="buyDecline">買わない</button></div></section>
+<section id="exchangePanel" class="trade-panel" hidden><p>両替 · HP/MP/¥の合計はそのまま（HPは1以上）</p>
+<div class="exchange-fields"><label>HP<input id="exchangeHp" type="number" inputmode="numeric" min="1"></label>
+<label>MP<input id="exchangeMp" type="number" inputmode="numeric" min="0"></label>
+<label>¥<input id="exchangeMoney" type="number" inputmode="numeric" min="0"></label></div>
+<p id="exchangeTotal" aria-live="polite"></p><button id="exchange" class="primary">この配分で両替する</button></section>
 <section class="hand-area"><header>神器 <span id="handCount">自分の手札</span></header>
 <div id="hand" class="hand" aria-label="自分の神器を選択"></div>
 </section>
@@ -220,6 +236,14 @@ const LAB_PRESETS=Object.freeze({
   B:Object.freeze(['i002','i016','w027','d003']),
   diseaseA:'heaven',diseaseB:'fever',rngSeed:12345
  }),
+ buy:Object.freeze({
+  A:Object.freeze(['t002','w016','d003','d005']),
+  B:Object.freeze(['i002','d001','d003','w027']),rngSeed:71
+ }),
+ exchange:Object.freeze({
+  A:Object.freeze(['t003','w016','d003','i006']),
+  B:Object.freeze(['w027','d001','i002','d003']),rngSeed:71
+ }),
  sale:Object.freeze({
   A:Object.freeze(['t001','w003','d005','w016']),
   B:Object.freeze(['i002','d001','d003','w027'])
@@ -243,7 +267,7 @@ const LAB_PRESETS=Object.freeze({
  })
 });
 const url='https://mygame-df915-default-rtdb.firebaseio.com/';
-let db=null,session=null,view=null,seat=null,joined=false,waiting=false,selection=new Set(),lastRevision=-1,pendingId=null,pendingCommand=null,retrying=false,itemTarget="self";
+let db=null,session=null,view=null,seat=null,joined=false,waiting=false,selection=new Set(),lastRevision=-1,pendingId=null,pendingCommand=null,retrying=false,itemTarget="self",exchangeDraft=null;
 const randomId=()=>{const a=new Uint32Array(2);crypto.getRandomValues(a);return Array.from(a,x=>x.toString(36)).join('-');};
 const code=()=>{const a=new Uint32Array(1);crypto.getRandomValues(a);return String(10000+a[0]%90000);};
 const feedback=s=>{$('status').textContent=String(s);};
@@ -259,7 +283,7 @@ function callbacks(){
  return {
   onView(next){
    if(!next)return;
-   if(next.revision!==lastRevision){selection.clear();itemTarget='self';lastRevision=next.revision;}
+   if(next.revision!==lastRevision){selection.clear();itemTarget='self';exchangeDraft=null;lastRevision=next.revision;}
    view=next;render();
   },
   onStatus(info){
