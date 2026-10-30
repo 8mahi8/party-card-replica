@@ -25,7 +25,7 @@ test('online page explicitly uses the isolated Firebase transport and working sc
  assert.doesNotMatch(page,/signInAnonymously/);
 });
 test('school-sized touch controls and safe per-seat rendering are present',()=>{
- for(const id of ['create','join','status','scores','hand','attack','sell','defend','pray','discard']){
+ for(const id of ['create','join','status','scores','hand','attack','sell','buy','exchange','defend','pray','discard']){
   assert(page.includes('id="'+id+'"'),'missing control '+id);
  }
  assert.match(page,/min-height:42px/);
@@ -82,7 +82,8 @@ test('defense UI shows only public declared attack projection from the host',()=
 
 test('item defense response sends only mirror selection, not weapon-defense arrays',()=>{
  assert.match(page,/effectiveType=type==='defend'&&view\.phase==='itemDefense'\?'respondItem':/);
- assert.match(page,/view\.phase==='tradeDefense'\?'respondSale':type/);
+ assert.match(page,/view\.phase==='tradeDefense'\?'respondSale':/);
+ assert.match(page,/view\.phase==='buyDefense'\?'respondBuy':type/);
  assert.match(page,/\['playCards','defend','discard'\]\.includes\(effectiveType\)/);
  assert.match(page,/\['respondItem','respondSale'\]\.includes\(effectiveType\)&&ids\.length/);
 });
@@ -97,10 +98,26 @@ test('source-backed Sell uses a dedicated action, reveals only offer and price, 
  assert.match(page,/id="incomingAttack"/);
  assert.match(page,/saleOffer\?\.definitionId/);
  assert.match(page,/saleOffer\.price/);
- assert.match(page,/type==='defend'&&view\.phase==='tradeDefense'\?'respondSale':type/);
+ assert.match(page,/type==='defend'&&view\.phase==='tradeDefense'\?'respondSale':/);
  assert.match(page,/command\.saleInstanceId=ids\[0\]/);
  assert.match(page,/command\.soldInstanceId=ids\[1\]/);
  assert.match(page,/\['respondItem','respondSale'\]\.includes\(effectiveType\)/);
  assert.match(page,/売買を受け入れる/);
  assert.match(page,/スーパーミラーで反射/);
+});
+
+test('Buy candidate is private until defender passes and Exchange conserves total',()=>{
+ for(const id of ['buy','buyDecision','buyAccept','buyDecline','buyNotice','exchangePanel',
+  'exchangeHp','exchangeMp','exchangeMoney','exchangeTotal','exchange']) {
+  assert(page.includes('id="'+id+'"'),'missing buy/exchange control '+id);
+ }
+ assert.match(page,/buyOffer=buyDecision&&mine\?view\.pending\?\.offer:null/);
+ assert.match(page,/purchaseAllowed=!!buyOffer&&player\.money>=buyOffer\.price/);
+ assert.match(page,/貧乏：所持金不足/);
+ assert.match(page,/反射は研究中/);
+ assert.match(page,/command\.buyInstanceId=ids\[0\]/);
+ assert.match(page,/command\.exchangeInstanceId=ids\[0\]/);
+ assert.match(page,/command\.allocation=\{\.\.\.exchangeDraft\}/);
+ assert.match(page,/if\(effectiveType==='decideBuy'\)command\.accept=accept/);
+ assert.match(page,/Number\.isSafeInteger\(sum\)&&sum===total/);
 });
