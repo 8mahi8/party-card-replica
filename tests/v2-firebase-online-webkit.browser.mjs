@@ -483,6 +483,59 @@ try{
  }
  await riskyOpponentTrial({mirror:false});
  await riskyOpponentTrial({mirror:true});
+ // Night Sky Broom: a forced hand sweep is NOT a voluntary discard.
+ // The two browser seats see only public counts, and Mirror acts first.
+ async function broomTrial({mirror}){
+  const attacker=await context.newPage(),defender=await context.newPage();
+  for(const page of [attacker,defender])
+   page.on('pageerror',error=>errors.push(error.message));
+  try{
+   await attacker.goto(target);
+   await attacker.locator('#labPreset').selectOption('broom');
+   await attacker.locator('#create').tap();
+   await attacker.waitForFunction(()=>/\b\d{5}\b/.test(
+    document.querySelector('#roomLabel')?.textContent||''));
+   const room=(await attacker.locator('#roomLabel').textContent()).match(/\d{5}/)[0];
+   await defender.goto(target);
+   await defender.locator('#joinCode').fill(room);
+   await defender.locator('#join').tap();
+   await defender.locator('#hand button').first().waitFor();
+   check((await attacker.locator('#hand button').first().textContent()).includes('夜空のホウキ'),
+    'Broom is available as a source-backed card in the research preset');
+   await attacker.locator('#hand button').first().tap();
+   check((await attacker.locator('#selectionTotal').textContent()).includes('最大3枚除去'),
+    'Broom preview describes random physical-card removal');
+   check((await attacker.locator('#itemTarget').textContent()).includes('相手'),
+    'Broom defaults to opponent target but permits self target');
+   await attacker.locator('#useItem').tap();
+   await defender.waitForFunction(()=>document.querySelector('#phase')?.textContent
+    .includes('雑貨への対応'));
+   check((await defender.locator('#incomingAttack').textContent()).includes('夜空のホウキ'),
+    'Broom announcement arrives before the Mirror/pass decision');
+   check((await defender.locator('#hand button').count())===4,
+    'defending seat has not lost cards before responding');
+   if(mirror){
+    await defender.locator('#hand button').first().tap();
+    check((await defender.locator('#defend').textContent()).includes('スーパーミラー'),
+     'defender may reflect Broom before any random sweep');
+   }
+   await defender.locator('#defend').tap();
+   await Promise.all([attacker,defender].map(page=>page.waitForFunction(({mirror})=>{
+    const scores=document.querySelectorAll('.score');
+    return scores[0]?.textContent?.includes('手札 '+(mirror?1:4))&&
+     scores[1]?.textContent?.includes('手札 '+(mirror?4:1));
+   },{mirror},{timeout:15000})));
+   check((await attacker.locator('#phase').textContent()).includes('あなたの攻撃'),
+    'Broom resolution returns the attack turn to its original owner');
+   check((await defender.locator('#hand button').count())===(mirror?4:1),
+    'swept physical cards are not replenished to the affected target');
+   check(await defender.evaluate(()=>document.documentElement.scrollWidth<=
+     document.documentElement.clientWidth+2),
+    'Broom response fits narrow embedded frame');
+  }finally{await attacker.close();await defender.close();}
+ }
+ await broomTrial({mirror:false});
+ await broomTrial({mirror:true});
  check(errors.length===0,'all preset trials have no script errors');
  console.log('FIREBASE_ONLINE_WEBKIT_SUCCESS checks='+checks+
   ' two tabs with mock RTDB, viewport=390x430');
