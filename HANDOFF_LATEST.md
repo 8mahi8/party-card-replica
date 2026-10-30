@@ -5,6 +5,15 @@
 
 > **この文書は引き継ぎ入口であり、実装の真実は常に開発ブランチの最新コードとGitHub Actions。** コミットSHA・テスト件数・カード数は作業のたびに変わる。本文の日付や数値を確認せず永久に正しいと扱わないこと。
 
+## 2026-10-30 G7｜ドキドキ涙50/50アイテム（原作資料照合＋研究用対戦へ追加）
+
+- **原作根拠**：[Piongその他神器](https://w.atwiki.jp/piong/pages/19.html)、[GFGA](https://w.atwiki.jp/gfplusa/pages/18.html)、[まかろん2026](https://macarongamemo.com/entry/godfield-artifact)を照合。ドキドキ涙（価格¥1、確率0.4%＝参考2/500枠）、50%でHP+10／50%で10ダメージ。現在の研究カタログは**163種類・408/500参考枠**、 `complete:false` 維持。
+- **実装**：`src/verified-basic-cards.mjs` の `i013`、`v2/legacy-adapter.mjs`＋`v2/foundation.mjs` の厳密 `flipHpRisk` 型、`v2/staging-room.mjs` の既存 `useItem` 受付、`v2/room-transition.mjs` の**権威ホスト1回だけのseed付き乱数**。当たりは共有 `restoreResource`、外れは共有 `hit` で10ダメージ、HP0なら通常の勝敗・太陽のお守り処理を使う。奇跡・属性攻防・Firebase認証/Rulesは変更していない。
+- **試遊UI**：オンライン版で「ドキドキ涙・運試し」固定4枚セット追加、選択時にHP+10/10ダメージ（各50%）表示。「雑貨を使う」から操作。既存4種類の研究セットを保持。旧研究版/V2オフライン/V2オンラインの単体HTML計3本をCI botが再生成して開発ブランチへ保存済み。生成workflowは手動起動専用へ復帰。
+- **テスト実測**：Node **936/936 PASS** [run 41052306964](https://github.com/8mahi8/party-card-replica/actions/runs/41052306964)、Chromium **success** [run 41052307118](https://github.com/8mahi8/party-card-replica/actions/runs/41052307118)、WebKit旧画面 **339/339 PASS**＋模擬RTDBオンライン **54/54 PASS** [run 41052306872](https://github.com/8mahi8/party-card-replica/actions/runs/41052306872)。`tests/g7-dokidoki-tear-v2.test.mjs` は2分岐、HP0/復活、再送、攻撃継続を検査。オンラインWebKitは固定seed（回復が出る方）を2端末で同期検査。途中のNode失敗はDream研究監査 `needsRuleReview=8` → **9** の期待値更新漏れで、修正後全成功。
+- **残る範囲**：ドキドキ涙を**本物のFirebase**で実行する検証、および学校iPad Safari＋Google Sites実機は未実施（旧G7通常回復セットの実Firebase成功と区別）。原作ゲームでの太陽のお守りとの細かい実測優先順位も未確認。原作353種・500枠の正規抽選を実装したと主張しない。学校Google Sites HTML、main、Firebase Security Rules/認証は未変更。
+- **資料**：[今回の根拠と境界](docs/V2_G7_DOKIDOKI_TEAR_2026-10-30.md)。次はカードデータの未登録/特殊効果を整理してG7原作再現を続ける。
+
 ## 2026-10-30 G7｜実Firebase回復セットの双方向試験に成功【確認済み】
 
 - 最新コード（本日の継続担当）：既存 `tests/v2-g6-live-firebase.browser.mjs` に、G6基本セットの実Firebase双方向攻防を保持したまま、G7 `recovery` 固定セットの**両席HP/MP回復→同じ手番で攻撃**を実Firebaseで試す追加シナリオを実装。1番目の試験用ルームをホストID照合後に削除してから2番目を作り、最後に2番目だけを同じ照合で削除。両席の `revision=14` / HP・MP / 他人の手札秘匿を検査。シナリオの成功ログは `G7_LIVE_RECOVERY_SUCCESS`。
