@@ -5,6 +5,15 @@
 
 > **この文書は引き継ぎ入口であり、実装の真実は常に開発ブランチの最新コードとGitHub Actions。** コミットSHA・テスト件数・カード数は作業のたびに変わる。本文の日付や数値を確認せず永久に正しいと扱わないこと。
 
+## 2026-10-31 G6/G7｜オンライン習得済み奇跡のタップ選択【引き継ぎ後・新規】
+
+- **実装**：`v2/demo/firebase-online-lab.html`で、単なる「習得した奇跡：…」の文字一覧を、MPコスト・選択状態付きの横スクロールボタンへ変更。手札と奇跡の**タップ順**を共有して保持し、奇跡単独攻撃=`castLearned`、武器→習得奇跡=`playSequence`、習得防御奇跡=`defendSequence`へ送信する。元からある共通戦闘エンジンを再利用し、ルールやMP計算を独自に再実装していない。雑貨・捨てるは物理カードのみ。待機側のタップは禁止。
+- **研究セット**：`learnedTrial`（A:〈風〉〈オーラ〉習得／B:〈乱気流〉習得）を追加。全**15セット**に。原作の山札ではなく`complete:false`の**174種類・435/500参考枠**は不変。
+- **テスト**：`tests/v2-firebase-online-webkit.browser.mjs`に、習得済み〈風〉単独詠唱→習得済み〈乱気流〉で防御→次手番の武器＋習得済み〈オーラ〉（順序・MP）の2画面タップ通し試験を追加。女神の石けんの旧い文字列検証を新しいボタン数へ更新し、UI静的テストと15セットの台帳契約も修正。
+- **ビルド・CI**：V1/V2オフラインとG6オンラインの単体HTML3本を開発ブランチで再生成し、生成用workflowは**手動専用へ復帰**。最新Node **1026/1026 PASS** [run 41086022921](https://github.com/8mahi8/party-card-replica/actions/runs/41086022921)、Chromium [run 41086022621](https://github.com/8mahi8/party-card-replica/actions/runs/41086022621) **PASS**。新しいオンライン2席WebKitタップ試験は後続の実行でステップ通過を確認したが、WebKit既存画面の全suiteは実行終了後の最新Actions結果を確認すること。
+- **詳細**：[V2_G6_LEARNED_ONLINE_TOUCH_2026-10-31.md](docs/V2_G6_LEARNED_ONLINE_TOUCH_2026-10-31.md)。今回**学校のiPad Safari・Google Sites直貼りでは未実機**、新UIの実Firebase27ケース再試験も未実施。Firebase Security Rules／認証方式、学校公開版、mainは変更なし。
+- **次工程**：WebKit全スイートの最終結果確認→必要なら修正。学校iPadで手札・習得奇跡の横スライドとMP表示を実際に試し、原作に沿った未実装カード・山札を段階的に増やす。低頻度の多人数例外より通常の1vs1で遊べる完成度を優先。
+
 ## 2026-10-31 G7｜乱気流・感染治療の通し試合と防御画面修正【最新・実Firebase成功】
 
 - **原作資料**：[GFGA奇跡一覧](https://w.atwiki.jp/gfplusa/pages/19.html)、[Piongタイマン攻略](https://w.atwiki.jp/piong/pages/21.html)、[Piong防御リダイレクト](https://w.atwiki.jp/piong/pages/17.html)：〈乱気流〉は**MP5で奇跡を弾く**が、必ず元攻撃者へ反射するわけではない。自分にも戻る可能性があり、その場合は二度目の防御がない。**既存`v2/redirect-route.mjs`が生存者からhost乱数で選ぶ動作を実装済みのため再実装せずテストに集中した**。現行原作の全防御演出を直接実測したわけではない。
