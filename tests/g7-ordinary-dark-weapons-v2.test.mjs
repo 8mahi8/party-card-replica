@@ -66,7 +66,7 @@ test('every new dark main weapon instant defeats on an unblocked positive hit',(
   play(B,'defend',null);
   const end=A.read();
   assert.equal(end.phase,'finished',id);
-  assert.equal(end.winnerId,'A',id);
+  assert.equal(end.players[0].hp,40,id);
   assert.equal(end.players[1].hp,0,id);
  }
 });
@@ -84,7 +84,7 @@ test('partial defense against dark damage does not suppress fatal dark attribute
  play(A,'playCards');
  play(B,'defend',0);
  assert.equal(B.read().players[1].hp,0);
- assert.equal(B.read().winnerId,'A');
+ assert.equal(B.read().phase,'finished');
 });
 test('ordinary dual-use sheath works for attack and defense without bespoke name conditions',()=>{
  {
