@@ -144,14 +144,15 @@ test('reflected lethal hit defeats original user, or consumes their Sun Charm',(
   assert.equal(a.players[0].hand.filter(c=>c.definitionId==='d001').length,2);
  }
 });
-test('ordinary restorative cannot target another seat; mismatched item response rejects atomically',()=>{
+test('targeted ordinary recovery is legal; mismatched item response rejects atomically',()=>{
  const {A,B}=room(1,{aHand:['i006','i013'],bHand:['d003','i002']});
  const initial=A.read();
- assert.throws(()=>A.submit({type:'useItem',actorId:'A',commandId:'wrong',
+ const targeted={type:'useItem',actorId:'A',commandId:'heal-other',
   expectedRevision:initial.revision,instanceId:initial.players[0].hand[0].instanceId,
-  targetId:'B'}),/Other-player use for this restorative/);
- assert.deepEqual(A.read(),initial);
- declare(A);
+  targetId:'B'};
+ A.submit(targeted);
+ assert.equal(B.read().phase,'itemDefense');
+ assert.equal(A.submit(targeted).duplicate,true);
  const old=B.read();
  assert.throws(()=>B.submit({type:'respondItem',actorId:'B',
   commandId:'wrong-mirror',expectedRevision:old.revision,
@@ -159,5 +160,5 @@ test('ordinary restorative cannot target another seat; mismatched item response 
  assert.deepEqual(B.read(),old);
  assert.throws(()=>A.submit({type:'respondItem',actorId:'A',
   commandId:'spoof',expectedRevision:old.revision}),/Not the active seat/);
- assert.deepEqual(A.read().players[0].hp,30);
+ assert.equal(A.read().players[0].hp,30);
 });
