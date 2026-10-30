@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import {RESEARCH_CATALOG_CONTRACT} from './helpers/research-catalog-contract.mjs';
 import {migrateLegacyCatalog} from '../v2/legacy-adapter.mjs';
 import {createStagingRoom,viewStagingRoom} from '../v2/staging-room.mjs';
 import {attachDreamAppearanceFixture,validateDreamOwnershipFixture} from '../v2/dream-appearance.mjs';
@@ -66,7 +67,7 @@ test('forged Dream reference to source-immune Homura is rejected on both view an
  assert.throws(()=>validateDreamOwnershipFixture(forged,catalog),/Dream appearance timing mismatch/);
  assert.equal(s.players[0].hand[0].definitionId,'w020');
 });
-test('catalog audit is deterministic, frozen and labels all 120 cards without claiming completion',()=>{
+test('catalog audit is deterministic, frozen and labels all researched cards without claiming completion',()=>{
  const a=auditDreamResearchCatalogFixture(catalog),b=auditDreamResearchCatalogFixture(catalog);
  assert.deepEqual(a,b);
  assert.equal(a.complete,false);
@@ -74,11 +75,11 @@ test('catalog audit is deterministic, frozen and labels all 120 cards without cl
  assert.equal(a.kind,'partial-reference-audit-only');
  assert.equal(a.cardCount,summary.unique);
  assert.equal(a.partialWeight,summary.slots);
- assert.equal(a.cardCount,120);
- assert.equal(a.partialWeight,309);
+ assert.equal(a.cardCount,RESEARCH_CATALOG_CONTRACT.unique);
+ assert.equal(a.partialWeight,RESEARCH_CATALOG_CONTRACT.slots);
  assert.equal(a.sourceExcluded,20);
  assert.equal(a.needsRuleReview,1);
- assert.equal(a.sourceExcluded+a.needsRuleReview+a.pairedLabCards+a.unpairedLabCards,120);
+ assert.equal(a.sourceExcluded+a.needsRuleReview+a.pairedLabCards+a.unpairedLabCards,RESEARCH_CATALOG_CONTRACT.unique);
  assert.equal(Object.isFrozen(a),true);
  assert.equal(Object.isFrozen(a.rows),true);
  assert.equal(Object.isFrozen(a.groups),true);
