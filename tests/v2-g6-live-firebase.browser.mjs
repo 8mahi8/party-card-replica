@@ -544,6 +544,11 @@ try{
     scores[0]?.textContent?.includes('手札 4')&&
     scores[1]?.textContent?.includes('手札 4');
   },{heart,mirror},{timeout:20000})));
+  // In no-op cures (e.g. reflected Smile vs Heaven Disease), public
+  // scores do not change. Wait for the remote guest's committed revision,
+  // not merely the locally updated host HUD.
+  await b.waitForFunction(()=>document.querySelector('#phase')?.textContent
+    .includes('相手の攻撃待ち'),null,{timeout:20000});
   const end=await dbRead(code);
   if(end.views?.A?.revision!==3||end.views?.B?.revision!==3||
      (end.views.A.players[0].disease??null)!==(heart&&mirror?null:'heaven')||
