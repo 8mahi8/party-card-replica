@@ -1,10 +1,6 @@
 name: G6 one-off live Firebase 2-seat probe (development only)
 
 on:
-  pull_request:
-    paths:
-      - 'tests/v2-g6-live-firebase.browser.mjs'
-      - '.github/workflows/g6-live-firebase-probe.yml'
   workflow_dispatch:
 
 permissions:
@@ -12,7 +8,7 @@ permissions:
 
 jobs:
   live-g6:
-    if: github.event_name == 'workflow_dispatch' || github.event_name == 'pull_request'
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     container:
