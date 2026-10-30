@@ -5,6 +5,16 @@
 
 > **この文書は引き継ぎ入口であり、実装の真実は常に開発ブランチの最新コードとGitHub Actions。** コミットSHA・テスト件数・カード数は作業のたびに変わる。本文の日付や数値を確認せず永久に正しいと扱わないこと。
 
+## 2026-10-30 G7｜夜空のホウキ・無作為3枚掃き飛ばし【最新・実Firebase成功】
+
+- **原作根拠**：[Piongその他神器（2026-10-24更新）](https://w.atwiki.jp/piong/pages/19.html)・[GFGAその他神器](https://w.atwiki.jp/gfplusa/pages/18.html)・[まかろん2026神器表](https://macarongamemo.com/entry/godfield-artifact) で夜空のホウキが**¥10／0.2%（1/500）／対象の物理神器をランダムに3枚掃き飛ばす**と照合。前の版では1枚だが2026版では3枚。[ゴッドフィールドを1000試合やった](https://note.com/md_stardustman/n/nfc5dfb559f95)で被害側の手札は3枚減り、補充されない。[2025年攻略](https://kankurou53.hatenablog.com/entry/2025/07/19/165703)で自己指定可能／習得済み奇跡は対象外。原作サーバーで直接動作を目視測定したわけではない。
+- **カード定義・共通エンジン**：`src/verified-basic-cards.mjs` に `i014`、`v2/legacy-adapter.mjs` と `v2/foundation.mjs` に`sweepHand({count:3})`。研究台帳は**164種類・409/500参考枠、`complete:false`**。既存 `useItem`／`itemDefense`／`respondItem` を使用（自己使用・相手使用・スーパーミラー）。`v2/room-transition.mjs` は鏡の応答後、権威ホストのseed付き乱数で**物理カードを最大3枚・非復元抽選**。ホウキ自身と使用済み鏡は抽選候補から事前除外。習得済み奇跡は`hand[]`外なので対象にならない。`v2/effect-runner.mjs` は強制`sweep`効果を追加し、通常「捨てる」できないカードも消せるが、**除去先の手札は補充しない**。使用したホウキと鏡だけが従来通り補充され、元の攻撃手番へ戻る。
+- **オンライン研究UI**：7つ目の研究用手札セット「夜空のホウキ・手札除去」を追加（ホストにホウキ、ゲストにスーパーミラー）。ホウキ選択時のデフォルト対象は相手だが自分にも変更可能。手札・残数・鏡応答はタップ操作。従来6セットを維持。旧研究・V2オフライン・V2オンラインの単体HTML3本を開発ブランチで再生成済み。生成workflowsは終了後**手動専用**に復帰。
+- **確認済み自動テスト**：Node **962/962 PASS** [run 41059021772](https://github.com/8mahi8/party-card-replica/actions/runs/41059021772)、Chromium **success** [run 41059021947](https://github.com/8mahi8/party-card-replica/actions/runs/41059021947)、WebKitオンライン2席 **104/104 PASS**＋既存画面 **339/339 PASS** [run 41059021802](https://github.com/8mahi8/party-card-replica/actions/runs/41059021802)。`tests/g7-night-sky-broom-v2.test.mjs` に10項目のseed付き抽選／3枚喪失／禁止捨て札／習得奇跡／0枚／自己指定／鏡／再送を追加。
+- **実Firebase成功**：[run 41059219940](https://github.com/8mahi8/party-card-replica/actions/runs/41059219940) で既存G6/G7の4試験に加え、`G7_LIVE_BROOM_PASS_SUCCESS` と `G7_LIVE_BROOM_MIRROR_SUCCESS` を確認。別々の実RTDB部屋で2席の手札数 **4↔1**、手番復帰・他席の手札秘匿を検査。計**6部屋をすべてホストID照合後に削除**し、6つの`G6_LIVE_CLEANUP_SUCCESS`も確認。ライブworkflowは元の手動起動へ復帰。
+- **限界・資料**：[原作資料・実装方針](docs/V2_G7_NIGHT_SKY_BROOM_2026-10-30.md)。学校iPad Safari＋Google Sitesへの直接埋め込みは**未検証・未変更**。GitHubのmain／Firebase Security Rules／認証も未変更。正規353種類・500枠の抽選は未完成・無効。スーパーミラーとホウキの詳細なアニメーション演出など原作直接測定が必要な項目は追加研究する。
+- **次の作業**：原作での他の特殊雑貨（女神の石けんや状態異常対応）をソース確認し、習得奇跡・状態異常など既存エンジンの設計と照合して実装優先順位を決める。実際のゲームの完成を優先し、目的のない共通基盤追加はしない。
+
 ## 2026-10-30 G7｜通常HP・MP回復7種の他者指定・事前スーパーミラー【最新・実Firebase成功】
 
 - **原作再調査**：[God Field初心者向けルール](https://godfield-beginner.game-info.wiki/) は雑貨を味方へ使用しHP/MPを回復できると説明し、[アニヲタWiki](https://w.atwiki.jp/aniwotawiki/pages/47010.html) も雑貨を相手に使用可能とする。前G7の `i006`～`i012` が自分専用なのは再現漏れ。HP/MP値と確率は既存 [Piong資料](https://w.atwiki.jp/piong/pages/19.html)・[GFGA](https://w.atwiki.jp/gfplusa/pages/18.html) を維持。原作の実画面で各回復雑貨を鏡にかけた実測は別途未実施（既存 `redirectAttack:reflect scope:any` を採用）。
