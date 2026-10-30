@@ -11,7 +11,7 @@
 - **買う**：物理カード「買う」選択→専用ボタン→対象側は購入依頼を通す→**購入する本人だけ**が無作為に選ばれた神器名・価格を見て`買う／買わない`を確定。所持金不足なら「貧乏」を表示して購入ボタン無効。原作現行を確認できていない**スーパーミラー反射への決済経路は既存エンジンと同様に未対応**、UIにも明示し防具・ミラー選択は禁止。
 - **両替**：物理カード「両替」選択でHP・MP・¥の数値入力を出し、合計保存／整数／HP≧1の検証を行ってから`exchange`コマンドへ送る。計算・合法性はホスト共通エンジンが再検証。
 - **研究セット**：`buy`、`exchange`の固定4枚セットを追加し、全**18セット**。正規のカード抽選ではない。現在の研究台帳174種類・435/500参考枠・`complete:false`は変更なし。
-- **検証**：`tests/v2-firebase-online-webkit.browser.mjs`に2タブ・模擬Firebaseで購入受け入れ／見送り／両替の合計不一致ブロック・確定・¥/MP/HP/手札・ターン・390pxを試す通しテストを追加。`tests/g7-online-loadout-presets-v2.test.mjs`と`tests/firebase-online-lab-page-v2.test.mjs`の契約を更新。単体HTML3本再生成済、パッケージ用workflowは**手動専用へ復帰**。Node/Chromium/WebKit全テストの最終合否は最新GitHub Actionsを確認すること。
+- **検証**：`tests/v2-firebase-online-webkit.browser.mjs`に2タブ・模擬Firebaseで購入受け入れ／見送り／両替の合計不一致ブロック・確定・¥/MP/HP/手札・ターン・390pxを試す通しテストを追加。`tests/g7-online-loadout-presets-v2.test.mjs`と`tests/firebase-online-lab-page-v2.test.mjs`の契約を更新。単体HTML3本再生成済、パッケージ用workflowは**手動専用へ復帰**。Node **1030/1030 PASS** [run 41090645823](https://github.com/8mahi8/party-card-replica/actions/runs/41090645823)、Chromium **PASS** [run 41090645886](https://github.com/8mahi8/party-card-replica/actions/runs/41090645886)、WebKit **オンライン2席257/257 PASS＋旧画面339/339 PASS** [run 41090418243](https://github.com/8mahi8/party-card-replica/actions/runs/41090418243)。
 - **資料**：[V2_G6_ONLINE_BUY_EXCHANGE_2026-10-31.md](docs/V2_G6_ONLINE_BUY_EXCHANGE_2026-10-31.md)。学校のiPad Safari実機・Google Sites直貼り・今回の追加操作の実Firebaseは**未検証**。学校公開版・Firebase Security Rules・認証方式・mainは変更していない。
 - **次工程**：追加したWebKit試験の全完了を確認し、必要なら修正。iPad実機で数字入力と購入判断の画面密度・同期を試す。未実装の正規山札・神器効果を原作に沿って段階的に再現。
 
