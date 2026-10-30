@@ -100,6 +100,7 @@ main{padding:0 6px 8px}.brandline{margin:0 -6px}
 <option value="recovery">HP・MP回復と反撃</option>
 <option value="support">相手への回復と反射</option>
 <option value="broom">夜空のホウキ・手札除去</option>
+<option value="soap">女神の石けん・奇跡を忘れる</option>
 <option value="tear">ドキドキ涙・運試し</option>
 </select></div>
 <p id="presetNotice">原作の山札ではありません。選択した4枚セットで効果を試します。</p>
@@ -115,7 +116,7 @@ main{padding:0 6px 8px}.brandline{margin:0 -6px}
 <div id="scores" class="scores" aria-label="プレイヤーのHP・MP・所持金"></div>
 <div class="arena">
 <div class="selected-tray"><header>選択中の神器 · タップ順</header><div id="selectionPreview"><span class="empty">カードをタップして選択</span></div><div id="selectionTotal" aria-live="polite"></div></div>
-<div class="phase-area"><div id="phase"></div><div id="combatRoute"></div><div id="incomingAttack" aria-live="polite" hidden></div><div id="battleHint">手札の神器をタップ</div></div>
+<div class="phase-area"><div id="phase"></div><div id="combatRoute"></div><div id="incomingAttack" aria-live="polite" hidden></div><div id="battleHint">手札の神器をタップ</div><div id="learnedMiracles" aria-live="polite"></div></div>
 </div>
 <div id="actions" hidden>
 <button id="attack" class="primary">攻撃する</button>
@@ -512,6 +513,8 @@ const VERIFIED_BASIC_CARDS = Object.freeze([
   Object.freeze({id:'i013',referenceName:'ドキドキ涙',kind:'support_item',category:'item',element:'none',effect:'coin_flip_hp',restoreAmount:10,price:1,weight:2}),
   // Piong (2026-10-24), GFGA, Macaron 2026: sweeps up to 3 physical artifacts; learned miracles excluded.
   Object.freeze({id:'i014',referenceName:'夜空のホウキ',kind:'support_item',category:'item',element:'none',effect:'sweep_hand',price:10,weight:1}),
+  // Piong (2026-10-24), GFGA, Macaron (2026): randomly forget up to 2 already-learned miracles.
+  Object.freeze({id:'i015',referenceName:'女神の石けん',kind:'support_item',category:'item',element:'none',effect:'forget_learned',price:10,weight:1}),
   Object.freeze({id:'i003',referenceName:'精霊のぬいぐるみ',kind:'support_item',category:'item',element:'none',effect:'free_previous_miracle',price:5,weight:2}),
   Object.freeze({id:'i004',referenceName:'ちからの粉',kind:'support_item',category:'item',element:'none',effect:'add_attack',attackBonus:10,price:15,weight:2}),
   // Passive: held charm consumes ONE instance at HP0, revives at HP10.
@@ -550,7 +553,7 @@ const MODES = new Set(['mainAttack','addAttack','defend','cast','support','trade
 // Until sourced effects are implemented, explicitly gate those definitions.
 const DISCARD_POLICIES = new Set(['ordinary','forbidden','requiresSpecialResolution']);
 const EFFECT_TRIGGERS = new Set(['onDeclare','onCost','beforeHit','onDefense','afterHit','onTurnEnd','onZeroHp']);
-const EFFECT_TYPES = new Set(['redirectAttack','stripElement','multiplyAttack','addAttack','stopAttack','waivePreviousMp','setAttackElement','forceSale','requestBuy','reallocateResources','reviveAtZeroHp','absorbHp','repeatAttack','widenAttack','restoreResource','flipHpRisk','sweepHand']);
+const EFFECT_TYPES = new Set(['redirectAttack','stripElement','multiplyAttack','addAttack','stopAttack','waivePreviousMp','setAttackElement','forceSale','requestBuy','reallocateResources','reviveAtZeroHp','absorbHp','repeatAttack','widenAttack','restoreResource','flipHpRisk','sweepHand','forgetLearned']);
 
 function plainObject(v) { return v !== null && typeof v === 'object' && !Array.isArray(v); }
 function nonnegative(n) { return Number.isSafeInteger(n) && n >= 0; }
@@ -585,6 +588,9 @@ function freezeEffect(effect) {
       !['hp','mp'].includes(params.resource)||
       !Number.isSafeInteger(params.amount)||params.amount<1||params.amount>99))
     throw new Error('Invalid restoreResource effect data');
+  if(effect.type==='forgetLearned'&&
+     (effect.when!=='onDeclare'||Object.keys(params).length!==1||params.count!==2))
+    throw new Error('Invalid forgetLearned effect data');
   if(effect.type==='sweepHand'&&
      (effect.when!=='onDeclare'||Object.keys(params).length!==1||params.count!==3))
     throw new Error('Invalid sweepHand effect data');
@@ -1095,6 +1101,11 @@ function convertLegacyCard(card,{ruleset=PARTIAL_CARD_SOURCE}={}) {
         throw new Error('Invalid source-backed coin-flip HP item');
       modes.push('use');
       effects.push(mk('onDeclare','flipHpRisk',{heal:10,damage:10,healChance:0.5}));
+    }else if(card.effect==='forget_learned'){
+      if(card.element!=='none'||card.price!==10||card.weight!==1)
+        throw new Error('Invalid source-backed soap item');
+      modes.push('use');
+      effects.push(mk('onDeclare','forgetLearned',{count:2}));
     }else if(card.effect==='sweep_hand'){
       if(card.element!=='none'||card.price!==10||card.weight!==1)
         throw new Error('Invalid source-backed broom item');
@@ -2079,7 +2090,7 @@ function applyStagingCommand(state,command,catalog,{authorizedSeatId}={}) {
     if(!physical||def?.family!=='item'||!def.playModes.includes('use')||
       def.effects.length!==1||
       !def.effects.some(e=>e.when==='onDeclare'&&
-        ['restoreResource','flipHpRisk','sweepHand'].includes(e.type)))
+        ['restoreResource','flipHpRisk','sweepHand','forgetLearned'].includes(e.type)))
       throw new Error('Only a plain owned recovery item may be used');
     const target=command.targetId===undefined?actor:seat(state,id(command.targetId,'item target ID'));
     if(target.hp<=0)throw new Error('Item target has already been defeated');
@@ -2557,6 +2568,16 @@ function runEffectQueueFixture(state,catalog,queue,{
      if(before-p.hand.length!==ids.size)fail('Discarded card not in hand');
      forgetDream(p,effect.instanceIds);
      events.push({type:'discard',playerId:p.id,count:ids.size});
+   } else if(effect.type==='forgetLearned'){
+     if(!Array.isArray(effect.definitionIds)||effect.definitionIds.length>2)
+       fail('Invalid Soap learned-miracle IDs');
+     const p=who(s,effect.playerId),ids=new Set(effect.definitionIds);
+     if(ids.size!==effect.definitionIds.length ||
+        effect.definitionIds.some(id=>typeof id!=='string'||
+          !p.learned.includes(id)||catalog.get(id)?.family!=='miracle'))
+       fail('Soap can only forget owned learned miracles');
+     p.learned=p.learned.filter(id=>!ids.has(id));
+     events.push({type:'forgetLearned',playerId:p.id,count:ids.size});
    } else if(effect.type==='sweep'){
      // Unlike voluntary discard, a Broom forcibly sweeps ANY physical
      // artifact (including those with forbidden discard policies). This
@@ -4717,7 +4738,7 @@ function resolveStagedFixture(state,catalog,{
     const card=actor?.hand.find(x=>x.instanceId===p.instanceId);
     const def=catalog.get(card?.definitionId);
     const effect=def?.effects.find(e=>e.when==='onDeclare'&&
-      ['restoreResource','flipHpRisk','sweepHand'].includes(e.type));
+      ['restoreResource','flipHpRisk','sweepHand','forgetLearned'].includes(e.type));
     if(!card||!actor||actor.hp<=0||!target||target.hp<=0||
        def?.family!=='item'||!def.playModes.includes('use')||
        def.effects.length!==1||!effect)
@@ -4741,6 +4762,31 @@ function resolveStagedFixture(state,catalog,{
       }
     }else if(p.defense!==null&&p.defense!==undefined)
       fail('Cannot defend against an item used on oneself');
+    if(effect.type==='forgetLearned'){
+      if(effect.params.count!==2)fail('Invalid Soap forget count');
+      // Authenticated target/mirror choice comes first. Learned miracles are
+      // held separately from physical hand items, and may number 0, 1 or more.
+      const pool=[...recipient.learned],forgotten=[];
+      let seed=state.rngSeed;
+      while(pool.length&&forgotten.length<effect.params.count){
+        const sample=drawRandom32(seed);
+        seed=sample.nextSeed;
+        const index=Math.floor(sample.value*pool.length);
+        forgotten.push(pool.splice(index,1)[0]);
+      }
+      const queue=[
+        {type:'spend',playerId:actor.id,instanceIds:[card.instanceId]},
+        ...(mirrorId===null?[]:[{type:'spend',playerId:target.id,instanceIds:[mirrorId]}]),
+        {type:'forgetLearned',playerId:recipient.id,definitionIds:forgotten},
+        {type:'refill'},
+        {type:'resumeTurn',playerId:actor.id}
+      ];
+      const result=runEffectQueueFixture({...state,rngSeed:seed},catalog,queue,
+        {labOnly:true,fixtureDrawDefinitionId});
+      return {...result,plan:Object.freeze({type:'useItem',
+        playerId:actor.id,targetId:recipient.id,definitionId:def.id,
+        forgottenCount:forgotten.length,reflected:mirrorId!==null})};
+    }
     if(effect.type==='sweepHand'){
       if(effect.params.count!==3)fail('Invalid broom sweep count');
       // Sampling is performed once by the authoritative host, after the
@@ -6024,6 +6070,12 @@ const LAB_PRESETS=Object.freeze({
   A:Object.freeze(['i014','w016','d003','i006']),
   B:Object.freeze(['i002','w027','d003','i005'])
  }),
+ soap:Object.freeze({
+  A:Object.freeze(['i015','w016','d003','i006']),
+  B:Object.freeze(['i002','w027','d003','i005']),
+  learnedA:Object.freeze(['m008','m009','m010']),
+  learnedB:Object.freeze(['m005','m008','m009'])
+ }),
  tear:Object.freeze({
   A:Object.freeze(['i013','i005','w016','d003']),
   B:Object.freeze(['i013','w027','d003','i002'])
@@ -6075,6 +6127,9 @@ function render(){
  const active=view.activePlayerId===seat,turn=view.phase==='turn',
   itemDefense=view.phase==='itemDefense',defense=view.phase==='defense'||itemDefense;
  const player=view.players.find(p=>p.id===seat);
+ $('learnedMiracles').textContent=player.learned?.length?
+  '習得した奇跡：'+player.learned.map(id=>names.get(id)||id).join(' · '):
+  '習得した奇跡：なし';
  const stats=$('scores');
  stats.replaceChildren();
  for(const p of view.players){
@@ -6151,7 +6206,7 @@ function render(){
  // reflections, multi-hits and special effects belong to the battle engine.
  const selectedIds=[...selection],itemEffect=selectedIds.length===1?
    catalog.get(cardsById.get(selectedIds[0])?.definitionId)?.effects.find(
-    e=>e.when==='onDeclare'&&['restoreResource','flipHpRisk','sweepHand'].includes(e.type)):null;
+    e=>e.when==='onDeclare'&&['restoreResource','flipHpRisk','sweepHand','forgetLearned'].includes(e.type)):null;
  const mirrorChoice=selectedIds.length===1&&catalog.get(
    cardsById.get(selectedIds[0])?.definitionId)?.effects.some(e=>
     e.when==='onDefense'&&e.type==='redirectAttack'&&
@@ -6159,7 +6214,8 @@ function render(){
  $('selectionTotal').textContent=itemDefense?
    (mirrorChoice?'スーパーミラーで雑貨を反射':'許す／スーパーミラーを選択'):
    itemEffect?
-   (itemEffect.type==='sweepHand'?'対象の神器を無作為に最大3枚除去':
+   (itemEffect.type==='forgetLearned'?'対象の習得済み奇跡を無作為に最大2つ忘れさせる':
+    itemEffect.type==='sweepHand'?'対象の神器を無作為に最大3枚除去':
     itemEffect.type==='flipHpRisk'?'HP+10 / 10ダメージ（各50%）':
     (itemEffect.params.resource==='hp'?'HP':'MP')+'+'+itemEffect.params.amount+'（最大99）'):
    index?'カード記載値の合計（参考） · '+(defense?'守 '+guardSum:'攻 '+attackSum)+
@@ -6180,9 +6236,10 @@ function render(){
   const label=document.createElement('span');label.className='cardname';
   label.textContent=name;
   const stat=document.createElement('span');stat.className='cardstats';
-  const restored=def?.effects.find(e=>['restoreResource','flipHpRisk','sweepHand'].includes(e.type));
+  const restored=def?.effects.find(e=>['restoreResource','flipHpRisk','sweepHand','forgetLearned'].includes(e.type));
   stat.textContent=restored?
-   (restored.type==='sweepHand'?'神器を3枚除去':
+   (restored.type==='forgetLearned'?'習得奇跡を2つ消す':
+    restored.type==='sweepHand'?'神器を3枚除去':
     restored.type==='flipHpRisk'?'HP±10（50%）':
     (restored.params.resource==='hp'?'HP':'MP')+'+'+restored.params.amount):
    [stats.attack?'攻'+stats.attack:'',
@@ -6200,7 +6257,7 @@ function render(){
    if(selection.has(c.instanceId))selection.delete(c.instanceId);
    else {
     selection.add(c.instanceId);
-    if(def?.effects.some(e=>e.type==='sweepHand'))itemTarget='other';
+    if(def?.effects.some(e=>['sweepHand','forgetLearned'].includes(e.type)))itemTarget='other';
    }
    render();
   });
@@ -6235,7 +6292,7 @@ async function send(type){
   command.instanceId=ids[0];
   const effect=catalog.get(view.players.find(p=>p.id===seat)?.hand?.find(c=>
     c.instanceId===ids[0])?.definitionId)?.effects.find(e=>
-     ['restoreResource','flipHpRisk','sweepHand'].includes(e.type));
+     ['restoreResource','flipHpRisk','sweepHand','forgetLearned'].includes(e.type));
   if(effect)command.targetId=itemTarget==='self'?seat:(seat==='A'?'B':'A');
  }
  if(effectiveType==='respondItem'&&ids.length)command.mirrorInstanceId=ids[0];
@@ -6276,6 +6333,15 @@ $('create').addEventListener('click',async()=>{
    seats:[{id:'A',handDefinitionIds:[...preset.A]},
     {id:'B',handDefinitionIds:[...preset.B]}],
    rulesetId:'partial-reference-v2-lab',rngSeed:71},catalog);
+  // Host-owned fixed lab data, never accepted from a guest command.
+  for(const [index,ids] of [[0,preset.learnedA],[1,preset.learnedB]]){
+   if(ids!==undefined){
+    if(ids.length>6||new Set(ids).size!==ids.length||
+      ids.some(id=>catalog.get(id)?.family!=='miracle'))
+     throw Error('研究用習得済み奇跡の定義が不正です');
+    initialState.players[index].learned=[...ids];
+   }
+  }
   for(let i=0;i<5;i++){
    try{
     const roomCode=code();
