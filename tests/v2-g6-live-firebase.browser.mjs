@@ -638,6 +638,66 @@ try{
  }
  for(const mode of ['cold','blocked','reflect','hell'])await liveDiseaseWeaponTrial(mode);
 
+ // Live Wind miracles share the same RTDB state and learned spell contracts
+ // as other attacks. Every case runs in a newly owned, cleaned test room.
+ async function liveWindMiracleTrial(mode){
+  await a.goto('about:blank');await b.goto('about:blank');
+  await cleanup();code=null;roomHostId=null;
+  await a.goto(url,{waitUntil:'load',timeout:20000});
+  await a.locator('#labPreset').selectOption('windMiracles');
+  await a.locator('#create').tap();
+  await a.waitForFunction(()=>/ルーム \d{5}/.test(
+   document.querySelector('#roomLabel')?.textContent||''),null,{timeout:20000});
+  code=(await a.locator('#roomLabel').textContent()).match(/\d{5}/)[0];
+  const initial=await dbRead(code);
+  if(!initial?.meta?.hostId||initial?.meta?.guestId!=null)
+   throw Error('Wind miracle room creation mismatch');
+  roomHostId=initial.meta.hostId;
+  await b.goto(url,{waitUntil:'load',timeout:20000});
+  await b.locator('#joinCode').fill(code);
+  await b.locator('#join').tap();
+  await b.locator('#hand button').first().waitFor({timeout:20000});
+  if(!(await a.locator('.score').first().textContent()).includes('MP 25'))
+   throw Error('Wind initial MP did not match fixed research preset');
+  await a.locator('#hand button').nth(mode==='heaven'?1:0).tap();
+  await a.locator('#attack').tap();
+  await b.waitForFunction(()=>document.querySelector('#phase')?.textContent
+   .includes('あなたの防御'),null,{timeout:20000});
+  const pending=await dbRead(code);
+  if(pending.views?.B?.players?.[1]?.disease!=null||
+     pending.views?.B?.players?.[0]?.hand!==undefined||
+     pending.views?.B?.players?.[1]?.hp!==40)
+   throw Error('Wind illness was applied before miracle defense or exposed cards');
+  if(mode==='angel')await b.locator('#hand button').nth(1).tap();
+  if(mode==='mirror')await b.locator('#hand button').first().tap();
+  await b.locator('#defend').tap();
+  if(mode==='mirror'){
+   await a.waitForFunction(()=>document.querySelector('#phase')?.textContent
+    .includes('あなたの防御'),null,{timeout:20000});
+   await a.locator('#defend').tap();
+  }
+  await b.waitForFunction(()=>document.querySelector('#phase')?.textContent
+   .includes('あなたの攻撃'),null,{timeout:20000});
+  const after=await dbRead(code);
+  const aState=after.views?.A?.players?.[0],bState=after.views?.B?.players?.[1];
+  const diseaseA=mode==='mirror'?'cold':null;
+  const diseaseB=mode==='wind'?'cold':mode==='heaven'?'heaven':null;
+  if((aState?.disease??null)!==diseaseA||
+     (bState?.disease??null)!==diseaseB||
+     aState.hp!==(mode==='mirror'?39:40)||bState.hp!==40||
+     aState.mp!==(mode==='heaven'?10:19)||
+     !aState.learned?.includes(mode==='heaven'?'m014':'m013')||
+     after.views?.A?.activePlayerId!=='B'||
+     after.views?.B?.activePlayerId!=='B'||
+     after.views?.A?.players?.[1]?.hand!==undefined||
+     after.views?.B?.players?.[0]?.hand!==undefined)
+   throw Error('Wind miracle live RTDB resolution or secrecy mismatch '+mode);
+  if(errors.length)throw Error('Wind browser errors: '+errors.join(' | '));
+  console.log('G7_LIVE_WIND_MIRACLE_'+mode.toUpperCase()+'_SUCCESS');
+ }
+ for(const mode of ['wind','heaven','angel','mirror'])await liveWindMiracleTrial(mode);
+
+
 
 
 
