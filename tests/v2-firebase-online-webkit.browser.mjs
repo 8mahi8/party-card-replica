@@ -553,9 +553,9 @@ try{
    await defender.locator('#joinCode').fill(room);
    await defender.locator('#join').tap();
    await defender.locator('#hand button').first().waitFor();
-   check((await attacker.locator('#learnedMiracles').textContent()).split(' · ').length===3,
+   check((await attacker.locator('#learnedMiracles .learned-choice').count())===3,
     'Soap trial starts with 3 already learned A miracles');
-   check((await defender.locator('#learnedMiracles').textContent()).split(' · ').length===3,
+   check((await defender.locator('#learnedMiracles .learned-choice').count())===3,
     'Soap trial starts with 3 already learned B miracles');
    await attacker.locator('#hand button').first().tap();
    check((await attacker.locator('#itemTarget').textContent()).includes('相手'),
@@ -567,15 +567,15 @@ try{
     .includes('雑貨への対応'));
    check((await defender.locator('#incomingAttack').textContent()).includes('女神の石けん'),
     'Goddess Soap is announced before response');
-   check((await defender.locator('#learnedMiracles').textContent()).split(' · ').length===3,
+   check((await defender.locator('#learnedMiracles .learned-choice').count())===3,
     'learned miracles are unchanged until Mirror/pass');
    if(mirror)await defender.locator('#hand button').first().tap();
    await defender.locator('#defend').tap();
    await Promise.all([attacker,defender].map((page,i)=>page.waitForFunction(
     ({mirror,i})=>{
-     const text=document.querySelector('#learnedMiracles')?.textContent||'';
+     const buttons=document.querySelectorAll('#learnedMiracles .learned-choice');
      const wanted=(i===0 ? (mirror?1:3) : (mirror?3:1));
-     return text.startsWith('習得した奇跡：')&&text.split(' · ').length===wanted&&
+     return buttons.length===wanted&&
       document.querySelectorAll('.score')[0]?.textContent?.includes('手札 4')&&
       document.querySelectorAll('.score')[1]?.textContent?.includes('手札 4');
     },{mirror,i},{timeout:15000})));
@@ -840,6 +840,82 @@ try{
   }finally{await a.close();await b.close();}
  }
  for(const mode of ['self','angel','accept'])await turbulenceTrial(mode);
+ // Learned miracles must be actionable from the ONLINE touch view, not
+ // just displayed as passive text. Test solo Wind, learned Turbulence defense,
+ // and a weapon followed by learned Aura in the real ordered command path.
+ async function learnedTouchTrial(){
+  const a=await context.newPage(),b=await context.newPage();
+  for(const p of [a,b])p.on('pageerror',e=>errors.push(e.message));
+  try{
+   await a.goto(target);
+   await a.locator('#labPreset').selectOption('learnedTrial');
+   await a.locator('#create').tap();
+   await a.waitForFunction(()=>/\\b\\d{5}\\b/.test(
+    document.querySelector('#roomLabel')?.textContent||''));
+   const room=(await a.locator('#roomLabel').textContent()).match(/\\d{5}/)[0];
+   await b.goto(target);
+   await b.locator('#joinCode').fill(room);
+   await b.locator('#join').tap();
+   await b.locator('#hand button').first().waitFor();
+   check(await a.locator('#learnedMiracles .learned-choice').count()===2,
+    'learned offensive miracles appear as actual touch buttons');
+   check(await b.locator('#learnedMiracles .learned-choice').count()===1,
+    'defender learns only their own Turbulence, not opponent private miracles');
+   check(await b.locator('#learnedMiracles .learned-choice').first().isDisabled(),
+    'waiting remote player cannot trigger learned defense prematurely');
+   await a.locator('#learnedMiracles .learned-choice').filter({hasText:'風'}).tap();
+   check((await a.locator('#selectionPreview').textContent()).includes('風'),
+    'learned spell appears in ordered selection preview');
+   check((await a.locator('#selectionTotal').textContent()).includes('MP 6'),
+    'learned spell cost appears in attack preview');
+   await a.locator('#attack').tap();
+   await b.waitForFunction(()=>document.querySelector('#phase')?.textContent
+    .includes('あなたの防御'));
+   check(await b.locator('#learnedMiracles .learned-choice').first().isEnabled(),
+    'learned Turbulence is enabled as a defensive spell');
+   await b.locator('#learnedMiracles .learned-choice').first().tap();
+   check((await b.locator('#selectionPreview').textContent()).includes('乱気流'),
+    'learned defense is shown before confirmation');
+   await b.locator('#defend').tap();
+   await Promise.all([a,b].map(p=>p.waitForFunction(()=>{
+    const scores=document.querySelectorAll('.score');
+    return scores[0]?.textContent?.includes('MP 19')&&
+     scores[1]?.textContent?.includes('MP 5')&&
+     scores[1]?.textContent?.includes('風邪');
+   },null,{timeout:15000})));
+   check((await b.locator('#phase').textContent()).includes('あなたの攻撃'),
+    'learned defensive miracle returns the turn without freezing');
+   // Complete a normal second turn; the first seat can then use learned
+   // Aura after a weapon in the same ordered attack, via playSequence.
+   await b.locator('#hand button').filter({hasText:'ワンダー'}).count().catch(()=>0);
+   await b.locator('#hand button').nth(1).tap();
+   await b.locator('#attack').tap();
+   await a.waitForFunction(()=>document.querySelector('#phase')?.textContent
+    .includes('あなたの防御'));
+   await a.locator('#defend').tap();
+   await a.waitForFunction(()=>document.querySelector('#phase')?.textContent
+    .includes('あなたの攻撃'));
+   await a.locator('#hand button').first().tap();
+   await a.locator('#learnedMiracles .learned-choice').filter({hasText:'オーラ'}).tap();
+   const order=await a.locator('#selectionPreview').textContent();
+   check(order.indexOf('ワンダーソード')<order.indexOf('オーラ')&&
+    order.includes('オーラ'),'weapon and learned Aura preserve tap order');
+   check(await a.locator('#attack').isEnabled(),
+    'mixed hand and learned offensive sequence is submittable');
+   await a.locator('#attack').tap();
+   await b.waitForFunction(()=>document.querySelector('#phase')?.textContent
+    .includes('あなたの防御'));
+   await b.locator('#defend').tap();
+   await a.waitForFunction(()=>document.querySelector('#status')?.textContent
+    .includes('操作を反映しました'),null,{timeout:15000});
+   check((await a.locator('.score').first().textContent()).includes('MP 13'),
+    'learned Aura MP cost is deducted once after mixed attack');
+   check(await a.evaluate(()=>document.documentElement.scrollWidth<=
+    document.documentElement.clientWidth+2),
+    'learned button strip fits 390px Google Sites-style iframe');
+  }finally{await a.close();await b.close();}
+ }
+ await learnedTouchTrial();
  check(errors.length===0,'all preset trials have no script errors');
  console.log('FIREBASE_ONLINE_WEBKIT_SUCCESS checks='+checks+
   ' two tabs with mock RTDB, viewport=390x430');
