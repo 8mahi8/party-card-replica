@@ -553,7 +553,7 @@ try{
      end.views.A.activePlayerId!=='A'||
      end.views.A.players[1].hand!==undefined||
      end.views.B.players[0].hand!==undefined)
-   throw Error('Shell live RTDB cure or turn/privacy/refill mismatch');
+   throw Error('Shell live RTDB cure or turn/privacy/refill mismatch '+JSON.stringify({heart,mirror,views:Object.fromEntries(Object.entries(end.views||{}).map(([k,v])=>[k,{revision:v.revision,phase:v.phase,active:v.activePlayerId,players:v.players?.map(p=>({id:p.id,disease:p.disease??null,handCount:p.handCount,handExposed:p.hand!==undefined}))}]))}));
   if(errors.length)throw Error('Shell client errors: '+errors.join(' | '));
   console.log('G7_LIVE_SHELL_'+(heart?'HEART':'SMILE')+'_'+(mirror?'MIRROR':'PASS')+'_SUCCESS');
  }
