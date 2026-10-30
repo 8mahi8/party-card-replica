@@ -144,6 +144,13 @@ export function convertLegacyCard(card,{ruleset=PARTIAL_CARD_SOURCE}={}) {
         throw new Error('Invalid source-backed coin-flip HP item');
       modes.push('use');
       effects.push(mk('onDeclare','flipHpRisk',{heal:10,damage:10,healChance:0.5}));
+    }else if(['cleanse_minor','cleanse_all'].includes(card.effect)){
+      const minor=card.effect==='cleanse_minor';
+      if(card.element!=='none'||card.price!==(minor?5:15)||
+         card.weight!==(minor?12:6))
+        throw new Error('Invalid source-backed shell');
+      modes.push('use');
+      effects.push(mk('onDeclare','cleanseAfflictions',{scope:minor?'minor':'all'}));
     }else if(card.effect==='heaven_herb'){
       if(card.element!=='none'||card.restoreAmount!==20||card.price!==20||card.weight!==1)
         throw new Error('Invalid source-backed heaven grass');
