@@ -5,6 +5,16 @@
 
 > **この文書は引き継ぎ入口であり、実装の真実は常に開発ブランチの最新コードとGitHub Actions。** コミットSHA・テスト件数・カード数は作業のたびに変わる。本文の日付や数値を確認せず永久に正しいと扱わないこと。
 
+## 2026-10-30 G7｜女神の石けん・習得済み奇跡2つ忘却【最新・実Firebase成功】
+
+- **原作照合**：[Piong 2026-10-24 その他神器](https://w.atwiki.jp/piong/pages/19.html)、[GFGA](https://w.atwiki.jp/gfplusa/pages/18.html)、[まかろん2026](https://macarongamemo.com/entry/godfield-artifact)：**女神の石けん = ¥10・0.2%（1/500）・対象の習得済み奇跡を無作為に2つ忘れさせる**。[2023年原作論評](https://idea427.hatenablog.com/entry/2023/07/31/192159)：未使用の物理手札にある奇跡は消えない。[Piong守護神](https://w.atwiki.jp/piong/pages/27.html)：奇跡を1つも習得していない相手も指定可能。[2025年スーパーミラー検証](https://kankurou53.hatenablog.com/entry/2025/07/19/165703)：相手への石けんは反射可能。2013年の1つ忘却という旧情報ではなく現行の2つを採用。原作ゲームでの直接実機検証は未実施。
+- **実装**：`src/verified-basic-cards.mjs` の `i015`、`v2/legacy-adapter.mjs`＋`v2/foundation.mjs` に `onDeclare:forgetLearned({count:2})`、`v2/staging-room.mjs` は既存 `useItem` 対象指定・`respondItem` 反射/許すを再利用。`v2/room-transition.mjs` は**相手の反射選択後**に権威ホストだけでシードRNGから重複なし最大2つの習得済み奇跡を選択。`v2/effect-runner.mjs` の新 `forgetLearned` 命令は `learned[]` だけを削除し、**手札の神器は消さず補充にも影響させない**。対象の習得奇跡0個なら何も忘れない。石けん/使用した鏡だけ通常通り補充され、元の攻撃手番を再開。カタログは **165種類・410/500研究枠、`complete:false`**。
+- **オンラインUI**：8つ目の `soap` 固定試験セット。両席の `learned[]` をそれぞれ3つずつ信頼できるホスト作成時の試験データとして固定（ゲストコマンドで指定不可）。自身の習得済み奇跡表示 `#learnedMiracles` を追加、石けんの相手/自分対象選択をUIから操作可能。従来7セット維持。旧/V2オフライン/V2オンラインの単体HTML3本を開発ブランチで再生成して保存、生成workflowは**手動専用へ戻した**。
+- **検証結果**：Node **972/972 PASS** [run 41061072473](https://github.com/8mahi8/party-card-replica/actions/runs/41061072473)、Chromium **PASS** [run 41061072429](https://github.com/8mahi8/party-card-replica/actions/runs/41061072429)、WebKitオンライン2画面 **120/120 PASS**＋既存画面 **339/339 PASS** [run 41061073018](https://github.com/8mahi8/party-card-replica/actions/runs/41061073018)。追加 `tests/g7-goddess-soap-v2.test.mjs` は源データ、忘却対象・乱数、1/0個、鏡、自己使用、手札非影響、再送と手番継続を検証。
+- **本物のFirebase対戦も成功**：[run 41061219909](https://github.com/8mahi8/party-card-replica/actions/runs/41061219909)で以前のG6/G7の6シナリオに加え `G7_LIVE_SOAP_PASS_SUCCESS`（対象の習得済み奇跡3→1）と `G7_LIVE_SOAP_MIRROR_SUCCESS`（反射で使用者の習得済み奇跡3→1）。両席手札4枚・revision3・手番復帰・他人の未公開`learned`/hand秘匿を確認。**一時8ルーム全削除済み**（ログに8回の `G6_LIVE_CLEANUP_SUCCESS`）。ライブworkflowの一時PRトリガーも従来の手動起動に復帰。
+- **資料・制限**：[G7女神の石けん調査と実装](docs/V2_G7_GODDESS_SOAP_2026-10-30.md)。学校iPad Safari/Google Sites実機未検証。学校版HTML、GitHub main、Firebase Security Rulesと認証は未変更。353種/500枠正規抽選は未完成・引き続き無効。
+- **次の作業**：G7残る未再現雑貨と奇跡の適用・災い処理を原作資料と比較。単にカードを増やすのではなく、原作に必要な共通状態異常エンジンの最小設計、または既存未完機能の検証を優先。
+
 ## 2026-10-30 G7｜夜空のホウキ・無作為3枚掃き飛ばし【最新・実Firebase成功】
 
 - **原作根拠**：[Piongその他神器（2026-10-24更新）](https://w.atwiki.jp/piong/pages/19.html)・[GFGAその他神器](https://w.atwiki.jp/gfplusa/pages/18.html)・[まかろん2026神器表](https://macarongamemo.com/entry/godfield-artifact) で夜空のホウキが**¥10／0.2%（1/500）／対象の物理神器をランダムに3枚掃き飛ばす**と照合。前の版では1枚だが2026版では3枚。[ゴッドフィールドを1000試合やった](https://note.com/md_stardustman/n/nfc5dfb559f95)で被害側の手札は3枚減り、補充されない。[2025年攻略](https://kankurou53.hatenablog.com/entry/2025/07/19/165703)で自己指定可能／習得済み奇跡は対象外。原作サーバーで直接動作を目視測定したわけではない。
