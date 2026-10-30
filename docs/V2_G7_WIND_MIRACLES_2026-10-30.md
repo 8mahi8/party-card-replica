@@ -26,3 +26,12 @@
 - 病系武器から貝がらを使う一連のゲーム画面操作をSafari/WebKitでも直接試すこと。
 - 今回未検証の乱気流の確率的な弾き・反射連鎖、通常防具の使用演出、精霊・他の奇跡との複合使用は本家の資料やプレイで確認してから拡張。
 - 学校Google SitesにHTMLコードを直貼りしている実際のiPadではまだ未検証。GitHub main、学校版HTML、Firebase Security Rules・認証方式は変更しない。
+
+
+## 検証完了追記（2026-10-30）
+
+- **Node 1018/1018 PASS** [run 41074519880](https://github.com/8mahi8/party-card-replica/actions/runs/41074519880)。新規テストは「感染攻撃→相手手番→貝がら治療→反撃」を3件、奇跡〈風〉〈天国風〉10件。
+- **Chromium PASS** [run 41074650786](https://github.com/8mahi8/party-card-replica/actions/runs/41074650786)、**WebKitオンライン184/184 PASS**と既存UI **339/339 PASS** [run 41074650744](https://github.com/8mahi8/party-card-replica/actions/runs/41074650744)。病2種・エンゼル停止・スーパーミラー反射が390×430のタップ画面で動作。
+- **実Firebase22ケース全成功** [run 41074650807](https://github.com/8mahi8/party-card-replica/actions/runs/41074650807)。前回までの18ケースに `G7_LIVE_WIND_MIRACLE_WIND_SUCCESS`、`G7_LIVE_WIND_MIRACLE_HEAVEN_SUCCESS`、`G7_LIVE_WIND_MIRACLE_ANGEL_SUCCESS`、`G7_LIVE_WIND_MIRACLE_MIRROR_SUCCESS` が追加。22個の試験ルームで`G6_LIVE_CLEANUP_SUCCESS`を22回確認、ホストID照合後に削除完了。
+- Dream監査では、新規の奇跡2種はデバッグ用の夢表示変更対象から**除外**すべき専用詠唱である。`sourceExcluded=22`、`needsRuleReview=14`に修正。古い監査スナップショットが一時失敗したものの、後続の全体再テストで解消した。
+- 既存のG6単体HTML3本は開発ブランチに再生成して保存。検証のためだけに一時追加したワークフローのpull_request起動は終了後**両方とも元の手動専用**に復帰。学校版・Firebase Rulesには一切変更を入れていない。
