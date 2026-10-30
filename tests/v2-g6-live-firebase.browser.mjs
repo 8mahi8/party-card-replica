@@ -268,6 +268,67 @@ try{
  if(errors.length)throw Error('G7 item mirror browser errors: '+errors.join(' | '));
  console.log('G7_LIVE_TARGET_MIRROR_SUCCESS: real RTDB, source-backed tear target, Super Mirror before RNG, revision3, private hands');
 
+ // Live proof for ordinary restoratives: HP+5 may be reflected, MP+5
+ // accepted by the other seat. Earlier scenarios and safe room cleanup stay.
+ await a.goto('about:blank');await b.goto('about:blank');
+ await cleanup();code=null;roomHostId=null;
+ await a.goto(url,{waitUntil:'load',timeout:20000});
+ await a.locator('#labPreset').selectOption('support');
+ await a.locator('#create').tap();
+ await a.waitForFunction(()=>/ルーム \d{5}/.test(
+  document.querySelector('#roomLabel')?.textContent||''),null,{timeout:20000});
+ code=(await a.locator('#roomLabel').textContent()).match(/\d{5}/)[0];
+ const supportCreated=await dbRead(code);
+ if(!supportCreated?.meta?.hostId||supportCreated?.meta?.guestId!=null)
+  throw Error('G7 support room creation failed');
+ roomHostId=supportCreated.meta.hostId;
+ await b.goto(url,{waitUntil:'load',timeout:20000});
+ await b.locator('#joinCode').fill(code);
+ await b.locator('#join').tap();
+ await b.locator('#hand button').first().waitFor({timeout:20000});
+ if(!(await b.locator('#hand button').first().textContent()).includes('スーパーミラー'))
+  throw Error('G7 support preset lacks Super Mirror');
+ await a.locator('#hand button').first().tap();
+ await a.locator('#itemTarget').tap();
+ await a.locator('#useItem').tap();
+ await b.waitForFunction(()=>document.querySelector('#phase')?.textContent
+  .includes('雑貨への対応'),null,{timeout:20000});
+ const pendingSupport=await dbRead(code);
+ if(pendingSupport.views?.B?.pending?.declaredItem?.definitionId!=='i006'||
+    pendingSupport.views?.B?.players?.[0]?.hand!==undefined||
+    pendingSupport.views?.B?.players?.[1]?.hp!==40)
+  throw Error('G7 HP support resolved before mirror response');
+ await b.locator('#hand button').first().tap();
+ await b.locator('#defend').tap();
+ await Promise.all([a,b].map(page=>page.waitForFunction(()=>{
+  const scores=document.querySelectorAll('.score');
+  return scores[0]?.textContent?.includes('HP 45')&&
+    scores[1]?.textContent?.includes('HP 40');
+ },null,{timeout:20000})));
+ await a.locator('#hand button').first().tap();
+ await a.locator('#itemTarget').tap();
+ await a.locator('#useItem').tap();
+ await b.waitForFunction(()=>document.querySelector('#phase')?.textContent
+  .includes('雑貨への対応'),null,{timeout:20000});
+ await b.locator('#defend').tap();
+ await Promise.all([a,b].map(page=>page.waitForFunction(()=>{
+  const scores=document.querySelectorAll('.score');
+  return scores[1]?.textContent?.includes('MP 15')&&
+    document.querySelector('#incomingAttack')?.hidden;
+ },null,{timeout:20000})));
+ const supportEnd=await dbRead(code);
+ if(supportEnd.views?.A?.revision!==5||supportEnd.views?.B?.revision!==5||
+    supportEnd.views.A.players[0].hp!==45||
+    supportEnd.views.A.players[1].hp!==40||
+    supportEnd.views.B.players[1].mp!==15||
+    supportEnd.views.B.players[1].hand.some(c=>c.definitionId==='i002')||
+    supportEnd.views.B.players[0].hand!==undefined||
+    supportEnd.views.A.players[1].hand!==undefined)
+  throw Error('G7 real RTDB source-backed HP/MP support, mirror or secrecy failed');
+ if(errors.length)throw Error('G7 support browser errors: '+errors.join(' | '));
+ console.log('G7_LIVE_SUPPORT_RECOVERY_SUCCESS: real RTDB, HP+5 mirrored, MP+5 accepted, revision5, private hands');
+
+
 
 }catch(error){
  console.error('G6_LIVE_TEST_FAILURE',String(error?.stack||error));
