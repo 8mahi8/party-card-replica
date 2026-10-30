@@ -95,7 +95,7 @@ test('each of the 4 weapons inflicts exactly its own disease when not defended',
  }
 });
 test('zero HP damage under a full shield never inflicts cold or hell',()=>{
- for(const [id,shield] of [['w056','d009'],['w059','d009'],['w058','d017'],['w057','d009']]){
+ for(const [id,shield] of [['w056','d009'],['w059','d009'],['w058','d046'],['w057','d009']]){
   const {A,B}=room({a:[id,'d003'],b:[shield,'d003']});
   const {after}=strike(A,B,id,[shield]);
   assert.equal(after.players[1].hp,40);
