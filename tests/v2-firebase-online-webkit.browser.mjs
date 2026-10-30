@@ -332,6 +332,67 @@ try{
   check(await gb.locator('.score').nth(1).textContent().then(s=>s.includes('HP 33')),
    'recovery and attack then armor defense resolve without stalled turn');
  }finally{await ha.close();await gb.close();}
+ // Source-backed ordinary HP/MP restoratives also accept an explicit
+ // opponent as target, with the same mirror/pass response as risky items.
+ async function supportRecoveryTrial(mirror){
+  const hostPage=await context.newPage(),guestPage=await context.newPage();
+  for(const page of [hostPage,guestPage])
+   page.on('pageerror',e=>errors.push(e.message));
+  try{
+   await hostPage.goto(target);
+   await hostPage.locator('#labPreset').selectOption('support');
+   await hostPage.locator('#create').tap();
+   await hostPage.waitForFunction(()=>/\b\d{5}\b/.test(
+    document.querySelector('#roomLabel')?.textContent||''));
+   const roomCode=(await hostPage.locator('#roomLabel').textContent()).match(/\d{5}/)[0];
+   await guestPage.goto(target);
+   await guestPage.locator('#joinCode').fill(roomCode);
+   await guestPage.locator('#join').tap();
+   await guestPage.locator('#hand button').first().waitFor();
+   check((await guestPage.locator('#hand button').first().textContent()).includes('スーパーミラー'),
+    'source-backed support set contains a usable Super Mirror');
+   await hostPage.locator('#hand button').first().tap();
+   check(await hostPage.locator('#itemTarget').isVisible(),
+    'ordinary HP restorative exposes other-target switch');
+   await hostPage.locator('#itemTarget').tap();
+   await hostPage.locator('#useItem').tap();
+   await guestPage.waitForFunction(()=>document.querySelector('#phase')?.textContent
+    .includes('雑貨への対応'));
+   check((await guestPage.locator('#incomingAttack').textContent()).includes('スマイルのしずく'),
+    'ordinary HP item announcement arrives before its response');
+   if(mirror)await guestPage.locator('#hand button').first().tap();
+   await guestPage.locator('#defend').tap();
+   await Promise.all([hostPage,guestPage].map(page=>page.waitForFunction(({mirror})=>{
+    const scores=document.querySelectorAll('.score');
+    return scores[0]?.textContent?.includes(mirror?'HP 45':'HP 40')&&
+     scores[1]?.textContent?.includes(mirror?'HP 40':'HP 45');
+   },{mirror},{timeout:15000})));
+   check((await hostPage.locator('#phase').textContent()).includes('あなたの攻撃'),
+    'using HP item on opponent still preserves original attack turn');
+   await hostPage.locator('#hand button').first().tap();
+   check((await hostPage.locator('#selectionTotal').textContent()).includes('MP+5'),
+    'next source-backed support item remains playable');
+   check(await hostPage.locator('#itemTarget').isVisible(),
+    'ordinary MP item also exposes target switch');
+   await hostPage.locator('#itemTarget').tap();
+   await hostPage.locator('#useItem').tap();
+   await guestPage.waitForFunction(()=>document.querySelector('#phase')?.textContent
+    .includes('雑貨への対応'));
+   check((await guestPage.locator('#incomingAttack').textContent()).includes('スマイルの花'),
+    'MP restorative is publicly declared to receiving seat');
+   await guestPage.locator('#defend').tap();
+   await Promise.all([hostPage,guestPage].map(page=>page.waitForFunction(()=>
+    document.querySelectorAll('.score')[1]?.textContent?.includes('MP 15'),
+    null,{timeout:15000})));
+   check((await hostPage.locator('#phase').textContent()).includes('あなたの攻撃'),
+    'two remote restoratives do not consume the follow-up attack');
+   check(await guestPage.evaluate(()=>document.documentElement.scrollWidth<=
+    document.documentElement.clientWidth+2),
+    'support and mirror UI fit narrow iframe width');
+  }finally{await hostPage.close();await guestPage.close();}
+ }
+ await supportRecoveryTrial(false);
+ await supportRecoveryTrial(true);
  // Test the actual G7 coin-flip item through two separate touch pages,
  // with the lab's fixed RNG seed (71: first roll deterministically heals).
  const tearHost=await context.newPage(),tearGuest=await context.newPage();
