@@ -1,10 +1,6 @@
 name: G6 one-off commit portable HTML to development branch
-# G7 recovery fixture: synchronize both legacy/V2 outputs after command signature fix
 
 on:
-  pull_request:
-    paths:
-      - '.github/workflows/g6-commit-portable-html.yml'
   workflow_dispatch:
 
 permissions:
