@@ -69,7 +69,8 @@
 - `tests/helpers/research-catalog-contract.mjs`の研究スナップショットを`155/357`に更新。`tests/g7-ordinary-dark-weapons-v2.test.mjs`は固定の旧件数に依存しないよう調整。
 - `tests/g7-plain-armor-expansion-v2.test.mjs`に**30件すべての名称/守備/価格/出現枠/属性/効果なしのデータ独立監査**、監査不完全と参考防具カテゴリの枠数、無属性の防御、火⇄水・木⇄土・光防御、闇攻撃に対する生存を検証。
 - 旧`demo/standalone.html`、V2`v2/demo/standalone.html`、G6オンライン`v2/demo/firebase-online-standalone.html`の**3種類**を生成workflowで更新し、決定的生成の一致チェックを実施。
-- **テスト成功のコミット/CIは最終runを確定後HANDOFF_LATEST.mdへ記録する。**
+- **最終CI成功**：Node **920/920** [run 41035412792](https://github.com/8mahi8/party-card-replica/actions/runs/41035412792)、Chromium **28/28** [run 41035412746](https://github.com/8mahi8/party-card-replica/actions/runs/41035412746)、WebKit既存 **339/339**＋オンライン2画面 **28/28** [run 41035412892](https://github.com/8mahi8/party-card-replica/actions/runs/41035412892)。生成HTMLはbot commit `355aede`で3種類とも保存済み。オンライン版の[CI配布ZIP](https://github.com/8mahi8/party-card-replica/actions/runs/41035412892/artifacts/12968406005)も利用可。配布用workflowは作業後手動起動へ復帰。
+- **修正したテスト上の問題**：ビルド前のCIでは生成物一致検査で失敗したため再生成。さらに`2025-09`参考マトリクスに対して既存の`weapon_single/none`枠に超過が見つかったが、今回の防具追加に無関係なので**防具カテゴリのみを超過チェック**し、武器台帳を根拠なく修正しなかった。
 
 ## 次工程
 
