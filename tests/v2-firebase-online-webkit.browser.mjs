@@ -641,6 +641,56 @@ try{
  }
  await heavenTrial(false);
  await heavenTrial(true);
+ // Shells cure only the original's authorized status families. In this
+ // lab only diseases are implemented; no imaginary mist/dream behavior.
+ async function shellCureTrial({heart,mirror}){
+  const attacker=await context.newPage(),defender=await context.newPage();
+  for(const p of [attacker,defender])p.on('pageerror',e=>errors.push(e.message));
+  try{
+   await attacker.goto(target);
+   await attacker.locator('#labPreset').selectOption('shells');
+   await attacker.locator('#create').tap();
+   await attacker.waitForFunction(()=>/\b\d{5}\b/.test(
+    document.querySelector('#roomLabel')?.textContent||''));
+   const room=(await attacker.locator('#roomLabel').textContent()).match(/\d{5}/)[0];
+   await defender.goto(target);
+   await defender.locator('#joinCode').fill(room);
+   await defender.locator('#join').tap();
+   await defender.locator('#hand button').first().waitFor();
+   check((await attacker.locator('.score').first().textContent()).includes('天国病'),
+    'Shell trial host starts with uncurable-by-Smile heaven disease');
+   check((await defender.locator('.score').nth(1).textContent()).includes('熱病'),
+    'Shell trial guest starts with curable fever');
+   await attacker.locator('#hand button').nth(heart?1:0).tap();
+   check((await attacker.locator('#selectionTotal').textContent()).includes(heart?'病系の災いをすべて治す':'風邪・熱病を治す'),
+    'Shell preview has precise minor/all disease scope');
+   await attacker.locator('#itemTarget').tap();
+   await attacker.locator('#useItem').tap();
+   await defender.waitForFunction(()=>document.querySelector('#phase')?.textContent
+    .includes('雑貨への対応'));
+   check((await defender.locator('#incomingAttack').textContent()).includes(heart?'ハートの貝がら':'スマイルの貝がら'),
+    'Shell announcement arrives before Mirror/pass');
+   if(mirror)await defender.locator('#hand button').first().tap();
+   await defender.locator('#defend').tap();
+   await Promise.all([attacker,defender].map(page=>page.waitForFunction(({heart,mirror})=>{
+    if(document.querySelector('#phase')?.textContent?.includes('雑貨への対応'))return false;
+    const scores=document.querySelectorAll('.score');
+    const aDisease=scores[0]?.textContent?.includes('天国病');
+    const bDisease=scores[1]?.textContent?.includes('熱病');
+    return aDisease===!(heart&&mirror)&&bDisease===mirror&&
+      scores[0]?.textContent?.includes('手札 4')&&
+      scores[1]?.textContent?.includes('手札 4');
+   },{heart,mirror},{timeout:15000})));
+   check((await attacker.locator('#phase').textContent()).includes('あなたの攻撃'),
+    'Shell use preserves original attack opportunity');
+   check(await defender.evaluate(()=>document.documentElement.scrollWidth<=
+    document.documentElement.clientWidth+2),
+    'Shell UI remains within a narrow embedded Safari iframe');
+  }finally{await attacker.close();await defender.close();}
+ }
+ for(const heart of [false,true])
+  for(const mirror of [false,true])
+   await shellCureTrial({heart,mirror});
  check(errors.length===0,'all preset trials have no script errors');
  console.log('FIREBASE_ONLINE_WEBKIT_SUCCESS checks='+checks+
   ' two tabs with mock RTDB, viewport=390x430');
