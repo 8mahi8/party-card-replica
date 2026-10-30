@@ -3,7 +3,7 @@ export const MODULES=[
  'src/rules.mjs','src/verified-basic-cards.mjs',
  'v2/foundation.mjs','v2/mirage-target-route.mjs','v2/redirect-route.mjs','v2/legacy-adapter.mjs',
  'v2/trade-payment.mjs','v2/hand-overflow.mjs','v2/trade-buy.mjs',
- 'v2/trade-exchange.mjs','v2/zero-hp-recovery.mjs',
+ 'v2/trade-exchange.mjs','v2/zero-hp-recovery.mjs','v2/disease-rules.mjs',
  'v2/trade-self-sale.mjs','v2/hit-outcome-boundary.mjs','v2/dream-candidate-audit.mjs',
  'v2/dream-appearance.mjs',
  'v2/staging-room.mjs','v2/effect-runner.mjs','v2/trade-buy-settlement.mjs',
