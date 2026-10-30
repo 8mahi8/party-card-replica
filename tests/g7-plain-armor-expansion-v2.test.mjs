@@ -271,7 +271,7 @@ function battle(attackDefinitionId,armorDefinitionId){
 test('all 30 reference-reviewed plain armors retain exact guard, price, element and source slot count',()=>{
  assert.equal(summary.unique,RESEARCH_CATALOG_CONTRACT.unique);
  assert.equal(summary.slots,RESEARCH_CATALOG_CONTRACT.slots);
- assert.deepEqual([summary.unique,summary.slots,summary.complete],[155,357,false]);
+ assert.deepEqual([summary.unique,summary.slots,summary.complete],[RESEARCH_CATALOG_CONTRACT.unique,RESEARCH_CATALOG_CONTRACT.slots,false]);
  assert.equal(reviewed.length,30);
  const ids=new Set();
  for(const [id,name,element,guard,price,weight] of reviewed){
@@ -299,8 +299,8 @@ test('partial deck still fails full 353/500 draw audit and never overfills a kno
  }));
  const report=auditCatalog(subset);
  assert.equal(report.complete,false);
- assert.equal(report.unique,155);
- assert.equal(report.slots,357);
+ assert.equal(report.unique,RESEARCH_CATALOG_CONTRACT.unique);
+ assert.equal(report.slots,RESEARCH_CATALOG_CONTRACT.slots);
  // The older partial weapon research already disagrees with the 2025
  // matrix in other categories. This work only adds armor: do not silently
  // relabel preexisting weapon weights as a confirmed source mismatch fix.
