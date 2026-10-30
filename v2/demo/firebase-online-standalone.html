@@ -2456,6 +2456,20 @@ function declaredAttackFixture(state,catalog){
    p?.type!=='attack'||!(catalog instanceof Map))return null;
  const attacker=state.players.find(q=>q.id===p.originalAttackerId);
  if(!attacker)return null;
+ // A reflected/deflected miracle is already spent (or was learned) but
+ // its definition was publicly declared before the first defense. Reuse
+ // the trusted cached context rather than trying to read a spent hand card.
+ // Restrict this to solo miracle casts; composite physical attacks need
+ // their own source-backed public announcement rules.
+ if(p.attackContext?.attackKind==='miracle'){
+   const cached=p.attackContext,def=catalog.get(cached.miracleId);
+   if(def?.family!=='miracle'||!def.playModes.includes('cast')||
+      !Number.isSafeInteger(cached.attack)||cached.attack<0||
+      cached.attack!==def.stats.attack||cached.element!==def.element)
+     return null;
+   return {cards:[{definitionId:def.id,printedAttack:cached.attack,
+      element:cached.element}],printedAttackTotal:cached.attack};
+ }
  const ids=Array.isArray(p.attackInstanceIds)?p.attackInstanceIds:[];
  if(!ids.length)return null;
  const declared=[];
