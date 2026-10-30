@@ -88,14 +88,16 @@ test('learned Turbulence costs MP5 and draws once, with no extra physical spend'
  const {A,B}=match({seed:12345,bLearned:['m007'],b:['i018','w016','d003'],mpB:5});
  play(A,'A','m013','B','wind-to-learned');
  const handBefore=B.read().players[1].hand.length;
- const response=send(B,'B','defend',{orderedInstanceIds:[],learnedDefinitionId:'m007'},'learned-deflect');
+ const beforeResponse=B.read();
+ const responseCommand={type:'defend',actorId:'B',commandId:'learned-deflect',
+  expectedRevision:beforeResponse.revision,orderedInstanceIds:[],learnedDefinitionId:'m007'};
+ const response=B.submit(responseCommand);
  const v=B.read();
  assert.equal(v.players[1].mp,0);
  assert.equal(v.players[1].disease,'cold');
  assert.equal(v.players[1].learned.filter(x=>x==='m007').length,1);
  assert.equal(v.players[1].hand.length,handBefore+1);
- assert.equal(B.submit({type:'defend',actorId:'B',commandId:'learned-deflect',
-  expectedRevision:response.revision-1,orderedInstanceIds:[],learnedDefinitionId:'m007'}).duplicate,true);
+ assert.equal(B.submit(responseCommand).duplicate,true);
 });
 test('Turbulence with MP4 fails atomically and keeps original pending defense',()=>{
  const {A,B}=match({mpB:4});
