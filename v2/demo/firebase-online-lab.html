@@ -311,7 +311,8 @@ function render(){
  if(!view){feedback('相手の画面情報を読み込んでいます');return}
  const active=view.activePlayerId===seat,turn=view.phase==='turn',
   itemDefense=view.phase==='itemDefense',saleDefense=view.phase==='tradeDefense',
-  defense=view.phase==='defense'||itemDefense||saleDefense;
+  buyDefense=view.phase==='buyDefense',buyDecision=view.phase==='buyDecision',
+  defense=view.phase==='defense'||itemDefense||saleDefense||buyDefense;
  const player=view.players.find(p=>p.id===seat);
  const stats=$('scores');
  stats.replaceChildren();
@@ -358,7 +359,7 @@ function render(){
   btn.setAttribute('aria-pressed',String(picked));
   btn.setAttribute('aria-label','習得済み奇跡 '+btn.textContent);
   btn.disabled=!mine||busy||!(turn?def?.playModes.includes('cast'):
-   defense&&!itemDefense&&!saleDefense&&def?.playModes.includes('defend'));
+   defense&&!itemDefense&&!saleDefense&&!buyDefense&&def?.playModes.includes('defend'));
   btn.addEventListener('click',()=>{
    if(selection.has(key))selection.delete(key);
    else{
@@ -372,11 +373,15 @@ function render(){
  $('phase').textContent=view.phase==='finished'?'対戦終了':
   itemDefense?(mine?'雑貨への対応':'相手の対応待ち'):
   saleDefense?(mine?'売買への対応':'相手の売買対応待ち'):
+  buyDefense?(mine?'購入依頼への対応':'相手の購入依頼待ち'):
+  buyDecision?(mine?'買うかどうか選択':'相手の購入判断待ち'):
   defense?(mine?'あなたの防御':'相手の防御待ち'):
   turn?(mine?'あなたの攻撃':'相手の攻撃待ち'):'処理中…';
  $('battleHint').textContent=busy?'操作結果を待っています':
   itemDefense?(mine?'スーパーミラーで反射、または許す':'相手の選択を待っています'):
   saleDefense?(mine?'売り付けられる神器を確認し、受け入れるか反射':'相手の売買対応を待っています'):
+  buyDefense?(mine?'買うへの反射は研究中。今回は購入依頼を通す操作のみ可能':'相手の選択を待っています'):
+  buyDecision?(mine?'提示された神器を買うか選んでください':'相手の選択を待っています'):
   defense?(mine?'防具を選ぶか、「許す」':'相手の選択を待っています'):
   turn?(mine?'神器を選び、攻撃を確定':'相手の操作を待っています'):
   '試合結果を確認してください';
@@ -389,8 +394,11 @@ function render(){
  const announced=view.phase==='defense'?view.pending?.declaredAttack:null;
  const announcedItem=itemDefense?view.pending?.declaredItem:null;
  const saleOffer=saleDefense?view.pending?.offer:null;
- $('incomingAttack').hidden=!announced?.cards?.length&&!announcedItem?.definitionId&&!saleOffer?.definitionId;
- $('incomingAttack').textContent=saleOffer?.definitionId?
+ const buyOffer=buyDecision&&mine?view.pending?.offer:null;
+ $('incomingAttack').hidden=!announced?.cards?.length&&!announcedItem?.definitionId&&!saleOffer?.definitionId&&!buyOffer?.definitionId;
+ $('incomingAttack').textContent=buyOffer?.definitionId?
+   '購入候補：'+(names.get(buyOffer.definitionId)||buyOffer.definitionId)+' ／ 価格 ¥'+buyOffer.price:
+  saleOffer?.definitionId?
    '売り付けられる神器：'+(names.get(saleOffer.definitionId)||saleOffer.definitionId)+
    ' ／ 価格 ¥'+saleOffer.price+' ／ スーパーミラーで反射可能':
   announcedItem?.definitionId?
@@ -489,7 +497,7 @@ function render(){
   btn.append(art,label,stat,price);
   btn.setAttribute('aria-label',name+' '+stat.textContent);
   btn.setAttribute('aria-pressed',String(picked));
-  btn.disabled=!mine||waiting||((itemDefense||saleDefense)&&!def?.effects.some(e=>
+  btn.disabled=!mine||waiting||buyDefense||((itemDefense||saleDefense)&&!def?.effects.some(e=>
     e.when==='onDefense'&&e.type==='redirectAttack'&&
     e.params.mode==='reflect'&&e.params.scope==='any'));
   btn.addEventListener('click',()=>{
