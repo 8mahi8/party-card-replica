@@ -535,7 +535,7 @@ function render(){
   const valid=Number.isSafeInteger(sum)&&sum===total&&exchangeDraft.hp>=1&&
    ['mp','money'].every(k=>Number.isSafeInteger(exchangeDraft[k])&&exchangeDraft[k]>=0);
   $('exchangeTotal').textContent='配分合計 '+sum+' / '+total+(valid?' · OK':' · 合計を合わせてください');
-  $('exchange').disabled=!usable||!valid;
+  $('exchange').disabled=!mine||busy||!valid;
  }
  $('attack').hidden=!turn;$('useItem').hidden=!turn;$('sell').hidden=!turn;
  $('buy').hidden=!turn;
@@ -565,12 +565,13 @@ function render(){
    selection.size?'防御する':'許す（防御なし）';
  if(seat==='A'&&!joined)feedback('相手が5桁のルーム番号で参加するのを待っています');
 }
-async function send(type){
+async function send(type,accept=null){
  if(!session||!view||waiting||view.activePlayerId!==seat||seat==='A'&&!joined)return;
  const entries=[...selection],ids=entries.filter(id=>!id.startsWith('l:'));
  const learned=entries.filter(id=>id.startsWith('l:'));
  let effectiveType=type==='defend'&&view.phase==='itemDefense'?'respondItem':
-  type==='defend'&&view.phase==='tradeDefense'?'respondSale':type;
+  type==='defend'&&view.phase==='tradeDefense'?'respondSale':
+  type==='defend'&&view.phase==='buyDefense'?'respondBuy':type;
  if(type==='playCards'&&learned.length)effectiveType=entries.length===1?'castLearned':'playSequence';
  if(type==='defend'&&view.phase==='defense'&&learned.length)effectiveType='defendSequence';
  const command={commandId:randomId(),expectedRevision:view.revision,actorId:seat,type:effectiveType};
@@ -586,6 +587,14 @@ async function send(type){
   if(effect)command.targetId=itemTarget==='self'?seat:(seat==='A'?'B':'A');
  }
  if(['respondItem','respondSale'].includes(effectiveType)&&ids.length)command.mirrorInstanceId=ids[0];
+ if(effectiveType==='declareBuy'){
+  command.buyInstanceId=ids[0];command.targetId=seat==='A'?'B':'A';
+ }
+ if(effectiveType==='exchange'){
+  command.exchangeInstanceId=ids[0];
+  command.allocation={...exchangeDraft};
+ }
+ if(effectiveType==='decideBuy')command.accept=accept;
  if(effectiveType==='declareSale'){
   command.targetId=seat==='A'?'B':'A';
   command.saleInstanceId=ids[0];command.soldInstanceId=ids[1];
@@ -682,6 +691,17 @@ $('retry').addEventListener('click',retryPending);
 $('attack').addEventListener('click',()=>send('playCards'));
 $('useItem').addEventListener('click',()=>send('useItem'));
 $('sell').addEventListener('click',()=>send('declareSale'));
+$('buy').addEventListener('click',()=>send('declareBuy'));
+$('buyAccept').addEventListener('click',()=>send('decideBuy',true));
+$('buyDecline').addEventListener('click',()=>send('decideBuy',false));
+$('exchange').addEventListener('click',()=>send('exchange'));
+for(const [key,id] of [['hp','exchangeHp'],['mp','exchangeMp'],['money','exchangeMoney']]){
+ $(id).addEventListener('input',()=>{
+  if(!exchangeDraft)return;
+  exchangeDraft[key]=$(id).value===''?NaN:Number($(id).value);
+  render();
+ });
+}
 $('itemTarget').addEventListener('click',()=>{itemTarget=itemTarget==='self'?'other':'self';render();});
 $('defend').addEventListener('click',()=>send('defend'));
 $('pray').addEventListener('click',()=>send('pray'));
