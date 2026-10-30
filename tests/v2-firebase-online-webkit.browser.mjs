@@ -691,6 +691,57 @@ try{
  for(const heart of [false,true])
   for(const mirror of [false,true])
    await shellCureTrial({heart,mirror});
+ // Authentic on-hit weapon status: misses never infect; redirected hits
+ // attach illness to the eventual victim, not to the original defender.
+ async function diseaseWeaponTrial(mode){
+  const a=await context.newPage(),b=await context.newPage();
+  for(const page of [a,b])page.on('pageerror',e=>errors.push(e.message));
+  try{
+   await a.goto(target);
+   await a.locator('#labPreset').selectOption('illnessAttack');
+   await a.locator('#create').tap();
+   await a.waitForFunction(()=>/\b\d{5}\b/.test(
+    document.querySelector('#roomLabel')?.textContent||''));
+   const code=(await a.locator('#roomLabel').textContent()).match(/\d{5}/)[0];
+   await b.goto(target);
+   await b.locator('#joinCode').fill(code);
+   await b.locator('#join').tap();
+   await b.locator('#hand button').first().waitFor();
+   await a.locator('#hand button').nth(mode==='hell'?1:0).tap();
+   await a.locator('#attack').tap();
+   await b.waitForFunction(()=>document.querySelector('#phase')?.textContent
+    .includes('あなたの防御'));
+   check((await b.locator('#incomingAttack').textContent()).length>0,
+    'on-hit disease weapon is announced before defense');
+   if(mode==='blocked')await b.locator('#hand button').nth(1).tap();
+   if(mode==='reflect')await b.locator('#hand button').first().tap();
+   await b.locator('#defend').tap();
+   if(mode==='reflect'){
+    await a.waitForFunction(()=>document.querySelector('#phase')?.textContent
+     .includes('あなたの防御'));
+    await a.locator('#defend').tap();
+   }
+   await Promise.all([a,b].map(page=>page.waitForFunction(({mode})=>{
+    const scores=document.querySelectorAll('.score');
+    const aCold=scores[0]?.textContent?.includes('風邪');
+    const bCold=scores[1]?.textContent?.includes('風邪');
+    const bHell=scores[1]?.textContent?.includes('地獄病');
+    if(mode==='blocked')return !aCold&&!bCold&&!bHell&&
+      scores[1]?.textContent?.includes('HP 40');
+    if(mode==='reflect')return aCold&&!bCold&&
+      scores[0]?.textContent?.includes('HP 30');
+    if(mode==='hell')return bHell&&!aCold&&
+      scores[1]?.textContent?.includes('HP 32');
+    return bCold&&!aCold&&scores[1]?.textContent?.includes('HP 31');
+   },{mode},{timeout:15000})));
+   check((await a.locator('#phase').textContent()).includes('相手の攻撃待ち'),
+    'disease weapon finishes with the ordinary next player turn');
+   check(await b.evaluate(()=>document.documentElement.scrollWidth<=
+    document.documentElement.clientWidth+2),
+    'disease weapon UI fits small iPad embed viewport');
+  }finally{await a.close();await b.close();}
+ }
+ for(const mode of ['cold','blocked','reflect','hell'])await diseaseWeaponTrial(mode);
  check(errors.length===0,'all preset trials have no script errors');
  console.log('FIREBASE_ONLINE_WEBKIT_SUCCESS checks='+checks+
   ' two tabs with mock RTDB, viewport=390x430');
