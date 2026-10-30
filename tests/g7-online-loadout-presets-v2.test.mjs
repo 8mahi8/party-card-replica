@@ -44,6 +44,18 @@ test('all eight fixed presets contain valid catalog definitions and four cards p
   assert.equal(viewStagingRoom(room,'B',catalog).players[0].hand,undefined);
  }
 });
+test('Soap preset deliberately seeds three distinct learned miracles per side',()=>{
+ assert.deepEqual(Array.from(presets.soap.A),['i015','w016','d003','i006']);
+ assert.deepEqual(Array.from(presets.soap.B),['i002','w027','d003','i005']);
+ for(const side of ['learnedA','learnedB']){
+  assert.equal(presets.soap[side].length,3);
+  assert.equal(new Set(presets.soap[side]).size,3);
+  for(const id of presets.soap[side])
+   assert.equal(catalog.get(id)?.family,'miracle');
+ }
+ assert.match(page,/initialState\.players\[index\]\.learned=\[\.\.\.ids\]/);
+ assert.match(page,/id="learnedMiracles"/);
+});
 test('source-backed support preset gives the defender an actual Super Mirror',()=>{
  assert.deepEqual(Array.from(presets.support.A),['i006','i010','w016','d003']);
  assert.deepEqual(Array.from(presets.support.B),['i002','i007','w027','d003']);
