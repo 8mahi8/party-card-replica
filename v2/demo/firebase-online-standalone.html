@@ -48,6 +48,12 @@ input{min-height:42px;max-width:185px;padding:7px;font-size:18px;letter-spacing:
 #battleHint{font-size:11px;line-height:1.35;color:#376e65;min-height:27px}
 #incomingAttack{font-size:11px;line-height:1.4;color:#a23c37;font-weight:800;padding:4px 5px;border:1px solid #d4a19a;border-radius:5px;background:#fff4e5}
 #incomingAttack[hidden]{display:none}
+.learned-area{display:flex;align-items:center;gap:7px;padding:4px 7px;background:#e5fff1bd;border:1px solid #79b9a6;border-radius:7px;min-width:0}
+.learned-area .learned-title{font-size:10px;font-weight:900;white-space:nowrap;color:#287b70}
+.learned-list{display:flex;align-items:center;gap:5px;min-width:0;overflow-x:auto;padding:3px 2px 5px;-webkit-overflow-scrolling:touch}
+.learned-choice{flex:0 0 auto;min-height:36px;padding:3px 9px;font-size:11px;border-color:#b38aaf;background:linear-gradient(#fff1fd,#e4d1f0);box-shadow:0 2px 0 #ae8bb9}
+.learned-choice.selected{background:#fff0b9;border-color:#bb6450;box-shadow:0 2px 0 #bc705c}
+.learned-empty{font-size:10px;color:#537d74}
 #combatRoute{font-size:11px;font-weight:800;color:#176d68;min-height:14px}
 #combatRoute:empty{display:none}
 #selectionTotal{font-size:11px;color:#356a62;min-height:14px;line-height:1.35}
@@ -105,6 +111,7 @@ main{padding:0 6px 8px}.brandline{margin:0 -6px}
 <option value="shells">貝がら・軽い病と重い病の治療</option>
 <option value="illnessAttack">病を付ける攻撃・防御と反射</option>
 <option value="windMiracles">奇跡・風と天国風の災い</option>
+<option value="learnedTrial">習得済み奇跡・攻撃と防御</option>
 <option value="turbulenceBack">乱気流・攻撃者へ弾く</option>
 <option value="turbulenceSelf">乱気流・自分へ弾く</option>
 <option value="tear">ドキドキ涙・運試し</option>
@@ -122,8 +129,9 @@ main{padding:0 6px 8px}.brandline{margin:0 -6px}
 <div id="scores" class="scores" aria-label="プレイヤーのHP・MP・所持金"></div>
 <div class="arena">
 <div class="selected-tray"><header>選択中の神器 · タップ順</header><div id="selectionPreview"><span class="empty">カードをタップして選択</span></div><div id="selectionTotal" aria-live="polite"></div></div>
-<div class="phase-area"><div id="phase"></div><div id="combatRoute"></div><div id="incomingAttack" aria-live="polite" hidden></div><div id="battleHint">手札の神器をタップ</div><div id="learnedMiracles" aria-live="polite"></div></div>
+<div class="phase-area"><div id="phase"></div><div id="combatRoute"></div><div id="incomingAttack" aria-live="polite" hidden></div><div id="battleHint">手札の神器をタップ</div></div>
 </div>
+<div id="learnedMiracles" class="learned-area" aria-label="習得済み奇跡の選択"></div>
 <div id="actions" hidden>
 <button id="attack" class="primary">攻撃する</button>
 <button id="useItem">雑貨を使う</button>
@@ -6415,6 +6423,13 @@ const LAB_PRESETS=Object.freeze({
   B:Object.freeze(['i002','i016','w027','d003']),
   diseaseA:'heaven',diseaseB:'fever',rngSeed:12345
  }),
+ learnedTrial:Object.freeze({
+  A:Object.freeze(['w016','i003','d003','m013']),
+  B:Object.freeze(['d018','w027','d003','i003']),
+  learnedA:Object.freeze(['m013','m004']),
+  learnedB:Object.freeze(['m007']),
+  mpA:25,mpB:10,rngSeed:12345
+ }),
  soap:Object.freeze({
   A:Object.freeze(['i015','w016','d003','i006']),
   B:Object.freeze(['i002','w027','d003','i005']),
@@ -6472,9 +6487,6 @@ function render(){
  const active=view.activePlayerId===seat,turn=view.phase==='turn',
   itemDefense=view.phase==='itemDefense',defense=view.phase==='defense'||itemDefense;
  const player=view.players.find(p=>p.id===seat);
- $('learnedMiracles').textContent=player.learned?.length?
-  '習得した奇跡：'+player.learned.map(id=>names.get(id)||id).join(' · '):
-  '習得した奇跡：なし';
  const stats=$('scores');
  stats.replaceChildren();
  for(const p of view.players){
@@ -6505,6 +6517,32 @@ function render(){
   stats.append(e);
  }
  const mine=active&&(seat!=='A'||joined),busy=waiting;
+ const learnedArea=$('learnedMiracles');learnedArea.replaceChildren();
+ const learnedTitle=document.createElement('span');learnedTitle.className='learned-title';
+ learnedTitle.textContent='習得済み';learnedArea.append(learnedTitle);
+ const learnedList=document.createElement('div');learnedList.className='learned-list';
+ if(!player.learned?.length){
+  const empty=document.createElement('span');empty.className='learned-empty';
+  empty.textContent='なし';learnedList.append(empty);
+ }else for(const definitionId of player.learned){
+  const def=catalog.get(definitionId),key='l:'+definitionId,picked=selection.has(key);
+  const btn=document.createElement('button');btn.type='button';
+  btn.className='learned-choice'+(picked?' selected':'');
+  btn.textContent=(names.get(definitionId)||definitionId)+' · MP'+(def?.stats.mpCost??0);
+  btn.setAttribute('aria-pressed',String(picked));
+  btn.setAttribute('aria-label','習得済み奇跡 '+btn.textContent);
+  btn.disabled=!mine||busy||!(turn?def?.playModes.includes('cast'):
+   defense&&!itemDefense&&def?.playModes.includes('defend'));
+  btn.addEventListener('click',()=>{
+   if(selection.has(key))selection.delete(key);
+   else{
+    if(defense)for(const entry of selection)if(entry.startsWith('l:'))selection.delete(entry);
+    selection.add(key);
+   }
+   render();
+  });learnedList.append(btn);
+ }
+ learnedArea.append(learnedList);
  $('phase').textContent=view.phase==='finished'?'対戦終了':
   itemDefense?(mine?'雑貨への対応':'相手の対応待ち'):
   defense?(mine?'あなたの防御':'相手の防御待ち'):
@@ -6535,17 +6573,18 @@ function render(){
  let attackSum=0,guardSum=0,mpSum=0,index=0;
  // The engine consumes selected cards in tap order. The preview must show
  // that same order, especially for defense effects requiring a first card.
- for(const instanceId of selection){
-  const instance=cardsById.get(instanceId);
-  if(!instance)continue;
-  const def=catalog.get(instance.definitionId);
+ for(const entry of selection){
+  const learned=entry.startsWith('l:');
+  const definitionId=learned?entry.slice(2):cardsById.get(entry)?.definitionId;
+  const def=catalog.get(definitionId);
+  if(!def)continue;
   attackSum+=def?.stats.attack||0;
   guardSum+=def?.stats.guard||0;
   mpSum+=def?.stats.mpCost||0;
   const chip=document.createElement('span');chip.className='picked';
   const order=document.createElement('b');order.textContent=String(++index)+'.';
   chip.append(order,document.createTextNode(
-   names.get(instance.definitionId)||instance.definitionId));
+   (learned?'✦ ':'')+(names.get(definitionId)||definitionId)));
   preview.append(chip);
  }
  if(!preview.childElementCount){
@@ -6555,10 +6594,11 @@ function render(){
  }
  // Preview the printed stats, NOT a resolved damage estimate: elements,
  // reflections, multi-hits and special effects belong to the battle engine.
- const selectedIds=[...selection],itemEffect=selectedIds.length===1?
+ const selectedIds=[...selection].filter(id=>!id.startsWith('l:')),
+  itemEffect=selection.size===1?
    catalog.get(cardsById.get(selectedIds[0])?.definitionId)?.effects.find(
     e=>e.when==='onDeclare'&&['restoreResource','flipHpRisk','sweepHand','forgetLearned','heavenHerb','cleanseAfflictions'].includes(e.type)):null;
- const mirrorChoice=selectedIds.length===1&&catalog.get(
+ const mirrorChoice=selection.size===1&&catalog.get(
    cardsById.get(selectedIds[0])?.definitionId)?.effects.some(e=>
     e.when==='onDefense'&&e.type==='redirectAttack'&&
     e.params.mode==='reflect'&&e.params.scope==='any');
@@ -6629,9 +6669,14 @@ function render(){
  $('itemTarget').disabled=!usable;
  $('pray').hidden=!turn;$('discard').hidden=!turn;
  $('defend').hidden=!defense;
- $('attack').disabled=!usable||!selection.size;
+ const first=[...selection][0];
+ const learnedAlone=selection.size===1&&first?.startsWith('l:');
+ const standalone=learnedAlone?catalog.get(first.slice(2)):null;
+ const canCastAlone=!learnedAlone||((standalone?.stats.attack??0)>0||
+  standalone?.effects.some(e=>e.when==='onDeclare'&&e.type==='inflictDisease'));
+ $('attack').disabled=!usable||!selection.size||!canCastAlone;
  $('useItem').disabled=!usable||!itemEffect;
- $('discard').disabled=!usable||!selection.size;
+ $('discard').disabled=!usable||!selection.size||selectedIds.length!==selection.size;
  $('pray').disabled=!usable||player.hand?.some(c=>catalog.get(c.definitionId)?.family==='weapon');
  $('defend').disabled=!usable||(itemDefense&&selection.size>0&&!mirrorChoice);
  $('defend').textContent=itemDefense?
@@ -6641,10 +6686,16 @@ function render(){
 }
 async function send(type){
  if(!session||!view||waiting||view.activePlayerId!==seat||seat==='A'&&!joined)return;
- const ids=[...selection];
- const effectiveType=type==='defend'&&view.phase==='itemDefense'?'respondItem':type;
+ const entries=[...selection],ids=entries.filter(id=>!id.startsWith('l:'));
+ const learned=entries.filter(id=>id.startsWith('l:'));
+ let effectiveType=type==='defend'&&view.phase==='itemDefense'?'respondItem':type;
+ if(type==='playCards'&&learned.length)effectiveType=entries.length===1?'castLearned':'playSequence';
+ if(type==='defend'&&view.phase==='defense'&&learned.length)effectiveType='defendSequence';
  const command={commandId:randomId(),expectedRevision:view.revision,actorId:seat,type:effectiveType};
  if(['playCards','defend','discard'].includes(effectiveType))command.orderedInstanceIds=ids;
+ if(effectiveType==='castLearned')command.learnedDefinitionId=learned[0].slice(2);
+ if(['playSequence','defendSequence'].includes(effectiveType))command.orderedPlays=entries.map(id=>
+  id.startsWith('l:')?{learnedDefinitionId:id.slice(2)}:{instanceId:id});
  if(type==='useItem'){
   command.instanceId=ids[0];
   const effect=catalog.get(view.players.find(p=>p.id===seat)?.hand?.find(c=>
@@ -6653,7 +6704,7 @@ async function send(type){
   if(effect)command.targetId=itemTarget==='self'?seat:(seat==='A'?'B':'A');
  }
  if(effectiveType==='respondItem'&&ids.length)command.mirrorInstanceId=ids[0];
- if(type==='playCards')command.targetId=seat==='A'?'B':'A';
+ if(['playCards','playSequence','castLearned'].includes(effectiveType))command.targetId=seat==='A'?'B':'A';
  waiting=true;pendingId=command.commandId;pendingCommand=command;
  feedback('操作を送信しています…');render();
  try{await session.submit(command)}catch(error){
