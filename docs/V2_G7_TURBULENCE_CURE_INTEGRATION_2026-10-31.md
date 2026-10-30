@@ -21,3 +21,9 @@
 
 ## 次の作業
 原作版ゲームの乱気流の実画面と比較したうえで、習得済み乱気流のタップUIからの選択（現UIは習得一覧の表示までで、全種類の習得済み奇跡をすぐ発動できる画面は未完成）、複数人での弾き先・弾きの連鎖、反射した複合攻撃の公開表示、他種の災いの実装可否を優先順で検討する。まずは学校Safariの実機での操作性と友達と遊べる完成度の確認を重視し、低確率な特殊例外のための大規模リファクタリングは行わない。
+
+## WebKit再検証・最終確認
+- 一時的なWebKitテスト失敗 [run 41080143381](https://github.com/8mahi8/party-card-replica/actions/runs/41080143381) は、乱気流で元攻撃者へ戻された奇跡が防御画面の`incomingAttack`に表示されない**実UI不具合**を発見したもの。元の詠唱奇跡は手札から除去済みのため、古い表示機構が公開済みの奇跡を復元できなかった。エンジンの感染・反射・MP処理は正しかった。
+- `v2/staging-room.mjs`の`declaredAttackFixture`を、**すでに攻撃宣言で公表された単独奇跡に限り**不変`pending.attackContext`（奇跡ID、攻撃値、属性）から表示を再構成するよう修正。未公開手札は見せない。新テストに「戻ってきた天国風の表示」「手札秘匿」を追加。
+- 修正後のWebKit [run 41081035588](https://github.com/8mahi8/party-card-replica/actions/runs/41081035588)：**オンライン192/192 PASS**、既存WebKit固定サイズ画面**339/339 PASS**。Chromium [run 41081035417](https://github.com/8mahi8/party-card-replica/actions/runs/41081035417) PASS、Node [run 41081035693](https://github.com/8mahi8/party-card-replica/actions/runs/41081035693) 1026/1026 PASS。
+- **実Firebase 27ケース成功** [run 41080143334](https://github.com/8mahi8/party-card-replica/actions/runs/41080143334) は表示不具合の修正前の実行。表示修正後はWebKitで確認済みであり、実Firebaseの27ケースをあらためて実行したとは**報告しない**。
