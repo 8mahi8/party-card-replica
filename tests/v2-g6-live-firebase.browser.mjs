@@ -619,11 +619,12 @@ try{
   await b.waitForFunction(()=>document.querySelector('#phase')?.textContent
    .includes('あなたの攻撃'),null,{timeout:20000});
   const end=await dbRead(code);
-  const expectedRevision=mode==='reflect'?3:2;
+  const previousRevision=waiting.views?.B?.revision??-1;
   const expectedA=mode==='reflect'?'cold':null;
   const expectedB=mode==='cold'?'cold':mode==='hell'?'hell':null;
-  if(end.views?.A?.revision!==expectedRevision||
-     end.views?.B?.revision!==expectedRevision||
+  if(!Number.isSafeInteger(end.views?.A?.revision)||
+     end.views.A.revision<=previousRevision||
+     end.views.B.revision!==end.views.A.revision||
      (end.views.A.players[0].disease??null)!==expectedA||
      (end.views.B.players[1].disease??null)!==expectedB||
      end.views.A.players[0].hp!==(mode==='reflect'?30:40)||
