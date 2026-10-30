@@ -67,7 +67,7 @@ export function compileOrderedWeaponAttack(state,catalog){
   let weaponAttack=0,attackElement='none',mainCount=0,weaponCount=0;
   let aura=null,plusCount=0,additive=0,lastWasMiracle=false,hasArmorBonus=false,itemBonus=0;
   let learnedDrawCount=0,mirageCount=0;
-  let forcedAttackElement=null,absorbsHp=false,hitCount=1;
+  let forcedAttackElement=null,absorbsHp=false,hitCount=1,diseaseOnHit=null;
   let wandPosition=-1,auraPosition=-1;
   const casts=[],selectedKinds=[];
   const miracles=[];
@@ -99,6 +99,12 @@ export function compileOrderedWeaponAttack(state,catalog){
            eff.params.count===2&&def.family==='weapon'&&def.playModes.includes('mainAttack')){
           if(hitCount!==1)fail('Repeated multi-hit effects unverified');
           hitCount=2;continue;
+        }
+        if(eff.type==='inflictDisease'&&eff.when==='afterHit'&&
+           def.playModes.includes('mainAttack')&&
+           ['cold','hell'].includes(eff.params.disease)){
+          if(diseaseOnHit!==null)fail('Multiple disease weapons not verified');
+          diseaseOnHit=eff.params.disease;continue;
         }
         if(eff.type==='absorbHp'&&eff.when==='afterHit'&&
            eff.params.amount==='damage'&&def.family==='weapon'){
@@ -171,6 +177,10 @@ export function compileOrderedWeaponAttack(state,catalog){
     }
   }
   if(!weaponCount)fail('Attack requires a weapon');
+  if(diseaseOnHit!==null&&
+    (hitCount!==1||mirageCount>0||absorbsHp||aura||plusCount||
+     hasArmorBonus||itemBonus||miracles.length>0||forcedAttackElement!==null||weaponCount!==1))
+    fail('Disease-on-hit combinations require original verification');
   if(hitCount===2&&(miracles.length>mirageCount||hasArmorBonus||itemBonus||absorbsHp))
     fail('Repeat hits with miracles, armor attack bonus or other special effects are not verified');
   if(mirageCount){
@@ -210,7 +220,7 @@ export function compileOrderedWeaponAttack(state,catalog){
     attack,element:forcedAttackElement??(aura||mirageCount?'none':attackElement),attackKind:'weapon',
     instanceIds:Object.freeze(selected.filter(x=>x.instance).map(x=>x.instance.instanceId)),
     payableMP,learnedDrawCount,learnedMiracles:Object.freeze(learnedMiracles),
-    hasModifiers:miracles.length>0,absorbsHp,hitCount,mirageCount,
+    hasModifiers:miracles.length>0,absorbsHp,diseaseOnHit,hitCount,mirageCount,
     selectedKinds:Object.freeze(selectedKinds)
   });
 }
