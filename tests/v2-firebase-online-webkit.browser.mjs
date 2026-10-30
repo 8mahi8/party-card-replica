@@ -364,6 +364,64 @@ try{
    document.documentElement.clientWidth+2),
    'new risky tear preset fits narrow iframe');
  }finally{await tearHost.close();await tearGuest.close();}
+ // Source-verified correction: the tear can target an opponent, whose
+ // single Super Mirror response is chosen BEFORE the host coin flip.
+ async function riskyOpponentTrial({mirror}){
+  const attacker=await context.newPage(),defender=await context.newPage();
+  for(const page of [attacker,defender])
+   page.on('pageerror',error=>errors.push(error.message));
+  try{
+   await attacker.goto(target);
+   await attacker.locator('#labPreset').selectOption('tear');
+   await attacker.locator('#create').tap();
+   await attacker.waitForFunction(()=>/\\b\\d{5}\\b/.test(
+     document.querySelector('#roomLabel')?.textContent||''));
+   const room=(await attacker.locator('#roomLabel').textContent()).match(/\\d{5}/)[0];
+   await defender.goto(target);
+   await defender.locator('#joinCode').fill(room);
+   await defender.locator('#join').tap();
+   await defender.locator('#hand button').first().waitFor();
+   await attacker.locator('#hand button').first().tap();
+   check(await attacker.locator('#itemTarget').isVisible(),
+     'source-backed risky item exposes target choice');
+   await attacker.locator('#itemTarget').tap();
+   check((await attacker.locator('#itemTarget').textContent()).includes('相手'),
+     'attacker can select the other seat');
+   await attacker.locator('#useItem').tap();
+   await defender.waitForFunction(()=>document.querySelector('#phase')?.textContent
+     .includes('雑貨への対応'));
+   check((await defender.locator('#incomingAttack').textContent()).includes('ドキドキ涙'),
+     'defender sees declared item BEFORE random resolution');
+   check((await defender.locator('.score').allTextContents()).every(s=>s.includes('HP 40')),
+     'opponent HP remains unchanged while mirror decision is pending');
+   if(mirror){
+    await defender.locator('#hand button').nth(3).tap();
+    check((await defender.locator('#defend').textContent()).includes('スーパーミラー'),
+      'defender can elect actual Super Mirror');
+   }else{
+    check((await defender.locator('#defend').textContent()).includes('許す'),
+      'defender can accept without spending a defense card');
+   }
+   await defender.locator('#defend').tap();
+   const expectedHp=mirror?50:40,expectedOther=mirror?40:50;
+   await Promise.all([attacker,defender].map(page=>page.waitForFunction(
+    ({expectedHp,expectedOther})=>{
+     const score=document.querySelectorAll('.score');
+     return score[0]?.textContent?.includes('HP '+expectedHp)&&
+       score[1]?.textContent?.includes('HP '+expectedOther);
+    },{expectedHp,expectedOther},{timeout:15000})));
+   check((await attacker.locator('#phase').textContent()).includes('あなたの攻撃'),
+    'original user still has the turn after remote item resolution');
+   check((await defender.locator('#phase').textContent()).includes('相手の攻撃待ち'),
+    'remote defender returns to waiting state');
+   if(mirror){
+    check(!(await defender.locator('#hand').textContent()).includes('スーパーミラー'),
+     'used mirror was consumed before replenishment');
+   }
+  }finally{await attacker.close();await defender.close();}
+ }
+ await riskyOpponentTrial({mirror:false});
+ await riskyOpponentTrial({mirror:true});
  check(errors.length===0,'all preset trials have no script errors');
  console.log('FIREBASE_ONLINE_WEBKIT_SUCCESS checks='+checks+
   ' two tabs with mock RTDB, viewport=390x430');
