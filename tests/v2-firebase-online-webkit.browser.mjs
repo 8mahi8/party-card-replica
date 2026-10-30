@@ -793,6 +793,53 @@ try{
   }finally{await a.close();await b.close();}
  }
  for(const mode of ['wind','heaven','angel','mirror'])await windMiracleTrial(mode);
+ // G7: two seeded Turbulence destinations using a real touch response.
+ // On self-deflection the defender cannot defend a second time.
+ async function turbulenceTrial(mode){
+  const a=await context.newPage(),b=await context.newPage();
+  for(const p of [a,b])p.on('pageerror',e=>errors.push(e.message));
+  try{
+   await a.goto(target);
+   await a.locator('#labPreset').selectOption(mode==='self'?'turbulenceSelf':'turbulenceBack');
+   await a.locator('#create').tap();
+   await a.waitForFunction(()=>/\b\d{5}\b/.test(document.querySelector('#roomLabel')?.textContent||''));
+   const room=(await a.locator('#roomLabel').textContent()).match(/\d{5}/)[0];
+   await b.goto(target);
+   await b.locator('#joinCode').fill(room);
+   await b.locator('#join').tap();
+   await b.locator('#hand button').first().waitFor();
+   await a.locator('#hand button').first().tap();
+   await a.locator('#attack').tap();
+   await b.waitForFunction(()=>document.querySelector('#phase')?.textContent
+     .includes('あなたの防御'));
+   await b.locator('#hand button').first().tap();
+   await b.locator('#defend').tap();
+   if(mode!=='self'){
+    await a.waitForFunction(()=>document.querySelector('#phase')?.textContent
+      .includes('あなたの防御'));
+    check((await a.locator('#incomingAttack').textContent()).includes('風'),
+      'Turbulence rebounds Wind to attacker with defense allowed');
+    if(mode==='angel')await a.locator('#hand button').filter({hasText:'エンゼルの小手'}).tap();
+    await a.locator('#defend').tap();
+   }
+   await Promise.all([a,b].map(p=>p.waitForFunction(({mode})=>{
+    const cards=document.querySelectorAll('.score');
+    const ac=cards[0]?.textContent||'',bc=cards[1]?.textContent||'';
+    return document.querySelector('#phase')?.textContent?.includes('あなたの攻撃')||
+     document.querySelector('#phase')?.textContent?.includes('相手の攻撃待ち')
+     ?ac.includes('MP 19')&&bc.includes('MP 5')&&
+       (mode==='self'?bc.includes('風邪')&&bc.includes('HP 40')&&!ac.includes('風邪'):
+        mode==='angel'?!ac.includes('風邪')&&!bc.includes('風邪'):
+         ac.includes('風邪')&&ac.includes('HP 39')&&!bc.includes('風邪'))
+     :false;
+   },{mode},{timeout:15000})));
+   check((await b.locator('#learnedMiracles').textContent()).includes('乱気流'),
+    'defending Turbulence miracle becomes learned and can be cast again');
+   check((await b.locator('#phase').textContent()).includes('あなたの攻撃'),
+    'Turbulence response never leaves the original next turn stuck');
+  }finally{await a.close();await b.close();}
+ }
+ for(const mode of ['self','angel','accept'])await turbulenceTrial(mode);
  check(errors.length===0,'all preset trials have no script errors');
  console.log('FIREBASE_ONLINE_WEBKIT_SUCCESS checks='+checks+
   ' two tabs with mock RTDB, viewport=390x430');
