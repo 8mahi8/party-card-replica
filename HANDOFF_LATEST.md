@@ -5,6 +5,17 @@
 
 > **この文書は引き継ぎ入口であり、実装の真実は常に開発ブランチの最新コードとGitHub Actions。** コミットSHA・テスト件数・カード数は作業のたびに変わる。本文の日付や数値を確認せず永久に正しいと扱わないこと。
 
+## 2026-10-30 G7｜感染→治療の通し試合と奇跡〈風〉〈天国風〉【最新・実Firebase成功】
+
+- **原作照合**：[GFGA 奇跡一覧](https://w.atwiki.jp/gfplusa/pages/19.html)・[まかろん2026神器一覧](https://macarongamemo.com/entry/godfield-artifact)・[2026年9月奇跡一覧](https://toroccowars.jp/21523/)を突合。〈風〉=MP6・風邪、〈天国風〉=MP15・天国病。両者とも無属性・直接ダメージなし、出現率0.2%（各1/500）。奇跡は一度使用すると習得し、以降MPを払って唱え直せる。精霊使用で当該直前奇跡のMP免除。原作ゲームでの直接画面観察や全対奇跡防御の網羅は未検証。
+- **新規の通し試合**：`tests/g7-infection-to-cure-full-match-v2.test.mjs` 3件。疾風剣→風邪→相手の番でスマイルの貝がら→同じ手番で反撃→病ダメージなし／地獄のハサミ→地獄病→ハートの貝がら→反撃→病ダメージなし。治療しない場合は自分のターン終了時だけ風邪のHP-1を確認。これまで別々だったG7感染と治療が**1試合の実際の進行として接続**された。
+- **奇跡実装**：`src/verified-basic-cards.mjs`に`m013`〈風〉と`m014`〈天国風〉、`v2/legacy-adapter.mjs`＋`v2/foundation.mjs`に型付き`onDeclare:inflictDisease`を追加。武器の`afterHit:inflictDisease`とは分離。攻撃値0の奇跡を`v2/staging-room.mjs`で`playCards/playSequence/castLearned`可能にし、`v2/miracle-resolution.mjs`は攻撃`hit`を発生させず、MP支払い・奇跡習得・補充・既存反射・対奇跡停止を共有。`v2/effect-runner.mjs`の`castDisease`が宣言された元の奇跡と対象を検証し、既存病の段階進行・HP0と太陽のお守り復活・自分のターン終了効果に接続。未照合の複合反射・異常災いは勝手に独自処理を追加しない。
+- **試験用UI**：`v2/demo/firebase-online-lab.html`に12番目の`windMiracles`固定手札セット（A:風/天国風/精霊等、初期MP25／B:スーパーミラー/エンゼル防具）。テスト用の既存Firebase RTDB接続に合わせて再生成した単体HTML3本を開発ブランチへ保存。研究台帳は**174種類・435/500参考枠・`complete:false`**。原作353種類・500枠の正規抽選は依然禁止。
+- **Node 1018/1018 PASS** [run 41074519880](https://github.com/8mahi8/party-card-replica/actions/runs/41074519880)。新規`tests/g7-wind-heaven-wind-miracles-v2.test.mjs` 10件はMP不足・詠唱と習得・再唱・追加手札・精霊・スーパーミラー反射・エンゼル停止・天国病追加感染・太陽のお守り・自分への天国風を検証。**Chromium PASS** [run 41074650786](https://github.com/8mahi8/party-card-replica/actions/runs/41074650786)。**WebKitオンライン2画面184/184 PASS＋固定UI339/339 PASS** [run 41074650744](https://github.com/8mahi8/party-card-replica/actions/runs/41074650744)。夢の監査上は新奇跡2種は`sourceExcluded`対象となるため、監査値22/14（sourceExcluded/needsRuleReview）へ調整して全体テストに合格。
+- **実Firebase 22シナリオすべて成功** [run 41074650807](https://github.com/8mahi8/party-card-replica/actions/runs/41074650807)：従来の18に加え`G7_LIVE_WIND_MIRACLE_WIND_SUCCESS`・`G7_LIVE_WIND_MIRACLE_HEAVEN_SUCCESS`・`G7_LIVE_WIND_MIRACLE_ANGEL_SUCCESS`・`G7_LIVE_WIND_MIRACLE_MIRROR_SUCCESS`。試験用の22ルームすべてでホストIDを照合後`G6_LIVE_CLEANUP_SUCCESS`（22回）を確認。ルールや認証方式は変更なし。生成/liveの各CIは手動起動に戻した。
+- **詳細**：[V2_G7_WIND_MIRACLES_2026-10-30.md](docs/V2_G7_WIND_MIRACLES_2026-10-30.md)。学校iPad Safari実機＋Google Sites直接HTML埋め込みはまだ未検証。学校版HTML、GitHub main、Firebase Security Rulesは未変更。**G7原作再現・研究試験段階**であり、完全な本家ゲームではない。
+- **次工程**：奇跡〈風〉→貝がらで治療・〈天国風〉の連射と病発作・乱気流の弾きを、現行原作と比較しながら追加試験。実際の学校iPad操作と遊びやすいUI、既存2人対戦のフリーズ回帰も確認。無理に他の夢・霧・閃光・暗雲を病系へ混ぜない。
+
 ## 2026-10-30 G7｜4種の病付与武器・実ダメージ後の感染【最新・実Firebase成功】
 
 - **原作資料**：[2026年神器一覧](https://macarongamemo.com/entry/godfield-artifact)、[Piong災い一覧](https://w.atwiki.jp/piong/pages/23.html)、[風邪の進行の解説](https://note.com/hantama_dm/n/n8f690316f015)。**疾風剣**（攻9/¥10/0.2%）・**激烈疾風剣**（攻13/¥15/0.2%）は命中してHPダメージが通れば風邪。**風のカギ爪**（土属性・攻1/¥10/0.2%）は風邪。**地獄のハサミ**（攻8/¥15/0.2%）は地獄病。いずれもダメージ0なら病付与なし。既存の病に追加感染すると病の強さにかかわらずちょうど1段階悪化。天国病へ追撃すると発作。原作本体の特殊な死亡と復活の演出順は直接実測していない。
