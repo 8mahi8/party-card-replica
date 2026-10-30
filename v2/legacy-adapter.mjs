@@ -9,7 +9,7 @@ import {VERIFIED_BASIC_CARDS,PARTIAL_CARD_SOURCE} from '../src/verified-basic-ca
 const KNOWN_KEYS=new Set([
   'id','referenceName','kind','category','slot','element','attack','guard',
   'attackBonus','price','weight','reaction','reactionScope','stopScope',
-  'role','boost','plusAttack','mpCost','effect','attackElementOverride','discardPolicy','tradeAction','hpAbsorb','repeatHits','restoreAmount','diseaseOnHit'
+  'role','boost','plusAttack','mpCost','effect','attackElementOverride','discardPolicy','tradeAction','hpAbsorb','repeatHits','restoreAmount','diseaseOnHit','disease'
 ]);
 const CATEGORY_BY_KIND=Object.freeze({weapon:'weapon_single',armor:'armor_normal',miracle:'miracle',defense_item:'item',support_item:'item',trade:'trade'});
 const mk=(when,type,params={})=>({when,type,params});
@@ -100,6 +100,12 @@ export function convertLegacyCard(card,{ruleset=PARTIAL_CARD_SOURCE}={}) {
           stacking:VERIFIED_IDENTICAL_PLUS_PAIRS.has(card.id)?'identicalPair':'single'
         }));
       } else if(card.plusAttack!==undefined)throw new Error('Unknown plus-attack flag');
+    } else if(card.role==='afflict') {
+      if(card.element!=='none'||card.attack!==undefined||
+         !['cold','heaven'].includes(card.disease)||
+         card.mpCost!==(card.disease==='cold'?6:15))
+        throw new Error('Unverified miracle affliction definition');
+      modes.push('cast');effects.push(mk('onDeclare','inflictDisease',{disease:card.disease}));
     } else if(card.role==='stop') {
       if(card.stopScope!=='neutral_weapon')throw new Error('Unmapped miracle stop scope');
       modes.push('defend');effects.push(mk('onDefense','stopAttack',{scope:'neutralWeapon'}));
