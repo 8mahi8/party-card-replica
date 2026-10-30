@@ -431,7 +431,7 @@ export function applyStagingCommand(state,command,catalog,{authorizedSeatId}={})
       learned=catalog.get(command.learnedDefinitionId);
       if(!actor.learned.includes(command.learnedDefinitionId)||
         learned?.family!=='miracle'||!learned.playModes.includes('cast')||
-        learned.stats.attack<=0)
+        (learned.stats.attack<=0&&!learned.effects.some(e=>e.when==='onDeclare'&&e.type==='inflictDisease')))
         throw new Error('Offensive miracle not learned');
     } else if(command.type==='playCards'){
       selected=takeLegalSelection(actor,command.orderedInstanceIds,catalog,'attack');
