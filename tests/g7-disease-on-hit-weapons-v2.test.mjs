@@ -55,7 +55,7 @@ test('4 sourced on-hit weapons preserve exact attack, element, price and 1/500 w
   assert.throws(()=>convertLegacyCard({...src,diseaseOnHit:'fever'}),
    /Unverified disease weapon definition/);
  }
- assert.deepEqual([summary.unique,summary.slots,summary.complete],[172,433,false]);
+ assert.deepEqual([summary.unique,summary.slots,summary.complete],[174,435,false]);
  assert.equal(RESEARCH_CATALOG_CONTRACT.unique,summary.unique);
  assert.equal(RESEARCH_CATALOG_CONTRACT.slots,summary.slots);
  for(const params of [{disease:'fever'},{disease:'cold',extra:1},{disease:'wrong'}])
