@@ -143,7 +143,7 @@ export function resolveStagedFixture(state,catalog,{
     // Only Super Mirror can turn this item back on its original user.
     let mirrorId=null,recipient=target;
     if(target.id!==actor.id){
-      if(effect.type!=='flipHpRisk'||p.defense?.playerId!==target.id||
+      if(p.defense?.playerId!==target.id||
          !Object.hasOwn(p.defense,'mirrorInstanceId'))
         fail('Targeted item requires an authenticated defense response');
       mirrorId=p.defense.mirrorInstanceId;
