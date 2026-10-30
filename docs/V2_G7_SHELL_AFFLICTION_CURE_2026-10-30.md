@@ -26,3 +26,11 @@
 ## 次工程
 
 病状態を治す機能が完成したら、原作資料で確認済みの風邪・熱病・地獄病を発症させる神器/奇跡を既存エンジンの効果に接続する候補を評価する。その前に既存の命中判定・防御・反射と病付与の順序を調べ、既存攻撃コードを無条件に作り直さない。夢・霧・閃光・暗雲は固有仕様が違うので独立して検討する。
+
+
+## 実測済み（2026-10-30後続追記）
+
+- Node **994/994 PASS**：[run 41066264525](https://github.com/8mahi8/party-card-replica/actions/runs/41066264525)。Chromium **PASS**：[run 41066264540](https://github.com/8mahi8/party-card-replica/actions/runs/41066264540)。WebKitオンライン2ページ **156/156 PASS**、従来のWebKit固定画面 **339/339 PASS**：[run 41066264527](https://github.com/8mahi8/party-card-replica/actions/runs/41066264527)。ソース＋再生成されたスタンドアロンHTMLで確認。
+- **実Firebase 14試験全成功**：[run 41067115608](https://github.com/8mahi8/party-card-replica/actions/runs/41067115608)。以前の通常対戦・回復・夜空のホウキ・女神の石けん・天国草を含む10シナリオに加え、`G7_LIVE_SHELL_SMILE_PASS_SUCCESS`、`G7_LIVE_SHELL_SMILE_MIRROR_SUCCESS`、`G7_LIVE_SHELL_HEART_PASS_SUCCESS`、`G7_LIVE_SHELL_HEART_MIRROR_SUCCESS` を確認。各試験部屋のhost IDを照合した安全な**14回の削除成功**もログで確認。
+- ライブ試験の初回は、スマイルの反射先がすでに天国病で「病が治らない」ため画面表示が変わらず、ホストだけが更新済みでゲスト側の反映・Firebase書込が完了していない段階でRESTを読んで誤って不合格扱いした。原因は**テストの同期待機不足**。ゲスト側の実受信と手番移行を待ってから読むよう変更し、再実行で4ケースすべて成功。ゲームの計算処理のバグではない。
+- 配布HTML生成とライブFirebaseワークフローは、利用終了後に**双方とも従来の手動専用設定**に復帰した。学校Google Sites直接埋め込み版の変更はしていない。
