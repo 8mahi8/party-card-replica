@@ -331,6 +331,33 @@ export function runEffectQueueFixture(state,catalog,queue,{
          consumedInstanceId:recovery.consumedInstanceId,
          consumedDefinitionId:recovery.consumedDefinitionId});
      }
+   } else if(effect.type==='castDisease'){
+     const p=who(s,effect.targetId),pending=state.pending;
+     if(Object.keys(effect).length!==4||pending?.type!=='attack'||
+       pending.targetId!==p.id||typeof effect.miracleId!=='string'||
+       !['cold','heaven'].includes(effect.disease))
+       fail('Invalid affliction miracle action');
+     const miracle=catalog.get(effect.miracleId);
+     if(miracle?.family!=='miracle'||miracle.element!=='none'||
+       miracle.stats.attack!==0||
+       !miracle.effects.some(x=>x.when==='onDeclare'&&
+         x.type==='inflictDisease'&&x.params.disease===effect.disease))
+       fail('Unrecognized affliction miracle definition');
+     const original=who(state,pending.originalAttackerId);
+     const declaredId=pending.attackContext?.miracleId ??
+       (pending.attackLearnedDefinitionId ??
+        catalog.get(original.hand.find(c=>
+          c.instanceId===pending.attackInstanceIds?.[0])?.definitionId)?.id);
+     if(declaredId!==effect.miracleId)
+       fail('Affliction miracle was not originally declared');
+     if(p.hp>0){
+       const before=p.disease??null;
+       const next=planDiseaseExposure(before,effect.disease);
+       p.disease=next.disease;
+       events.push({type:'castDisease',targetId:p.id,miracleId:miracle.id,
+         diseaseBefore:before,diseaseAfter:p.disease,fatal:next.fatal});
+       if(next.fatal)resolveIllnessZeroHp(p,p.hp);
+     }
    } else if(effect.type==='inflictDisease'){
      if(Object.keys(effect).length!==3||!['cold','hell'].includes(effect.disease))
        fail('Malformed on-hit illness effect');
