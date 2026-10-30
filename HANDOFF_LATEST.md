@@ -5,6 +5,17 @@
 
 > **この文書は引き継ぎ入口であり、実装の真実は常に開発ブランチの最新コードとGitHub Actions。** コミットSHA・テスト件数・カード数は作業のたびに変わる。本文の日付や数値を確認せず永久に正しいと扱わないこと。
 
+## 2026-10-30 G7｜基本HP・MP回復7種＋同手番で攻撃できる回復エンジン【最新】
+
+- **根拠**：[Piongその他神器](https://w.atwiki.jp/piong/pages/19.html)（2026-10-24更新）、[GFGA神器一覧](https://w.atwiki.jp/gfplusa/pages/18.html)、[まかろん2026一覧](https://macarongamemo.com/entry/godfield-artifact)で回復7種類の効果・価格・授かり率を照合。[Piongタイマン攻略](https://w.atwiki.jp/piong/pages/21.html)で回復など手札を切った後に同じ手番で攻められる運用、[アニヲタWiki](https://w.atwiki.jp/aniwotawiki/pages/47010.html)でHP/MP上限99を確認。天国草は天国病まで必要なため未登録。
+- **カードデータ**：`src/verified-basic-cards.mjs`に`i006`〜`i012`、スマイルのしずく（HP+5）、ハートのしずく（HP+10）、ロマンスウォーター（HP+15）、天の川のおいしい水（HP+20）、スマイルの花（MP+5）、ハートの花（MP+10）、ロマンスの香木（MP+15）を追加。合計**7種・49参考枠**で研究台帳は**162種・406/500参考枠**（旧155/357）。`complete:false`維持、本家353種/500枠抽選は未有効化。
+- **既存エンジン拡張**：`v2/legacy-adapter.mjs`にデータ型`restore_hp/restore_mp`→`onDeclare:restoreResource`、`v2/foundation.mjs`に回復効果の厳密バリデーション。 `v2/staging-room.mjs`に当事者が自分の1枚だけ使う`useItem`コマンドと**物理instanceIdを含むコマンド署名**、`v2/room-transition.mjs`・`v2/effect-runner.mjs`に回復→補充→**同じプレイヤーの攻撃手番を維持**（99上限）を実装。エンジンのHP/MP/手札変化は権威ホストだけで解決し、RTDBは席ごとのビューだけ送信。Firebase認証・Rules未変更。
+- **オンラインUI**：`v2/demo/firebase-online-lab.html`に`回復を使う`、カード上の`HP+5/MP+5`等、上限表示、「HP・MP回復と反撃」研究用4枚セット追加。先行の基本/属性/闇3セットはそのまま。今回は**2人1vs1向け自分だけを回復**。原作の味方への対象指定や夢状態での回復神器の擬装判定は未実装・未確認。
+- **回帰テスト**：`tests/g7-plain-recovery-items-v2.test.mjs`に7種全件の参照値、資源上限99、消費と固定補充、回復→回復→攻撃→防御、同じIDの再送の冪等性、IDを維持し物理カードだけ変更する不正再送の拒否など。Dream研究監査では7種類が`needs-rule-review`（効果適用済み/夢の真偽確定ではない）。`tests/v2-firebase-online-webkit.browser.mjs`は390×430の2画面で実際に回復選択・タップ・HP/MP同期・同ターン攻撃・防御を検査。
+- **確定CI**：Node **929/929 PASS** [run 41041982015](https://github.com/8mahi8/party-card-replica/actions/runs/41041982015)、Chromium **28/28 PASS** [run 41041981833](https://github.com/8mahi8/party-card-replica/actions/runs/41041981833)、WebKitオンライン **49/49 PASS**＋既存画面 **339/339 PASS** [run 41041641624](https://github.com/8mahi8/party-card-replica/actions/runs/41041641624)。最新の再実行 [run 41041981963](https://github.com/8mahi8/party-card-replica/actions/runs/41041981963)も確認すること。初回WebKitは初期MP10を20と読み違えた**テスト期待値だけが誤り**、MP15で修正して成功。先行Nodeも古い単体HTML/監査件数のため失敗したが解消。
+- **配布・資料**：旧研究用、V2オフライン、G6オンラインの単体HTML3種類を再生成、bot `a9683eb`で開発ブランチに保存。 workflowを`workflow_dispatch`だけに戻した。詳細は[`docs/V2_G7_PLAIN_RECOVERY_ITEMS_2026-10-30.md`](docs/V2_G7_PLAIN_RECOVERY_ITEMS_2026-10-30.md)。学校のGoogle Sites貼付HTML、`main`、Firebase Rules・認証は触っていない。
+- **次の優先**：学校iPadで研究用回復セットを含め実機試遊し、UIのタップしやすさと同期を評価。回復セットは模擬RTDB＋WebKitでは検証済みだが、**新規の本物Firebase通信と学校iPad実機では未検証**。原作の味方回復・状態異常や回復以外の雑貨/神器の再現を資料照合後に続ける。部分参考台帳を本家ランダム抽選として起動しない。
+
 ## 2026-10-30 G7｜登録済み神器をオンラインで試せる3種類の固定手札【今回の最新】
 
 - **目的**：G7で研究台帳を**155種類・357/500参考枠**に広げた一方、G6オンラインでは初期4枚の固定セットしか遊べず、新しく追加した属性防具や闇属性武器を実対戦で試せなかった。原作の353種/500枠の山札抽選を勝手に有効化しないまま**研究用固定セットを選択可能にした**。学校で遊ぶ本番ルールの変更ではなく開発用試遊機能。
