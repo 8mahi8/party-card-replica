@@ -9,7 +9,7 @@ import {VERIFIED_BASIC_CARDS,PARTIAL_CARD_SOURCE} from '../src/verified-basic-ca
 const KNOWN_KEYS=new Set([
   'id','referenceName','kind','category','slot','element','attack','guard',
   'attackBonus','price','weight','reaction','reactionScope','stopScope',
-  'role','boost','plusAttack','mpCost','effect','attackElementOverride','discardPolicy','tradeAction','hpAbsorb','repeatHits'
+  'role','boost','plusAttack','mpCost','effect','attackElementOverride','discardPolicy','tradeAction','hpAbsorb','repeatHits','restoreAmount'
 ]);
 const CATEGORY_BY_KIND=Object.freeze({weapon:'weapon_single',armor:'armor_normal',miracle:'miracle',defense_item:'item',support_item:'item',trade:'trade'});
 const mk=(when,type,params={})=>({when,type,params});
@@ -130,6 +130,15 @@ export function convertLegacyCard(card,{ruleset=PARTIAL_CARD_SOURCE}={}) {
       attack=card.attackBonus;
       modes.push('addAttack');
       effects.push(mk('onDeclare','addAttack',{scope:'weapon',stacking:'single'}));
+    }else if(['restore_hp','restore_mp'].includes(card.effect)){
+      if(!truthyInt(card.restoreAmount)||card.restoreAmount<1||
+         card.restoreAmount>99||card.element!=='none')
+        throw new Error('Invalid source-backed recovery item amount');
+      modes.push('use');
+      effects.push(mk('onDeclare','restoreResource',{
+        resource:card.effect==='restore_hp'?'hp':'mp',
+        amount:card.restoreAmount
+      }));
     }else if(card.effect==='sun_revive'){
       if(card.discardPolicy!=='forbidden')
         throw new Error('Passive Sun Charm discard policy mismatch');
