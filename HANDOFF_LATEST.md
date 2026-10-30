@@ -5,12 +5,12 @@
 
 > **この文書は引き継ぎ入口であり、実装の真実は常に開発ブランチの最新コードとGitHub Actions。** コミットSHA・テスト件数・カード数は作業のたびに変わる。本文の日付や数値を確認せず永久に正しいと扱わないこと。
 
-## 2026-10-30 G7｜実Firebase回復セットの手動検証を追加【未実行】
+## 2026-10-30 G7｜実Firebase回復セットの双方向試験に成功【確認済み】
 
 - 最新コード（本日の継続担当）：既存 `tests/v2-g6-live-firebase.browser.mjs` に、G6基本セットの実Firebase双方向攻防を保持したまま、G7 `recovery` 固定セットの**両席HP/MP回復→同じ手番で攻撃**を実Firebaseで試す追加シナリオを実装。1番目の試験用ルームをホストID照合後に削除してから2番目を作り、最後に2番目だけを同じ照合で削除。両席の `revision=14` / HP・MP / 他人の手札秘匿を検査。シナリオの成功ログは `G7_LIVE_RECOVERY_SUCCESS`。
 - 通常Node CIには `tests/g7-live-probe-syntax.test.mjs` を追加し、検証スクリプトの構文とworkflowの**手動専用**設定を監査。詳細は [G7実Firebase検証資料](docs/V2_G7_REAL_FIREBASE_RECOVERY_PROBE_2026-10-30.md)。
-- **重要**：今回のシナリオはGitHubに保存済みだが、まだ手動workflowを起動していないため**G7で実Firebase成功済みとは言えない**。旧G6の実Firebase成功・G7の模擬RTDB WebKit成功は別の証拠。学校iPad Safari実機も未検証。学校Google Sites HTML、Firebase Rules/認証、mainは触らない。
-- 次工程：新しい通常Node CIで構文検査の成功を確認し、必要に応じて手動の `g6-live-firebase-probe.yml` を実行して成功ログと試験ルーム削除を検証する。その後G7原作効果と部分研究カタログを拡張。
+- **実測確認**：[GitHub Actions run 41050294774](https://github.com/8mahi8/party-card-replica/actions/runs/41050294774) で、旧G6の `G6_LIVE_TWO_BROWSER_SUCCESS` / G7新回復セットの `G7_LIVE_RECOVERY_SUCCESS`（revision14）/ 2つのルーム削除 `G6_LIVE_CLEANUP_SUCCESS` をログで確認し、ジョブ全体もsuccess。一時的にPRトリガーで実行し、終了後は元の `workflow_dispatch` **手動専用**へ戻した。学校iPad Safari実機は未検証。学校Google Sites HTML、Firebase Rules/認証、mainは触らない。
+- 次工程：ワークフロー復帰後のNode/Chromium/WebKit CIを確認。学校iPad Safariでの実機検証は引き続き必要。並行してG7原作効果と部分研究カタログを拡張。
 
 ## 2026-10-30 G7｜基本HP・MP回復7種＋同手番で攻撃できる回復エンジン【最新】
 
