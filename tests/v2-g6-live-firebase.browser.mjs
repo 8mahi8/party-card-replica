@@ -566,6 +566,78 @@ try{
   for(const mirror of [false,true])
    await liveShellTrial(heart,mirror);
 
+ // G7 on-hit illness: only real positive HP damage infects, and
+ // neutral Mirror preserves the status rider on its redirected strike.
+ async function liveDiseaseWeaponTrial(mode){
+  await a.goto('about:blank');await b.goto('about:blank');
+  await cleanup();code=null;roomHostId=null;
+  await a.goto(url,{waitUntil:'load',timeout:20000});
+  await a.locator('#labPreset').selectOption('illnessAttack');
+  await a.locator('#create').tap();
+  await a.waitForFunction(()=>/ルーム \d{5}/.test(
+   document.querySelector('#roomLabel')?.textContent||''),null,{timeout:20000});
+  code=(await a.locator('#roomLabel').textContent()).match(/\d{5}/)[0];
+  const initial=await dbRead(code);
+  if(!initial?.meta?.hostId||initial?.meta?.guestId!=null)
+   throw Error('G7 disease attack live room creation mismatch');
+  roomHostId=initial.meta.hostId;
+  await b.goto(url,{waitUntil:'load',timeout:20000});
+  await b.locator('#joinCode').fill(code);
+  await b.locator('#join').tap();
+  await b.locator('#hand button').first().waitFor({timeout:20000});
+  await a.locator('#hand button').nth(mode==='hell'?1:0).tap();
+  await a.locator('#attack').tap();
+  await b.waitForFunction(()=>document.querySelector('#phase')?.textContent
+   .includes('あなたの防御'),null,{timeout:20000});
+  const waiting=await dbRead(code);
+  if(waiting.views?.B?.players?.[1]?.disease!=null||
+     waiting.views?.B?.players?.[1]?.hp!==40||
+     waiting.views?.B?.players?.[0]?.hand!==undefined)
+   throw Error('G7 weapon disease applied before defense or leaked opponent hand');
+  if(mode==='blocked')await b.locator('#hand button').nth(1).tap();
+  if(mode==='reflect')await b.locator('#hand button').first().tap();
+  await b.locator('#defend').tap();
+  if(mode==='reflect'){
+   await a.waitForFunction(()=>document.querySelector('#phase')?.textContent
+    .includes('あなたの防御'),null,{timeout:20000});
+   await a.locator('#defend').tap();
+  }
+  // Wait for BOTH seats to receive host-authoritative committed revisions.
+  await Promise.all([a,b].map(page=>page.waitForFunction(({mode})=>{
+   const scores=document.querySelectorAll('.score');
+   const ac=scores[0]?.textContent||'',bc=scores[1]?.textContent||'';
+   const phase=document.querySelector('#phase')?.textContent||'';
+   if(!phase.includes('相手の攻撃待ち')&&!phase.includes('あなたの攻撃'))
+    return false;
+   if(mode==='blocked')return !ac.includes('風邪')&&!bc.includes('風邪')&&
+    bc.includes('HP 40');
+   if(mode==='reflect')return ac.includes('風邪')&&!bc.includes('風邪')&&
+    ac.includes('HP 30');
+   if(mode==='hell')return bc.includes('地獄病')&&bc.includes('HP 32');
+   return bc.includes('風邪')&&bc.includes('HP 31');
+  },{mode},{timeout:20000})));
+  await b.waitForFunction(()=>document.querySelector('#phase')?.textContent
+   .includes('あなたの攻撃'),null,{timeout:20000});
+  const end=await dbRead(code);
+  const expectedRevision=mode==='reflect'?3:2;
+  const expectedA=mode==='reflect'?'cold':null;
+  const expectedB=mode==='cold'?'cold':mode==='hell'?'hell':null;
+  if(end.views?.A?.revision!==expectedRevision||
+     end.views?.B?.revision!==expectedRevision||
+     (end.views.A.players[0].disease??null)!==expectedA||
+     (end.views.B.players[1].disease??null)!==expectedB||
+     end.views.A.players[0].hp!==(mode==='reflect'?30:40)||
+     end.views.A.players[1].hp!==(mode==='cold'?31:mode==='hell'?32:40)||
+     end.views.A.activePlayerId!=='B'||
+     end.views.A.players[1].hand!==undefined||
+     end.views.B.players[0].hand!==undefined)
+   throw Error('G7 disease live RTDB mismatch '+JSON.stringify({mode,revision:end.views?.A?.revision,diseaseA:end.views?.A?.players?.[0]?.disease??null,diseaseB:end.views?.A?.players?.[1]?.disease??null}));
+  if(errors.length)throw Error('G7 disease weapon browser error: '+errors.join(' | '));
+  console.log('G7_LIVE_DISEASE_WEAPON_'+mode.toUpperCase()+'_SUCCESS');
+ }
+ for(const mode of ['cold','blocked','reflect','hell'])await liveDiseaseWeaponTrial(mode);
+
+
 
 
 
