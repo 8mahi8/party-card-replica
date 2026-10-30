@@ -160,8 +160,7 @@ export function resolveStagedFixture(state,catalog,{
       fail('Cannot defend against an item used on oneself');
     let staged=state,action,outcome=null;
     if(effect.type==='restoreResource'){
-      if(target.id!==actor.id)fail('Unverified third-party recovery');
-      action={type:'restoreResource',playerId:actor.id,
+      action={type:'restoreResource',playerId:recipient.id,
         resource:effect.params.resource,amount:effect.params.amount};
     }else{
       if(effect.params.heal!==10||effect.params.damage!==10||
