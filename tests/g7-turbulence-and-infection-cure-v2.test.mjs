@@ -62,6 +62,10 @@ test('seed 71 maps deflection to attacker; attacker can then defend with Angel',
  assert.equal(bounced.phase,'defense');
  assert.equal(bounced.activePlayerId,'A');
  assert.equal(bounced.players[1].disease,null);
+ assert.equal(bounced.pending.declaredAttack?.cards?.[0]?.definitionId,'m014',
+  'already spent Heaven Wind stays publicly visible after Turbulence');
+ assert.equal(bounced.pending.declaredAttack?.printedAttackTotal,0);
+ assert.equal(B.read().players[0].hand,undefined,'public return does not leak hand');
  defend(A,'A',['d018'],'angel-after-deflect');
  const end=A.read();
  assert.equal(end.phase,'turn');
