@@ -547,6 +547,8 @@ const VERIFIED_BASIC_CARDS = Object.freeze([
   Object.freeze({id:'i014',referenceName:'夜空のホウキ',kind:'support_item',category:'item',element:'none',effect:'sweep_hand',price:10,weight:1}),
   // Piong (2026-10-24), GFGA, Macaron (2026): randomly forget up to 2 already-learned miracles.
   Object.freeze({id:'i015',referenceName:'女神の石けん',kind:'support_item',category:'item',element:'none',effect:'forget_learned',price:10,weight:1}),
+  // Piong 2026-10-24: 0.2%, ¥20, MP+20 and heaven disease exposure.
+  Object.freeze({id:'i016',referenceName:'天国草',kind:'support_item',category:'item',element:'none',effect:'heaven_herb',restoreAmount:20,price:20,weight:1}),
   Object.freeze({id:'i003',referenceName:'精霊のぬいぐるみ',kind:'support_item',category:'item',element:'none',effect:'free_previous_miracle',price:5,weight:2}),
   Object.freeze({id:'i004',referenceName:'ちからの粉',kind:'support_item',category:'item',element:'none',effect:'add_attack',attackBonus:10,price:15,weight:2}),
   // Passive: held charm consumes ONE instance at HP0, revives at HP10.
@@ -585,7 +587,7 @@ const MODES = new Set(['mainAttack','addAttack','defend','cast','support','trade
 // Until sourced effects are implemented, explicitly gate those definitions.
 const DISCARD_POLICIES = new Set(['ordinary','forbidden','requiresSpecialResolution']);
 const EFFECT_TRIGGERS = new Set(['onDeclare','onCost','beforeHit','onDefense','afterHit','onTurnEnd','onZeroHp']);
-const EFFECT_TYPES = new Set(['redirectAttack','stripElement','multiplyAttack','addAttack','stopAttack','waivePreviousMp','setAttackElement','forceSale','requestBuy','reallocateResources','reviveAtZeroHp','absorbHp','repeatAttack','widenAttack','restoreResource','flipHpRisk','sweepHand','forgetLearned']);
+const EFFECT_TYPES = new Set(['redirectAttack','stripElement','multiplyAttack','addAttack','stopAttack','waivePreviousMp','setAttackElement','forceSale','requestBuy','reallocateResources','reviveAtZeroHp','absorbHp','repeatAttack','widenAttack','restoreResource','flipHpRisk','sweepHand','forgetLearned','heavenHerb']);
 
 function plainObject(v) { return v !== null && typeof v === 'object' && !Array.isArray(v); }
 function nonnegative(n) { return Number.isSafeInteger(n) && n >= 0; }
@@ -620,6 +622,10 @@ function freezeEffect(effect) {
       !['hp','mp'].includes(params.resource)||
       !Number.isSafeInteger(params.amount)||params.amount<1||params.amount>99))
     throw new Error('Invalid restoreResource effect data');
+  if(effect.type==='heavenHerb'&&
+     (effect.when!=='onDeclare'||Object.keys(params).length!==2||
+      params.mp!==20||params.disease!=='heaven'))
+    throw new Error('Invalid heavenHerb effect data');
   if(effect.type==='forgetLearned'&&
      (effect.when!=='onDeclare'||Object.keys(params).length!==1||params.count!==2))
     throw new Error('Invalid forgetLearned effect data');
@@ -1133,6 +1139,11 @@ function convertLegacyCard(card,{ruleset=PARTIAL_CARD_SOURCE}={}) {
         throw new Error('Invalid source-backed coin-flip HP item');
       modes.push('use');
       effects.push(mk('onDeclare','flipHpRisk',{heal:10,damage:10,healChance:0.5}));
+    }else if(card.effect==='heaven_herb'){
+      if(card.element!=='none'||card.restoreAmount!==20||card.price!==20||card.weight!==1)
+        throw new Error('Invalid source-backed heaven grass');
+      modes.push('use');
+      effects.push(mk('onDeclare','heavenHerb',{mp:20,disease:'heaven'}));
     }else if(card.effect==='forget_learned'){
       if(card.element!=='none'||card.price!==10||card.weight!==1)
         throw new Error('Invalid source-backed soap item');
@@ -1481,6 +1492,56 @@ return {planZeroHpRecoveryFixture};
 
 const __v2_module_11 = (() => {
 "use strict";
+
+/**
+ * Original-faithful disease family only (not mist/flash/dream/dark cloud).
+ * Sources: Piong disaster list (2026), beginner rules, AnimeWiki.
+ * All mutations are applied in the host effect runner, never on a client.
+ */
+const STAGES=Object.freeze(['cold','fever','hell','heaven']);
+const DISEASE_STAGES=STAGES;
+function assertDisease(value){
+ if(value!==null&&value!==undefined&&!STAGES.includes(value))
+   throw new Error('Unknown illness stage');
+ return value??null;
+}
+/** Any new disease exposure escalates an existing stage by exactly one. */
+function planDiseaseExposure(disease){
+ const old=assertDisease(disease);
+ if(old==='heaven')return Object.freeze({disease:'heaven',fatal:true,escalated:true});
+ if(old===null)return Object.freeze({disease:'heaven',fatal:false,escalated:false});
+ return Object.freeze({disease:STAGES[STAGES.indexOf(old)+1],
+   fatal:false,escalated:true});
+}
+/**
+ * Disease damage/healing is applied at the end of the sufferer's own turn.
+ * Five-percent progression is a separate authoritative PRNG sample.
+ * When no disease is present, RNG MUST stay unchanged.
+ */
+function planDiseaseTurnEnd(disease,hp,roll){
+ const stage=assertDisease(disease);
+ if(!Number.isSafeInteger(hp)||hp<1||hp>99)
+   throw new Error('Invalid disease turn HP');
+ if(stage===null)return Object.freeze({disease:null,hpAfter:hp,
+   advanced:false,fatal:false});
+ if(typeof roll!=='number'||!Number.isFinite(roll)||roll<0||roll>=1)
+   throw new Error('Invalid disease progression roll');
+ const delta={cold:-1,fever:-2,hell:-5,heaven:5}[stage];
+ const adjusted=Math.max(0,Math.min(99,hp+delta));
+ if(roll<0.05){
+  if(stage==='heaven')return Object.freeze({disease:'heaven',hpAfter:0,
+    advanced:true,fatal:true});
+  return Object.freeze({disease:STAGES[STAGES.indexOf(stage)+1],
+    hpAfter:adjusted,advanced:true,fatal:false});
+ }
+ return Object.freeze({disease:stage,hpAfter:adjusted,advanced:false,fatal:false});
+}
+
+return {DISEASE_STAGES,assertDisease,planDiseaseExposure,planDiseaseTurnEnd};
+})();
+
+const __v2_module_12 = (() => {
+"use strict";
 const {planForcedSalePayment} = __v2_module_6;
 
 /**
@@ -1544,7 +1605,7 @@ function previewSelfSaleFixture(state,catalog,{
 return {previewSelfSaleFixture};
 })();
 
-const __v2_module_12 = (() => {
+const __v2_module_13 = (() => {
 "use strict";
 
 /**
@@ -1595,7 +1656,7 @@ function inspectHitOutcomeBoundaryFixture({
 return {inspectHitOutcomeBoundaryFixture};
 })();
 
-const __v2_module_13 = (() => {
+const __v2_module_14 = (() => {
 "use strict";
 
 /**
@@ -1719,9 +1780,9 @@ function auditDreamResearchCatalogFixture(catalog){
 return {dreamLabTimingSignatureFixture,dreamSourceExclusionFixture,dreamResearchClassificationFixture,auditDreamResearchCatalogFixture};
 })();
 
-const __v2_module_14 = (() => {
+const __v2_module_15 = (() => {
 "use strict";
-const {dreamLabTimingSignatureFixture,dreamSourceExclusionFixture} = __v2_module_13;
+const {dreamLabTimingSignatureFixture,dreamSourceExclusionFixture} = __v2_module_14;
 
 /**
  * V2 laboratory-only Dream (formerly hallucination) appearance boundary.
@@ -1867,13 +1928,13 @@ function validateDreamOwnershipFixture(state,catalog){
 return {dreamTimingSignatureFixture,attachDreamAppearanceFixture,dreamVisibleDefinitionIdFixture,retireDreamAppearancesFixture,validateDreamOwnershipFixture};
 })();
 
-const __v2_module_15 = (() => {
+const __v2_module_16 = (() => {
 "use strict";
 const {createInstance, selectInstances} = __v2_module_2;
 const {previewBuyOfferFixture} = __v2_module_8;
 const {previewExchangeFixture} = __v2_module_9;
-const {previewSelfSaleFixture} = __v2_module_11;
-const {dreamVisibleDefinitionIdFixture} = __v2_module_14;
+const {previewSelfSaleFixture} = __v2_module_12;
+const {dreamVisibleDefinitionIdFixture} = __v2_module_15;
 
 /**
  * V2 G2: authoritatively *stage* a combat interaction.
@@ -2072,7 +2133,7 @@ function createStagingRoom({seats,firstSeatId,rulesetId='lab-v2',rngSeed=1},cata
     if(!Array.isArray(p.handDefinitionIds)||p.handDefinitionIds.length>MAX_HAND)
       throw new Error('Invalid starting hand');
     const hand=p.handDefinitionIds.map(definitionId=>createInstance(definitionId,serial++,catalog));
-    return {id:p.id,hp:40,mp:10,money:20,hand,learned:[]};
+    return {id:p.id,hp:40,mp:10,money:20,hand,learned:[],disease:null};
   });
   return {
     schemaVersion:2,rulesetId,revision:0,phase:'turn',
@@ -2122,7 +2183,7 @@ function applyStagingCommand(state,command,catalog,{authorizedSeatId}={}) {
     if(!physical||def?.family!=='item'||!def.playModes.includes('use')||
       def.effects.length!==1||
       !def.effects.some(e=>e.when==='onDeclare'&&
-        ['restoreResource','flipHpRisk','sweepHand','forgetLearned'].includes(e.type)))
+        ['restoreResource','flipHpRisk','sweepHand','forgetLearned','heavenHerb'].includes(e.type)))
       throw new Error('Only a plain owned recovery item may be used');
     const target=command.targetId===undefined?actor:seat(state,id(command.targetId,'item target ID'));
     if(target.hp<=0)throw new Error('Item target has already been defeated');
@@ -2393,7 +2454,7 @@ function viewStagingRoom(state,viewerId,catalog=null) {
     schemaVersion:2,rulesetId:state.rulesetId,revision:state.revision,
     phase:state.phase,activePlayerId:state.activePlayerId,
     players:state.players.map(q=>({
-      id:q.id,hp:q.hp,mp:q.mp,money:q.money,handCount:q.hand.length,
+      id:q.id,hp:q.hp,mp:q.mp,money:q.money,disease:q.disease??null,handCount:q.hand.length,
       ...(q.id===p.id?{hand:q.hand.map(x=>({instanceId:x.instanceId,
          definitionId:dreamVisibleDefinitionIdFixture(q,x,catalog)})),learned:[...q.learned]}:{})
     })),
@@ -2444,7 +2505,7 @@ function viewStagingRoom(state,viewerId,catalog=null) {
 return {createStagingRoom,applyStagingCommand,viewStagingRoom};
 })();
 
-const __v2_module_16 = (() => {
+const __v2_module_17 = (() => {
 "use strict";
 const {createInstance} = __v2_module_2;
 const {advanceMirageTargetRouteFixture} = __v2_module_3;
@@ -2454,9 +2515,11 @@ const {planIncomingHandTransfer} = __v2_module_7;
 const {previewBuyOfferFixture,previewBuyChoiceFixture} = __v2_module_8;
 const {previewExchangeFixture} = __v2_module_9;
 const {planZeroHpRecoveryFixture} = __v2_module_10;
-const {inspectHitOutcomeBoundaryFixture} = __v2_module_12;
-const {retireDreamAppearancesFixture,validateDreamOwnershipFixture} = __v2_module_14;
-const {previewSelfSaleFixture} = __v2_module_11;
+const {planDiseaseExposure,planDiseaseTurnEnd} = __v2_module_11;
+const {drawRandom32} = __v2_module_2;
+const {inspectHitOutcomeBoundaryFixture} = __v2_module_13;
+const {retireDreamAppearancesFixture,validateDreamOwnershipFixture} = __v2_module_15;
+const {previewSelfSaleFixture} = __v2_module_12;
 
 /**
  * Common, deterministic, JSON-only effect queue interpreter for the G3 lab.
@@ -2466,6 +2529,8 @@ const {previewSelfSaleFixture} = __v2_module_11;
  * refill/advance effects. Never substitute a partial reference-deck draw for
  * real weighted draws in production.
  */
+
+
 
 
 
@@ -2556,7 +2621,37 @@ function runEffectQueueFixture(state,catalog,queue,{
      if(amount)events.push({type:'refill',playerId:p.id,added});
    }
  }
+ function resolveIllnessZeroHp(p,beforeHp,{alreadyRefilled=false}={}){
+   const recovered=planZeroHpRecoveryFixture({
+     player:{...p,hp:beforeHp},catalog,hpAfter:0});
+   p.hp=recovered.hpAfter;
+   if(recovered.kind==='revived'){
+     const index=p.hand.findIndex(c=>c.instanceId===recovered.consumedInstanceId);
+     if(index<0)fail('Illness revival charm disappeared');
+     p.hand.splice(index,1);
+     forgetDream(p,[recovered.consumedInstanceId]);
+     if(alreadyRefilled){
+       if(p.hand.length<MAX_HAND_SIZE)
+         p.hand.push(createInstance(fixtureDrawDefinitionId,s.nextInstanceSerial++,catalog));
+     }else spent[p.id]=(spent[p.id]??0)+1;
+     events.push({type:'revive',playerId:p.id,revivedHp:10,
+       consumedInstanceId:recovered.consumedInstanceId,
+       consumedDefinitionId:recovered.consumedDefinitionId});
+   }
+ }
  function advanceSettled(afterId){
+   const ending=who(s,afterId);
+   if(ending.hp>0 && ending.disease){
+     const random=drawRandom32(s.rngSeed);
+     const priorHp=ending.hp;
+     const next=planDiseaseTurnEnd(ending.disease,priorHp,random.value);
+     s.rngSeed=random.nextSeed;
+     ending.disease=next.disease;ending.hp=next.hpAfter;
+     events.push({type:'diseaseTurnEnd',playerId:ending.id,
+       hpBefore:priorHp,hpAfter:next.hpAfter,
+       disease:next.disease,advanced:next.advanced,fatal:next.fatal});
+     if(ending.hp===0)resolveIllnessZeroHp(ending,priorHp,{alreadyRefilled:true});
+   }
    const living=s.players.filter(p=>p.hp>0);
    if(living.length<=1){
      s.phase='finished';s.activePlayerId=null;
@@ -2631,6 +2726,22 @@ function runEffectQueueFixture(state,catalog,queue,{
        fail('Invalid grantDraw count');
      spent[p.id]=(spent[p.id]??0)+effect.count;
      events.push({type:'grantDraw',playerId:p.id,count:effect.count});
+   } else if(effect.type==='heavenHerb'){
+     if(Object.keys(effect).length!==2||typeof effect.playerId!=='string')
+       fail('Malformed Heaven Grass action');
+     const p=who(s,effect.playerId);
+     if(p.hp<=0)fail('Cannot use Heaven Grass on defeated target');
+     const before=p.mp;
+     p.mp=Math.min(99,p.mp+20);
+     const oldDisease=p.disease??null;
+     const result=planDiseaseExposure(oldDisease);
+     p.disease=result.disease;
+     events.push({type:'heavenHerb',playerId:p.id,mpRestored:p.mp-before,
+       diseaseBefore:oldDisease,diseaseAfter:p.disease,fatal:result.fatal});
+     if(result.fatal){
+       const beforeHp=p.hp;
+       resolveIllnessZeroHp(p,beforeHp);
+     }
    } else if(effect.type==='restoreResource'){
      // Ordinary item recovery is not a strike, must not revive a fallen
      // player, and caps HP/MP at the source game's maximum of 99.
@@ -3109,10 +3220,10 @@ function runEffectQueueFixture(state,catalog,queue,{
 return {runEffectQueueFixture};
 })();
 
-const __v2_module_17 = (() => {
+const __v2_module_18 = (() => {
 "use strict";
 const {previewBuyOfferFixture,previewBuyChoiceFixture} = __v2_module_8;
-const {runEffectQueueFixture} = __v2_module_16;
+const {runEffectQueueFixture} = __v2_module_17;
 const {MAX_HAND_SIZE} = __v2_module_0;
 
 /**
@@ -3180,9 +3291,9 @@ function settleUncontestedBuyFixture(state,catalog,{
 return {settleUncontestedBuyFixture};
 })();
 
-const __v2_module_18 = (() => {
+const __v2_module_19 = (() => {
 "use strict";
-const {runEffectQueueFixture} = __v2_module_16;
+const {runEffectQueueFixture} = __v2_module_17;
 const {planForcedSalePayment} = __v2_module_6;
 const {MAX_HAND_SIZE} = __v2_module_0;
 
@@ -3277,10 +3388,10 @@ function settleUncontestedSaleFixture(state,catalog,selection,{
 return {previewUncontestedSale,settleUncontestedSaleFixture};
 })();
 
-const __v2_module_19 = (() => {
+const __v2_module_20 = (() => {
 "use strict";
 const {planForcedSalePayment} = __v2_module_6;
-const {runEffectQueueFixture} = __v2_module_16;
+const {runEffectQueueFixture} = __v2_module_17;
 
 /**
  * G4 source-backed SINGLE Super Mirror vs "Sell" research fixture.
@@ -3390,7 +3501,7 @@ function settleSingleMirrorSaleFixture(state,catalog,selection,{
 return {previewSingleMirrorSale,settleSingleMirrorSaleFixture};
 })();
 
-const __v2_module_20 = (() => {
+const __v2_module_21 = (() => {
 "use strict";
 const {planForcedSalePayment} = __v2_module_6;
 
@@ -3461,12 +3572,12 @@ function inspectForcedSaleLethalityFixture(state,catalog,{
 return {inspectForcedSaleLethalityFixture};
 })();
 
-const __v2_module_21 = (() => {
+const __v2_module_22 = (() => {
 "use strict";
-const {previewUncontestedSale} = __v2_module_18;
-const {previewSingleMirrorSale} = __v2_module_19;
-const {inspectForcedSaleLethalityFixture} = __v2_module_20;
-const {runEffectQueueFixture} = __v2_module_16;
+const {previewUncontestedSale} = __v2_module_19;
+const {previewSingleMirrorSale} = __v2_module_20;
+const {inspectForcedSaleLethalityFixture} = __v2_module_21;
+const {runEffectQueueFixture} = __v2_module_17;
 
 /**
  * LAB-ONLY G4: bridge authenticated two-step trade commands to the reusable
@@ -3563,10 +3674,10 @@ function resolveStagedSaleFixture(state,catalog,{
 return {validateSaleDeclarationFixture,resolveStagedSaleFixture};
 })();
 
-const __v2_module_22 = (() => {
+const __v2_module_23 = (() => {
 "use strict";
 const {previewBuyOfferFixture,previewBuyChoiceFixture} = __v2_module_8;
-const {runEffectQueueFixture} = __v2_module_16;
+const {runEffectQueueFixture} = __v2_module_17;
 const {MAX_HAND_SIZE} = __v2_module_0;
 
 /**
@@ -3631,7 +3742,7 @@ function resolveStagedBuyFixture(state,catalog,{
 return {resolveStagedBuyFixture};
 })();
 
-const __v2_module_23 = (() => {
+const __v2_module_24 = (() => {
 "use strict";
 const {combineElements} = __v2_module_0;
 
@@ -3871,11 +3982,11 @@ function queuedAttackCosts(attackContext,actorId) {
 return {compileOrderedWeaponAttack,queuedAttackCosts};
 })();
 
-const __v2_module_24 = (() => {
+const __v2_module_25 = (() => {
 "use strict";
 const {sumLegalArmor, calculateHit, MAX_HAND_SIZE} = __v2_module_0;
-const {runEffectQueueFixture} = __v2_module_16;
-const {compileOrderedWeaponAttack,queuedAttackCosts} = __v2_module_23;
+const {runEffectQueueFixture} = __v2_module_17;
+const {compileOrderedWeaponAttack,queuedAttackCosts} = __v2_module_24;
 const {beginMirageTargetRouteFixture} = __v2_module_3;
 
 /**
@@ -4065,11 +4176,11 @@ function resolveBasicFixture(state,catalog,options={}) {
 return {compileBasicWeaponAttack,compileBasicResolution,resolveBasicFixture};
 })();
 
-const __v2_module_25 = (() => {
+const __v2_module_26 = (() => {
 "use strict";
-const {compileBasicWeaponAttack} = __v2_module_24;
-const {queuedAttackCosts} = __v2_module_23;
-const {runEffectQueueFixture} = __v2_module_16;
+const {compileBasicWeaponAttack} = __v2_module_25;
+const {queuedAttackCosts} = __v2_module_24;
+const {runEffectQueueFixture} = __v2_module_17;
 
 /**
  * G3 weapon-stop resolver: the defensive miracle Wall stops any neutral
@@ -4207,13 +4318,13 @@ function resolveWallFixture(state,catalog,opts={}) {
 return {isWallDefense,compileWallResolution,resolveWallFixture};
 })();
 
-const __v2_module_26 = (() => {
+const __v2_module_27 = (() => {
 "use strict";
 const {planRedirectRoute} = __v2_module_4;
-const {compileBasicWeaponAttack,resolveBasicFixture} = __v2_module_24;
-const {isWallDefense,resolveWallFixture} = __v2_module_25;
-const {queuedAttackCosts} = __v2_module_23;
-const {runEffectQueueFixture} = __v2_module_16;
+const {compileBasicWeaponAttack,resolveBasicFixture} = __v2_module_25;
+const {isWallDefense,resolveWallFixture} = __v2_module_26;
+const {queuedAttackCosts} = __v2_module_24;
+const {runEffectQueueFixture} = __v2_module_17;
 
 /**
  * V2 G3 Part 2: source-backed basic redirect / deflect resolver.
@@ -4355,11 +4466,11 @@ function resolveRedirectFixture(state,catalog,{
 return {resolveRedirectFixture};
 })();
 
-const __v2_module_27 = (() => {
+const __v2_module_28 = (() => {
 "use strict";
 const {calculateHit,sumLegalArmor} = __v2_module_0;
 const {planRedirectRoute} = __v2_module_4;
-const {runEffectQueueFixture} = __v2_module_16;
+const {runEffectQueueFixture} = __v2_module_17;
 
 /**
  * V2 G3: narrow solo attack miracles with ordered defensive reactions.
@@ -4623,15 +4734,15 @@ function resolveSoloMiracleFixture(state,catalog,options={}) {
 return {compileSoloMiracleResolution,resolveSoloMiracleFixture};
 })();
 
-const __v2_module_28 = (() => {
+const __v2_module_29 = (() => {
 "use strict";
-const {applyStagingCommand} = __v2_module_15;
-const {validateSaleDeclarationFixture,resolveStagedSaleFixture} = __v2_module_21;
-const {resolveStagedBuyFixture} = __v2_module_22;
-const {resolveRedirectFixture} = __v2_module_26;
-const {resolveSoloMiracleFixture,compileSoloMiracleResolution} = __v2_module_27;
-const {compileOrderedWeaponAttack} = __v2_module_23;
-const {runEffectQueueFixture} = __v2_module_16;
+const {applyStagingCommand} = __v2_module_16;
+const {validateSaleDeclarationFixture,resolveStagedSaleFixture} = __v2_module_22;
+const {resolveStagedBuyFixture} = __v2_module_23;
+const {resolveRedirectFixture} = __v2_module_27;
+const {resolveSoloMiracleFixture,compileSoloMiracleResolution} = __v2_module_28;
+const {compileOrderedWeaponAttack} = __v2_module_24;
+const {runEffectQueueFixture} = __v2_module_17;
 const {drawRandom32} = __v2_module_2;
 const {MAX_HAND_SIZE} = __v2_module_0;
 
@@ -4770,7 +4881,7 @@ function resolveStagedFixture(state,catalog,{
     const card=actor?.hand.find(x=>x.instanceId===p.instanceId);
     const def=catalog.get(card?.definitionId);
     const effect=def?.effects.find(e=>e.when==='onDeclare'&&
-      ['restoreResource','flipHpRisk','sweepHand','forgetLearned'].includes(e.type));
+      ['restoreResource','flipHpRisk','sweepHand','forgetLearned','heavenHerb'].includes(e.type));
     if(!card||!actor||actor.hp<=0||!target||target.hp<=0||
        def?.family!=='item'||!def.playModes.includes('use')||
        def.effects.length!==1||!effect)
@@ -4794,6 +4905,29 @@ function resolveStagedFixture(state,catalog,{
       }
     }else if(p.defense!==null&&p.defense!==undefined)
       fail('Cannot defend against an item used on oneself');
+    if(effect.type==='heavenHerb'){
+      if(effect.params.mp!==20||effect.params.disease!=='heaven')
+        fail('Invalid Heaven Grass compound effect');
+      // Applying another illness to Heaven Disease triggers a fatal fit.
+      // Resolve passive Sun Charm using the same shared effect runner.
+      const fit=recipient.disease==='heaven';
+      const hasCharm=recipient.hand.some(c=>
+        catalog.get(c.definitionId)?.effects.some(e=>
+          e.when==='onZeroHp'&&e.type==='reviveAtZeroHp'&&e.params.hp===10));
+      const queue=[
+        {type:'spend',playerId:actor.id,instanceIds:[card.instanceId]},
+        ...(mirrorId===null?[]:[{type:'spend',playerId:target.id,instanceIds:[mirrorId]}]),
+        {type:'heavenHerb',playerId:recipient.id},
+        {type:'refill'},
+        fit&&!hasCharm?{type:'advance',afterId:actor.id}:
+          {type:'resumeTurn',playerId:actor.id}
+      ];
+      const result=runEffectQueueFixture(state,catalog,queue,
+        {labOnly:true,fixtureDrawDefinitionId});
+      return {...result,plan:Object.freeze({type:'useItem',
+        playerId:actor.id,targetId:recipient.id,definitionId:def.id,
+        mp:20,disease:'heaven',fit,reflected:mirrorId!==null})};
+    }
     if(effect.type==='forgetLearned'){
       if(effect.params.count!==2)fail('Invalid Soap forget count');
       // Authenticated target/mirror choice comes first. Learned miracles are
@@ -4975,13 +5109,13 @@ function submitAndResolveFixture(state,command,catalog,{
 return {resolvePrayFixture,resolveDiscardFixture,resolveStagedFixture,submitAndResolveFixture};
 })();
 
-const __v2_module_29 = (() => {
+const __v2_module_30 = (() => {
 "use strict";
 const {migrateLegacyCatalog} = __v2_module_5;
-const {createStagingRoom,viewStagingRoom} = __v2_module_15;
-const {submitAndResolveFixture} = __v2_module_28;
+const {createStagingRoom,viewStagingRoom} = __v2_module_16;
+const {submitAndResolveFixture} = __v2_module_29;
 const {VERIFIED_BASIC_CARDS} = __v2_module_1;
-const {attachDreamAppearanceFixture} = __v2_module_14;
+const {attachDreamAppearanceFixture} = __v2_module_15;
 
 /**
  * Offline 2-seat V2 lab controller.
@@ -5478,9 +5612,9 @@ function createV2LabController({
 return {createV2LabController};
 })();
 
-const __v2_module_30 = (() => {
+const __v2_module_31 = (() => {
 "use strict";
-const {createV2LabController} = __v2_module_29;
+const {createV2LabController} = __v2_module_30;
 
 /**
  * Minimal accessible and touch-friendly offline V2 hotseat UI.
@@ -5815,9 +5949,9 @@ function mountV2Lab(root,controller=createV2LabController()){
 return {renderV2LabMarkup,mountV2Lab};
 })();
 
-const __v2_lab_test_controller = __v2_module_29;
+const __v2_lab_test_controller = __v2_module_30;
 
-const __v2_lab_test_ui = __v2_module_30;
+const __v2_lab_test_ui = __v2_module_31;
 
 __v2_lab_test_ui.mountV2Lab(document.getElementById("v2-root"));
 </script>
