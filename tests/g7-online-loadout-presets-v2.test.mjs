@@ -10,7 +10,7 @@ const {byId:catalog,summary}=migrateLegacyCatalog();
 const literal=page.match(/const LAB_PRESETS=(Object\.freeze\(\{[\s\S]*?\}\));/);
 if(!literal)throw Error('Expected source-backed lab presets in online demo');
 const presets=vm.runInNewContext(literal[1]);
-test('online trial room offers eighteen explicitly named fixture hand sets, never fake random draws',()=>{
+test('online trial room offers nineteen explicitly named fixture hand sets, never fake random draws',()=>{
  assert.match(page,/<select id="labPreset"/);
  assert.match(page,/<option value="basic">/);
  assert.match(page,/<option value="elements">/);
@@ -24,6 +24,7 @@ test('online trial room offers eighteen explicitly named fixture hand sets, neve
  assert.match(page,/<option value="illnessAttack">/);
  assert.match(page,/<option value="windMiracles">/);
  assert.match(page,/<option value="learnedTrial">/);
+ assert.match(page,/<option value="resourceMiracles">/);
  assert.match(page,/<option value="sale">/);
  assert.match(page,/<option value="buy">/);
  assert.match(page,/<option value="exchange">/);
@@ -35,10 +36,10 @@ test('online trial room offers eighteen explicitly named fixture hand sets, neve
  assert.match(page,/LAB_PRESETS\[\$\('labPreset'\)\.value\]/);
  assert.match(page,/handDefinitionIds:\[\.\.\.preset\.A\]/);
  assert.match(page,/handDefinitionIds:\[\.\.\.preset\.B\]/);
- assert.deepEqual(Object.keys(presets).sort(),['basic','broom','buy','dark','elements','exchange','heaven','illnessAttack','learnedTrial','recovery','sale','shells','soap','support','tear','turbulenceBack','turbulenceSelf','windMiracles']);
+ assert.deepEqual(Object.keys(presets).sort(),['basic','broom','buy','dark','elements','exchange','heaven','illnessAttack','learnedTrial','recovery','resourceMiracles','sale','shells','soap','support','tear','turbulenceBack','turbulenceSelf','windMiracles']);
  assert.equal(summary.complete,false,'deck not audited for real weighted draws');
 });
-test('all eighteen fixed presets contain valid catalog definitions and four cards per seat',()=>{
+test('all nineteen fixed presets contain valid catalog definitions and four cards per seat',()=>{
  for(const [name,hands] of Object.entries(presets)){
   for(const seat of ['A','B']){
    assert.equal(hands[seat].length,4,name+' '+seat);
@@ -93,4 +94,11 @@ test('Buy/Exchange trials use existing verified trade definitions and affordable
  for(const [id,kind] of [['t002','requestBuy'],['t003','reallocateResources']]){
   assert(catalog.get(id).effects.some(e=>e.when==='onDeclare'&&e.type===kind));
  }
+});
+
+test('Fountain/Treasure research fixture offers both resource miracles as physical choices',()=>{
+ assert.deepEqual(Array.from(presets.resourceMiracles.A),['m015','m016','i003','w016']);
+ assert.deepEqual(Array.from(presets.resourceMiracles.B),['w027','d003','d018','m013']);
+ assert.equal(presets.resourceMiracles.mpA,25);
+ for(const id of ['m015','m016'])assert.equal(catalog.get(id)?.family,'miracle');
 });
