@@ -76,11 +76,15 @@ export function compileSoloMiracleResolution(state,catalog) {
    miracle.effects[0].type==='inflictDisease'&&
    ['cold','heaven'].includes(miracle.effects[0].params.disease)&&
    miracle.stats.attack===0&&miracle.element==='none';
- const soloEffectsSupported=affliction||miracle.effects.length===0 ||
+ const resourceEffect=miracle.effects.length===1&&miracle.effects[0].when==='onDeclare'&&
+  miracle.effects[0].type==='restoreResource'&&miracle.element==='none'&&
+  miracle.stats.attack===0&&miracle.effects[0].params.amount===10&&
+  ['hp','money'].includes(miracle.effects[0].params.resource);
+ const soloEffectsSupported=affliction||resourceEffect||miracle.effects.length===0 ||
    (miracle.effects.length===1&&miracle.effects[0].when==='onDeclare'&&
     miracle.effects[0].type==='addAttack'&&miracle.effects[0].params.scope==='weapon');
  if(miracle.family!=='miracle'||!miracle.playModes.includes('cast')||
-    (miracle.stats.attack<=0&&!affliction)||
+    (miracle.stats.attack<=0&&!affliction&&!resourceEffect)||
     !soloEffectsSupported)fail('Not a supported solo attack miracle');
  if(cached&&(cached.attack!==miracle.stats.attack||cached.element!==miracle.element))
    fail('Cached miracle payload mismatch');
@@ -96,6 +100,8 @@ export function compileSoloMiracleResolution(state,catalog) {
  const payableMP=cached?0:(spirit?0:miracle.stats.mpCost);
  if(!cached&&caster.mp<payableMP)fail('Not enough MP');
  const self=(p.sourceId??p.originalAttackerId)===p.targetId;
+ if(resourceEffect&&(!self||p.targetId!==caster.id))
+   fail('Resource miracle must be cast on its owner in the research lab');
  let defense=[];
  if(self) {
    if(p.defense!==null)fail('Self cast cannot be defended');
@@ -128,7 +134,7 @@ export function compileSoloMiracleResolution(state,catalog) {
  const guard=sumLegalArmor(angel?'none':miracle.element,physicalShields,
    {rainbowCurtain:stripElement});
  const stopped=angel;
- const hit=stopped||affliction?Object.freeze({damage:0,hpAfter:target.hp,instantDefeat:false,effectiveElement:miracle.element})
+ const hit=stopped||affliction||resourceEffect?Object.freeze({damage:0,hpAfter:target.hp,instantDefeat:false,effectiveElement:miracle.element})
   :calculateHit({attack:miracle.stats.attack,element:miracle.element,armor:guard,hp:target.hp,rainbowCurtain:stripElement});
  const queue=Object.freeze([
    ...(cached?[]:[
@@ -139,10 +145,13 @@ export function compileSoloMiracleResolution(state,catalog) {
      item('learn',{playerId:caster.id,definitionId:miracle.id})
    ]),
    ...(self?[]:[item('spend',{playerId:target.id,instanceIds:defense.map(x=>x.instance.instanceId)})]),
-   ...(affliction?
-     (stopped?[]:[item('castDisease',{targetId:target.id,
-       miracleId:miracle.id,disease:miracle.effects[0].params.disease})]):
-     [item('hit',{targetId:target.id,...hit,stopped})]),
+   ...(resourceEffect?
+     [item('restoreResource',{playerId:caster.id,
+       resource:miracle.effects[0].params.resource,amount:10})]:
+     affliction?
+       (stopped?[]:[item('castDisease',{targetId:target.id,
+         miracleId:miracle.id,disease:miracle.effects[0].params.disease})]):
+       [item('hit',{targetId:target.id,...hit,stopped})]),
    item('refill'),item('advance',{afterId:caster.id})
  ]);
  return Object.freeze({miracleId:miracle.id,attack:miracle.stats.attack,element:miracle.element,
