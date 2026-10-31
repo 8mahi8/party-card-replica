@@ -108,6 +108,7 @@ main{padding:0 6px 8px}.brandline{margin:0 -6px}
 <div class="inline"><select id="labPreset" aria-label="研究用の手札セット">
 <option value="basic">基本対戦（従来の固定4枚）</option>
 <option value="elements">属性防御（火・水）</option>
+<option value="fireArmor">新しい火属性防具3種・水属性防御</option>
 <option value="dark">闇属性と高防御</option>
 <option value="recovery">HP・MP回復と反撃</option>
 <option value="support">相手への回復と反射</option>
@@ -190,6 +191,10 @@ const LAB_PRESETS=Object.freeze({
  elements:Object.freeze({
   A:Object.freeze(['w018','w021','d035','d043']),
   B:Object.freeze(['w021','w018','d043','d035'])
+ }),
+ fireArmor:Object.freeze({
+  A:Object.freeze(['w041','d035','w016','i006']),
+  B:Object.freeze(['d060','d061','d062','w016'])
  }),
  dark:Object.freeze({
   A:Object.freeze(['w051','w054','d030','d034']),
