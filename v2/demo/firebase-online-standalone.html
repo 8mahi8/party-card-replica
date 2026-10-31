@@ -118,6 +118,7 @@ main{padding:0 6px 8px}.brandline{margin:0 -6px}
 <option value="illnessAttack">病を付ける攻撃・防御と反射</option>
 <option value="windMiracles">奇跡・風と天国風の災い</option>
 <option value="learnedTrial">習得済み奇跡・攻撃と防御</option>
+<option value="resourceMiracles">奇跡〈泉〉〈財宝〉・自己資源回復</option>
 <option value="sale">取引「売る」・受け入れと反射</option>
 <option value="buy">取引「買う」・購入と見送り</option>
 <option value="exchange">取引「両替」・HP/MP/¥振替</option>
@@ -539,6 +540,9 @@ const VERIFIED_BASIC_CARDS = Object.freeze([
   // GFGA, Piong, Macaron 2026: zero-damage affliction miracles. Reusable after learning.
   Object.freeze({id:'m013',referenceName:'風',kind:'miracle',role:'afflict',disease:'cold',category:'miracle',element:'none',mpCost:6,price:0,weight:1}),
   Object.freeze({id:'m014',referenceName:'天国風',kind:'miracle',role:'afflict',disease:'heaven',category:'miracle',element:'none',mpCost:15,price:0,weight:1}),
+  // Piong + GFGA + 2026 Game Breeze: self-resource miracles (each 1/500).
+  Object.freeze({id:'m015',referenceName:'泉',kind:'miracle',role:'resource',resourceGain:'hp',restoreAmount:10,category:'miracle',element:'none',mpCost:7,price:0,weight:1}),
+  Object.freeze({id:'m016',referenceName:'財宝',kind:'miracle',role:'resource',resourceGain:'money',restoreAmount:10,category:'miracle',element:'none',mpCost:5,price:0,weight:1}),
   // Source: Piong other artifacts (updated 2026-10-24), GFGA 2024,
   // Macaron 2026. Only plain HP/MP recovery, no status-creating herbs.
   // Weight 12/8/4/1 means 2.4/1.6/0.8/0.2% of 500.
@@ -630,7 +634,7 @@ function freezeEffect(effect) {
     throw new Error('Invalid repeatAttack effect data');
   if(effect.type==='restoreResource'&&
      (effect.when!=='onDeclare'||Object.keys(params).length!==2||
-      !['hp','mp'].includes(params.resource)||
+      !['hp','mp','money'].includes(params.resource)||
       !Number.isSafeInteger(params.amount)||params.amount<1||params.amount>99))
     throw new Error('Invalid restoreResource effect data');
   if(effect.type==='cleanseAfflictions'&&
@@ -1024,7 +1028,7 @@ const {VERIFIED_BASIC_CARDS,PARTIAL_CARD_SOURCE} = __online_module_1;
 const KNOWN_KEYS=new Set([
   'id','referenceName','kind','category','slot','element','attack','guard',
   'attackBonus','price','weight','reaction','reactionScope','stopScope',
-  'role','boost','plusAttack','mpCost','effect','attackElementOverride','discardPolicy','tradeAction','hpAbsorb','repeatHits','restoreAmount','diseaseOnHit','disease'
+  'role','boost','plusAttack','mpCost','effect','attackElementOverride','discardPolicy','tradeAction','hpAbsorb','repeatHits','restoreAmount','resourceGain','diseaseOnHit','disease'
 ]);
 const CATEGORY_BY_KIND=Object.freeze({weapon:'weapon_single',armor:'armor_normal',miracle:'miracle',defense_item:'item',support_item:'item',trade:'trade'});
 const mk=(when,type,params={})=>({when,type,params});
@@ -1115,6 +1119,14 @@ function convertLegacyCard(card,{ruleset=PARTIAL_CARD_SOURCE}={}) {
           stacking:VERIFIED_IDENTICAL_PLUS_PAIRS.has(card.id)?'identicalPair':'single'
         }));
       } else if(card.plusAttack!==undefined)throw new Error('Unknown plus-attack flag');
+    } else if(card.role==='resource') {
+      if(card.element!=='none'||card.attack!==undefined||
+         !['hp','money'].includes(card.resourceGain)||card.restoreAmount!==10||
+         card.mpCost!==(card.resourceGain==='hp'?7:5))
+        throw new Error('Unverified resource miracle definition');
+      modes.push('cast');effects.push(mk('onDeclare','restoreResource',{
+        resource:card.resourceGain,amount:10
+      }));
     } else if(card.role==='afflict') {
       if(card.element!=='none'||card.attack!==undefined||
          !['cold','heaven'].includes(card.disease)||
@@ -2080,7 +2092,7 @@ function takeLegalSelection(player,instanceIds,catalog,mode,{allowEmpty=false}={
       throw new Error('Not a structural attack selection');
     const first=defs[0];
     if(first.family!=='weapon' &&
-       !(first.family==='miracle' && first.playModes.includes('cast') && (first.stats.attack>0||first.effects.some(e=>e.when==='onDeclare'&&e.type==='inflictDisease'))))
+       !(first.family==='miracle' && first.playModes.includes('cast') && (first.stats.attack>0||first.effects.some(e=>e.when==='onDeclare'&&['inflictDisease','restoreResource'].includes(e.type)))))
       throw new Error('Attack must start with a weapon or offensive miracle');
     // Exact later combination legality is compiled in G3, not guessed here.
   } else if(mode==='defense') {
@@ -2113,7 +2125,7 @@ function takeOrderedPlays(actor,plays,catalog){
       if(!def||!def.playModes.some(mode=>['mainAttack','addAttack','cast','support'].includes(mode)))
         throw new Error('Not a structural attack selection');
       if(index===0 && def.family!=='weapon' &&
-         !(def.family==='miracle' && def.playModes.includes('cast') && (def.stats.attack>0||def.effects.some(e=>e.when==='onDeclare'&&e.type==='inflictDisease'))))
+         !(def.family==='miracle' && def.playModes.includes('cast') && (def.stats.attack>0||def.effects.some(e=>e.when==='onDeclare'&&['inflictDisease','restoreResource'].includes(e.type)))))
         throw new Error('Sequence must begin with weapon or offensive miracle');
       return {instanceId};
     }
@@ -2420,7 +2432,7 @@ function applyStagingCommand(state,command,catalog,{authorizedSeatId}={}) {
       learned=catalog.get(command.learnedDefinitionId);
       if(!actor.learned.includes(command.learnedDefinitionId)||
         learned?.family!=='miracle'||!learned.playModes.includes('cast')||
-        (learned.stats.attack<=0&&!learned.effects.some(e=>e.when==='onDeclare'&&e.type==='inflictDisease')))
+        (learned.stats.attack<=0&&!learned.effects.some(e=>e.when==='onDeclare'&&['inflictDisease','restoreResource'].includes(e.type))))
         throw new Error('Offensive miracle not learned');
     } else if(command.type==='playCards'){
       selected=takeLegalSelection(actor,command.orderedInstanceIds,catalog,'attack');
@@ -2823,8 +2835,8 @@ function runEffectQueueFixture(state,catalog,queue,{
      }
    } else if(effect.type==='restoreResource'){
      // Ordinary item recovery is not a strike, must not revive a fallen
-     // player, and caps HP/MP at the source game's maximum of 99.
-     if(!['hp','mp'].includes(effect.resource)||
+     // player, and caps HP/MP/¥ at the source game's maximum of 99.
+     if(!['hp','mp','money'].includes(effect.resource)||
         !Number.isSafeInteger(effect.amount)||effect.amount<1||effect.amount>99)
        fail('Invalid plain recovery effect');
      const p=who(s,effect.playerId);
@@ -4699,11 +4711,15 @@ function compileSoloMiracleResolution(state,catalog) {
    miracle.effects[0].type==='inflictDisease'&&
    ['cold','heaven'].includes(miracle.effects[0].params.disease)&&
    miracle.stats.attack===0&&miracle.element==='none';
- const soloEffectsSupported=affliction||miracle.effects.length===0 ||
+ const resourceEffect=miracle.effects.length===1&&miracle.effects[0].when==='onDeclare'&&
+  miracle.effects[0].type==='restoreResource'&&miracle.element==='none'&&
+  miracle.stats.attack===0&&miracle.effects[0].params.amount===10&&
+  ['hp','money'].includes(miracle.effects[0].params.resource);
+ const soloEffectsSupported=affliction||resourceEffect||miracle.effects.length===0 ||
    (miracle.effects.length===1&&miracle.effects[0].when==='onDeclare'&&
     miracle.effects[0].type==='addAttack'&&miracle.effects[0].params.scope==='weapon');
  if(miracle.family!=='miracle'||!miracle.playModes.includes('cast')||
-    (miracle.stats.attack<=0&&!affliction)||
+    (miracle.stats.attack<=0&&!affliction&&!resourceEffect)||
     !soloEffectsSupported)fail('Not a supported solo attack miracle');
  if(cached&&(cached.attack!==miracle.stats.attack||cached.element!==miracle.element))
    fail('Cached miracle payload mismatch');
@@ -4719,6 +4735,8 @@ function compileSoloMiracleResolution(state,catalog) {
  const payableMP=cached?0:(spirit?0:miracle.stats.mpCost);
  if(!cached&&caster.mp<payableMP)fail('Not enough MP');
  const self=(p.sourceId??p.originalAttackerId)===p.targetId;
+ if(resourceEffect&&(!self||p.targetId!==caster.id))
+   fail('Resource miracle must be cast on its owner in the research lab');
  let defense=[];
  if(self) {
    if(p.defense!==null)fail('Self cast cannot be defended');
@@ -4751,7 +4769,7 @@ function compileSoloMiracleResolution(state,catalog) {
  const guard=sumLegalArmor(angel?'none':miracle.element,physicalShields,
    {rainbowCurtain:stripElement});
  const stopped=angel;
- const hit=stopped||affliction?Object.freeze({damage:0,hpAfter:target.hp,instantDefeat:false,effectiveElement:miracle.element})
+ const hit=stopped||affliction||resourceEffect?Object.freeze({damage:0,hpAfter:target.hp,instantDefeat:false,effectiveElement:miracle.element})
   :calculateHit({attack:miracle.stats.attack,element:miracle.element,armor:guard,hp:target.hp,rainbowCurtain:stripElement});
  const queue=Object.freeze([
    ...(cached?[]:[
@@ -4762,10 +4780,13 @@ function compileSoloMiracleResolution(state,catalog) {
      item('learn',{playerId:caster.id,definitionId:miracle.id})
    ]),
    ...(self?[]:[item('spend',{playerId:target.id,instanceIds:defense.map(x=>x.instance.instanceId)})]),
-   ...(affliction?
-     (stopped?[]:[item('castDisease',{targetId:target.id,
-       miracleId:miracle.id,disease:miracle.effects[0].params.disease})]):
-     [item('hit',{targetId:target.id,...hit,stopped})]),
+   ...(resourceEffect?
+     [item('restoreResource',{playerId:caster.id,
+       resource:miracle.effects[0].params.resource,amount:10})]:
+     affliction?
+       (stopped?[]:[item('castDisease',{targetId:target.id,
+         miracleId:miracle.id,disease:miracle.effects[0].params.disease})]):
+       [item('hit',{targetId:target.id,...hit,stopped})]),
    item('refill'),item('advance',{afterId:caster.id})
  ]);
  return Object.freeze({miracleId:miracle.id,attack:miracle.stats.attack,element:miracle.element,
@@ -6453,6 +6474,11 @@ const LAB_PRESETS=Object.freeze({
   A:Object.freeze(['t001','w003','d005','w016']),
   B:Object.freeze(['i002','d001','d003','w027'])
  }),
+ resourceMiracles:Object.freeze({
+  A:Object.freeze(['m015','m016','i003','w016']),
+  B:Object.freeze(['w027','d003','d018','m013']),
+  mpA:25,rngSeed:71
+ }),
  learnedTrial:Object.freeze({
   A:Object.freeze(['w016','i003','d003','m013']),
   B:Object.freeze(['d018','w027','d003','i003']),
@@ -6549,7 +6575,9 @@ function render(){
   stats.append(e);
  }
  const mine=active&&(seat!=='A'||joined),busy=waiting;
- const learnedArea=$('learnedMiracles');learnedArea.replaceChildren();
+ const learnedArea=$('learnedMiracles');
+ const learnedScroll=learnedArea.querySelector('.learned-list')?.scrollLeft??0;
+ learnedArea.replaceChildren();
  const learnedTitle=document.createElement('span');learnedTitle.className='learned-title';
  learnedTitle.textContent='習得済み';learnedArea.append(learnedTitle);
  const learnedList=document.createElement('div');learnedList.className='learned-list';
@@ -6575,6 +6603,7 @@ function render(){
   });learnedList.append(btn);
  }
  learnedArea.append(learnedList);
+ learnedList.scrollLeft=learnedScroll;
  $('phase').textContent=view.phase==='finished'?'対戦終了':
   itemDefense?(mine?'雑貨への対応':'相手の対応待ち'):
   saleDefense?(mine?'売買への対応':'相手の売買対応待ち'):
@@ -6648,6 +6677,12 @@ function render(){
  const saleValid=selection.size===2&&saleIds.length===2&&
   saleDef?.effects.some(e=>e.when==='onDeclare'&&e.type==='forceSale'&&e.params.kind==='sell');
  const saleGood=catalog.get(cardsById.get(saleIds[1])?.definitionId);
+ const firstCastId=[...selection][0];
+ const firstCastDef=catalog.get(firstCastId?.startsWith('l:')?
+  firstCastId.slice(2):cardsById.get(firstCastId)?.definitionId);
+ const resourceCast=firstCastDef?.family==='miracle'&&firstCastDef.effects.some(e=>
+  e.when==='onDeclare'&&e.type==='restoreResource');
+ const resourceInfo=resourceCast?firstCastDef.effects.find(e=>e.type==='restoreResource'):null;
  const tradeOnly=selection.size===1&&!([...selection][0]||'').startsWith('l:')?
   catalog.get(cardsById.get([...selection][0])?.definitionId):null;
  const buyValid=tradeOnly?.effects.some(e=>e.when==='onDeclare'&&e.type==='requestBuy'&&e.params.kind==='buy');
@@ -6656,7 +6691,10 @@ function render(){
    cardsById.get(selectedIds[0])?.definitionId)?.effects.some(e=>
     e.when==='onDefense'&&e.type==='redirectAttack'&&
     e.params.mode==='reflect'&&e.params.scope==='any');
- $('selectionTotal').textContent=saleDefense?
+ $('selectionTotal').textContent=resourceInfo?
+   (resourceInfo.params.resource==='hp'?'HP':'¥')+'+'+resourceInfo.params.amount+
+   ' · MP'+firstCastDef.stats.mpCost+'（自身へ使う・手番終了）':
+  saleDefense?
    (mirrorChoice?'スーパーミラーで取引を跳ね返す':'価格を確認して売買を受け入れる'):
   saleValid?
    '売却：'+(names.get(saleGood?.id)||saleGood?.id)+' ／ ¥'+saleGood.stats.price+
@@ -6753,7 +6791,9 @@ function render(){
  const learnedAlone=selection.size===1&&first?.startsWith('l:');
  const standalone=learnedAlone?catalog.get(first.slice(2)):null;
  const canCastAlone=!learnedAlone||((standalone?.stats.attack??0)>0||
-  standalone?.effects.some(e=>e.when==='onDeclare'&&e.type==='inflictDisease'));
+  standalone?.effects.some(e=>e.when==='onDeclare'&&
+   ['inflictDisease','restoreResource'].includes(e.type)));
+ $('attack').textContent=resourceCast?'奇跡を使う':'攻撃する';
  $('attack').disabled=!usable||!selection.size||!canCastAlone||
   (catalog.get(cardsById.get(selectedIds[0])?.definitionId)?.family==='trade');
  $('useItem').disabled=!usable||!itemEffect;
@@ -6804,7 +6844,15 @@ async function send(type,accept=null){
   command.targetId=seat==='A'?'B':'A';
   command.saleInstanceId=ids[0];command.soldInstanceId=ids[1];
  }
- if(['playCards','playSequence','castLearned'].includes(effectiveType))command.targetId=seat==='A'?'B':'A';
+ if(['playCards','playSequence','castLearned'].includes(effectiveType)){
+  const first=entries[0];
+  const card=first?.startsWith('l:')?first.slice(2):
+    view.players.find(p=>p.id===seat)?.hand?.find(c=>c.instanceId===first)?.definitionId;
+  const def=catalog.get(card);
+  const ownResourceCast=def?.family==='miracle'&&def.effects.some(e=>
+    e.when==='onDeclare'&&e.type==='restoreResource');
+  command.targetId=ownResourceCast?seat:(seat==='A'?'B':'A');
+ }
  waiting=true;pendingId=command.commandId;pendingCommand=command;
  feedback('操作を送信しています…');render();
  try{await session.submit(command)}catch(error){
