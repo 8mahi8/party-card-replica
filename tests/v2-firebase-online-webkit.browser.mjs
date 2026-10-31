@@ -1185,6 +1185,46 @@ try{
     'selecting learned miracle preserves horizontal scroll instead of snapping');
   }finally{await a.close();await b.close();}
  }
+ // G7 2026-source fire armor: real two-seat touch selection and guard stacking.
+ {
+  const a=await context.newPage(),b=await context.newPage();
+  for(const p of [a,b])p.on('pageerror',err=>errors.push(err.message));
+  try{
+   await a.goto(target);
+   await a.locator('#labPreset').selectOption('fireArmor');
+   await a.locator('#create').tap();
+   await a.waitForFunction(()=>/\b\d{5}\b/.test(
+    document.querySelector('#roomLabel')?.textContent||''));
+   const room=(await a.locator('#roomLabel').textContent()).match(/\d{5}/)[0];
+   await b.goto(target);
+   await b.locator('#joinCode').fill(room);
+   await b.locator('#join').tap();
+   await b.locator('#hand button').first().waitFor();
+   check((await b.locator('#hand').textContent()).includes('火花の手袋')&&
+    (await b.locator('#hand').textContent()).includes('フレイムメイル')&&
+    (await b.locator('#hand').textContent()).includes('フレイムアーマー'),
+    'defender sees all three source-aligned fire armors in the fixture hand');
+   await a.locator('#hand button').first().tap();
+   await a.locator('#attack').tap();
+   await b.waitForFunction(()=>document.querySelector('#phase')?.textContent
+    .includes('あなたの防御'),null,{timeout:15000});
+   await b.locator('#hand button').nth(0).tap();
+   await b.locator('#hand button').nth(1).tap();
+   check((await b.locator('#selectionTotal').textContent()).includes('6'),
+    'two fire guards 2+4 are composable against the water 4-damage attack');
+   await b.locator('#defend').tap();
+   await Promise.all([a,b].map(p=>p.waitForFunction(()=>{
+    const second=document.querySelectorAll('.score')[1]?.textContent||'';
+    return second.includes('HP 40')&&second.includes('手札 4')&&
+     (document.querySelector('#phase')?.textContent||'').includes('攻撃');
+   },null,{timeout:15000})));
+   check((await b.locator('#phase').textContent()).includes('あなたの攻撃'),
+    'two shield cards replenish and end attacker turn in synced two-seat UI');
+   check(await b.evaluate(()=>document.documentElement.scrollWidth<=
+    document.documentElement.clientWidth+2),
+    'three new fire armor cards fit 390px Safari embed width');
+  }finally{await a.close();await b.close();}
+ }
  check(errors.length===0,'all preset trials have no script errors');
  console.log('FIREBASE_ONLINE_WEBKIT_SUCCESS checks='+checks+
   ' two tabs with mock RTDB, viewport=390x430');
