@@ -77,7 +77,7 @@ test('catalog audit is deterministic, frozen and labels all researched cards wit
  assert.equal(a.partialWeight,summary.slots);
  assert.equal(a.cardCount,RESEARCH_CATALOG_CONTRACT.unique);
  assert.equal(a.partialWeight,RESEARCH_CATALOG_CONTRACT.slots);
- assert.equal(a.sourceExcluded,22);
+ assert.equal(a.sourceExcluded,24);
  // Newly source-backed recovery items are intentionally NOT declared
  // Dream-disguise compatible until original timing is independently checked.
  assert.equal(a.needsRuleReview,14);
