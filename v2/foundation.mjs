@@ -43,7 +43,7 @@ function freezeEffect(effect) {
     throw new Error('Invalid repeatAttack effect data');
   if(effect.type==='restoreResource'&&
      (effect.when!=='onDeclare'||Object.keys(params).length!==2||
-      !['hp','mp'].includes(params.resource)||
+      !['hp','mp','money'].includes(params.resource)||
       !Number.isSafeInteger(params.amount)||params.amount<1||params.amount>99))
     throw new Error('Invalid restoreResource effect data');
   if(effect.type==='cleanseAfflictions'&&
