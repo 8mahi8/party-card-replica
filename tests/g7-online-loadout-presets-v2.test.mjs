@@ -10,10 +10,11 @@ const {byId:catalog,summary}=migrateLegacyCatalog();
 const literal=page.match(/const LAB_PRESETS=(Object\.freeze\(\{[\s\S]*?\}\));/);
 if(!literal)throw Error('Expected source-backed lab presets in online demo');
 const presets=vm.runInNewContext(literal[1]);
-test('online trial room offers nineteen explicitly named fixture hand sets, never fake random draws',()=>{
+test('online trial room offers twenty explicitly named fixture hand sets, never fake random draws',()=>{
  assert.match(page,/<select id="labPreset"/);
  assert.match(page,/<option value="basic">/);
  assert.match(page,/<option value="elements">/);
+ assert.match(page,/<option value="fireArmor">/);
  assert.match(page,/<option value="dark">/);
  assert.match(page,/<option value="recovery">/);
  assert.match(page,/<option value="support">/);
@@ -36,10 +37,10 @@ test('online trial room offers nineteen explicitly named fixture hand sets, neve
  assert.match(page,/LAB_PRESETS\[\$\('labPreset'\)\.value\]/);
  assert.match(page,/handDefinitionIds:\[\.\.\.preset\.A\]/);
  assert.match(page,/handDefinitionIds:\[\.\.\.preset\.B\]/);
- assert.deepEqual(Object.keys(presets).sort(),['basic','broom','buy','dark','elements','exchange','heaven','illnessAttack','learnedTrial','recovery','resourceMiracles','sale','shells','soap','support','tear','turbulenceBack','turbulenceSelf','windMiracles']);
+ assert.deepEqual(Object.keys(presets).sort(),['basic','broom','buy','dark','elements','exchange','fireArmor','heaven','illnessAttack','learnedTrial','recovery','resourceMiracles','sale','shells','soap','support','tear','turbulenceBack','turbulenceSelf','windMiracles']);
  assert.equal(summary.complete,false,'deck not audited for real weighted draws');
 });
-test('all nineteen fixed presets contain valid catalog definitions and four cards per seat',()=>{
+test('all twenty fixed presets contain valid catalog definitions and four cards per seat',()=>{
  for(const [name,hands] of Object.entries(presets)){
   for(const seat of ['A','B']){
    assert.equal(hands[seat].length,4,name+' '+seat);
@@ -101,4 +102,16 @@ test('Fountain/Treasure research fixture offers both resource miracles as physic
  assert.deepEqual(Array.from(presets.resourceMiracles.B),['w027','d003','d018','m013']);
  assert.equal(presets.resourceMiracles.mpA,25);
  for(const id of ['m015','m016'])assert.equal(catalog.get(id)?.family,'miracle');
+});
+
+test('new three fire armors are selectable only in the named G7 test set, not the source draw pool',()=>{
+ assert.deepEqual(Array.from(presets.fireArmor.A),['w041','d035','w016','i006']);
+ assert.deepEqual(Array.from(presets.fireArmor.B),['d060','d061','d062','w016']);
+ for(const id of ['d060','d061','d062']){
+  const card=catalog.get(id);
+  assert.equal(card.family,'armor');
+  assert.equal(card.element,'fire');
+  assert.deepEqual(card.effects,[]);
+ }
+ assert.equal(summary.complete,false);
 });
