@@ -118,6 +118,7 @@ main{padding:0 6px 8px}.brandline{margin:0 -6px}
 <option value="illnessAttack">病を付ける攻撃・防御と反射</option>
 <option value="windMiracles">奇跡・風と天国風の災い</option>
 <option value="learnedTrial">習得済み奇跡・攻撃と防御</option>
+<option value="resourceMiracles">奇跡〈泉〉〈財宝〉・自己資源回復</option>
 <option value="sale">取引「売る」・受け入れと反射</option>
 <option value="buy">取引「買う」・購入と見送り</option>
 <option value="exchange">取引「両替」・HP/MP/¥振替</option>
@@ -248,6 +249,11 @@ const LAB_PRESETS=Object.freeze({
   A:Object.freeze(['t001','w003','d005','w016']),
   B:Object.freeze(['i002','d001','d003','w027'])
  }),
+ resourceMiracles:Object.freeze({
+  A:Object.freeze(['m015','m016','i003','w016']),
+  B:Object.freeze(['w027','d003','d018','m013']),
+  mpA:25,rngSeed:71
+ }),
  learnedTrial:Object.freeze({
   A:Object.freeze(['w016','i003','d003','m013']),
   B:Object.freeze(['d018','w027','d003','i003']),
@@ -347,6 +353,8 @@ function render(){
  const learnedArea=$('learnedMiracles');learnedArea.replaceChildren();
  const learnedTitle=document.createElement('span');learnedTitle.className='learned-title';
  learnedTitle.textContent='習得済み';learnedArea.append(learnedTitle);
+ const previousLearnedList=learnedArea.querySelector('.learned-list');
+ const learnedScroll=previousLearnedList?.scrollLeft??0;
  const learnedList=document.createElement('div');learnedList.className='learned-list';
  if(!player.learned?.length){
   const empty=document.createElement('span');empty.className='learned-empty';
@@ -370,6 +378,7 @@ function render(){
   });learnedList.append(btn);
  }
  learnedArea.append(learnedList);
+ learnedList.scrollLeft=learnedScroll;
  $('phase').textContent=view.phase==='finished'?'対戦終了':
   itemDefense?(mine?'雑貨への対応':'相手の対応待ち'):
   saleDefense?(mine?'売買への対応':'相手の売買対応待ち'):
@@ -443,6 +452,12 @@ function render(){
  const saleValid=selection.size===2&&saleIds.length===2&&
   saleDef?.effects.some(e=>e.when==='onDeclare'&&e.type==='forceSale'&&e.params.kind==='sell');
  const saleGood=catalog.get(cardsById.get(saleIds[1])?.definitionId);
+ const firstCastId=[...selection][0];
+ const firstCastDef=catalog.get(firstCastId?.startsWith('l:')?
+  firstCastId.slice(2):cardsById.get(firstCastId)?.definitionId);
+ const resourceCast=firstCastDef?.family==='miracle'&&firstCastDef.effects.some(e=>
+  e.when==='onDeclare'&&e.type==='restoreResource');
+ const resourceInfo=resourceCast?firstCastDef.effects.find(e=>e.type==='restoreResource'):null;
  const tradeOnly=selection.size===1&&!([...selection][0]||'').startsWith('l:')?
   catalog.get(cardsById.get([...selection][0])?.definitionId):null;
  const buyValid=tradeOnly?.effects.some(e=>e.when==='onDeclare'&&e.type==='requestBuy'&&e.params.kind==='buy');
@@ -451,7 +466,10 @@ function render(){
    cardsById.get(selectedIds[0])?.definitionId)?.effects.some(e=>
     e.when==='onDefense'&&e.type==='redirectAttack'&&
     e.params.mode==='reflect'&&e.params.scope==='any');
- $('selectionTotal').textContent=saleDefense?
+ $('selectionTotal').textContent=resourceInfo?
+   (resourceInfo.params.resource==='hp'?'HP':'¥')+'+'+resourceInfo.params.amount+
+   ' · MP'+firstCastDef.stats.mpCost+'（自身へ使う・手番終了）':
+  saleDefense?
    (mirrorChoice?'スーパーミラーで取引を跳ね返す':'価格を確認して売買を受け入れる'):
   saleValid?
    '売却：'+(names.get(saleGood?.id)||saleGood?.id)+' ／ ¥'+saleGood.stats.price+
@@ -548,7 +566,9 @@ function render(){
  const learnedAlone=selection.size===1&&first?.startsWith('l:');
  const standalone=learnedAlone?catalog.get(first.slice(2)):null;
  const canCastAlone=!learnedAlone||((standalone?.stats.attack??0)>0||
-  standalone?.effects.some(e=>e.when==='onDeclare'&&e.type==='inflictDisease'));
+  standalone?.effects.some(e=>e.when==='onDeclare'&&
+   ['inflictDisease','restoreResource'].includes(e.type)));
+ $('attack').textContent=resourceCast?'奇跡を使う':'攻撃する';
  $('attack').disabled=!usable||!selection.size||!canCastAlone||
   (catalog.get(cardsById.get(selectedIds[0])?.definitionId)?.family==='trade');
  $('useItem').disabled=!usable||!itemEffect;
@@ -599,7 +619,15 @@ async function send(type,accept=null){
   command.targetId=seat==='A'?'B':'A';
   command.saleInstanceId=ids[0];command.soldInstanceId=ids[1];
  }
- if(['playCards','playSequence','castLearned'].includes(effectiveType))command.targetId=seat==='A'?'B':'A';
+ if(['playCards','playSequence','castLearned'].includes(effectiveType)){
+  const first=entries[0];
+  const card=first?.startsWith('l:')?first.slice(2):
+    view.players.find(p=>p.id===seat)?.hand?.find(c=>c.instanceId===first)?.definitionId;
+  const def=catalog.get(card);
+  const ownResourceCast=def?.family==='miracle'&&def.effects.some(e=>
+    e.when==='onDeclare'&&e.type==='restoreResource');
+  command.targetId=ownResourceCast?seat:(seat==='A'?'B':'A');
+ }
  waiting=true;pendingId=command.commandId;pendingCommand=command;
  feedback('操作を送信しています…');render();
  try{await session.submit(command)}catch(error){
