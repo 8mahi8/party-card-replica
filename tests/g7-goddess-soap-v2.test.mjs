@@ -49,7 +49,7 @@ test('Goddess Soap source card is strictly typed, ¥10/0.2%, reference deck inco
  const def=catalog.get('i015');
  assert.deepEqual(def.playModes,['use']);
  assert.deepEqual(def.effects,[{type:'forgetLearned',when:'onDeclare',params:{count:2}}]);
- assert.deepEqual([summary.unique,summary.slots,summary.complete],[176,437,false]);
+ assert.deepEqual([summary.unique,summary.slots,summary.complete],[179,440,false]);
  assert.equal(summary.unique,RESEARCH_CATALOG_CONTRACT.unique);
  assert.equal(summary.slots,RESEARCH_CATALOG_CONTRACT.slots);
  assert.throws(()=>convertLegacyCard({...src,price:5}),/Invalid source-backed soap/);
