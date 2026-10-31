@@ -38,8 +38,8 @@ function action(endpoint,type,id=null,override={}){
 test('seven plain HP/MP artifacts are individually sourced, typed and leave deck incomplete',()=>{
  assert.equal(summary.unique,RESEARCH_CATALOG_CONTRACT.unique);
  assert.equal(summary.slots,RESEARCH_CATALOG_CONTRACT.slots);
- assert.equal(summary.unique,174);
- assert.equal(summary.slots,435);
+ assert.equal(summary.unique,176);
+ assert.equal(summary.slots,437);
  assert.equal(summary.complete,false);
  for(const [id,name,resource,amount,price,weight] of sourced){
   const src=VERIFIED_BASIC_CARDS.find(c=>c.id===id),def=catalog.get(id);
@@ -127,7 +127,7 @@ test('recovery rejects non-items, opponent cards, already consumed cards and an 
 test('typed resource effects reject impossible resource keys and unsafe magnitudes',async()=>{
  const {defineCard}=await import('../v2/foundation.mjs');
  for(const params of [
-  {resource:'money',amount:5},{resource:'hp',amount:0},
+  {resource:'credits',amount:5},{resource:'hp',amount:0},
   {resource:'mp',amount:-2},{resource:'hp',amount:100},
   {resource:'hp',amount:5,secret:'extra'}
  ]){
