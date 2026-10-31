@@ -40,7 +40,7 @@ test('Wind/Heaven Wind source MP, zero damage and 1/500 weight are typed, deck r
   assert.deepEqual(def.effects,[{when:'onDeclare',type:'inflictDisease',params:{disease}}]);
   assert.throws(()=>convertLegacyCard({...src,mpCost:1}),/Unverified miracle affliction/);
  }
- assert.deepEqual([summary.unique,summary.slots,summary.complete],[176,437,false]);
+ assert.deepEqual([summary.unique,summary.slots,summary.complete],[179,440,false]);
  assert.equal(summary.unique,RESEARCH_CATALOG_CONTRACT.unique);
  assert.equal(summary.slots,RESEARCH_CATALOG_CONTRACT.slots);
 });
