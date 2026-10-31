@@ -108,6 +108,7 @@ main{padding:0 6px 8px}.brandline{margin:0 -6px}
 <div class="inline"><select id="labPreset" aria-label="研究用の手札セット">
 <option value="basic">基本対戦（従来の固定4枚）</option>
 <option value="elements">属性防御（火・水）</option>
+<option value="fireArmor">新しい火属性防具3種・水属性防御</option>
 <option value="dark">闇属性と高防御</option>
 <option value="recovery">HP・MP回復と反撃</option>
 <option value="support">相手への回復と反射</option>
@@ -523,6 +524,13 @@ const VERIFIED_BASIC_CARDS = Object.freeze([
   shield('d057','大地のよろい',8,10,1,{element:'earth'}),
   shield('d058','ぴかぴかハイヒール',6,15,1,{element:'light'}),
   shield('d059','きらきらドレス',10,15,1,{element:'light'}),
+  // 2026 Macaron list & Dream analysis: current labels; numerical values
+  // cross-checked against the older Piong/GFGA tables. Older source names
+  // d060 火花の小手 and d061 フレイムメット differ; treat as versioned aliases,
+  // NOT additional distinct draw-pool cards.
+  shield('d060','火花の手袋',2,4,1,{element:'fire'}),
+  shield('d061','フレイムメイル',4,8,1,{element:'fire'}),
+  shield('d062','フレイムアーマー',6,10,1,{element:'fire'}),
   Object.freeze({id:'i001',referenceName:'虹のカーテン',kind:'defense_item',category:'item',element:'none',effect:'strip_element',price:15,weight:3}),
   Object.freeze({id:'i002',referenceName:'スーパーミラー',kind:'defense_item',category:'item',element:'none',effect:'reflect_any',price:10,weight:1}),
   Object.freeze({id:'m001',referenceName:'壁',kind:'miracle',role:'stop',stopScope:'neutral_weapon',category:'miracle',element:'none',mpCost:6,price:0,weight:1}),
@@ -6415,6 +6423,10 @@ const LAB_PRESETS=Object.freeze({
  elements:Object.freeze({
   A:Object.freeze(['w018','w021','d035','d043']),
   B:Object.freeze(['w021','w018','d043','d035'])
+ }),
+ fireArmor:Object.freeze({
+  A:Object.freeze(['w041','d035','w016','i006']),
+  B:Object.freeze(['d060','d061','d062','w016'])
  }),
  dark:Object.freeze({
   A:Object.freeze(['w051','w054','d030','d034']),
