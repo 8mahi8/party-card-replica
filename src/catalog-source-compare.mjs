@@ -13,7 +13,6 @@
  */
 import {CATEGORY_DISTRIBUTION,ELEMENTS} from './rules.mjs';
 
-const sum=a=>a.reduce((x,y)=>x+y,0);
 export const HISTORICAL_DECK_CLAIMS=Object.freeze([
  Object.freeze({
   key:'wiki-2025-09-19',kinds:353,slots:500,
