@@ -1,0 +1,35 @@
+name: G6 temporary real Firebase trade smoke (development only)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  live-trades:
+    if: github.event_name == 'workflow_dispatch' && github.ref_name == 'refactor/v2-foundation-review-20261027'
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    container:
+      image: mcr.microsoft.com/playwright:v1.62.0-noble
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref || github.ref_name }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify development branch and live test syntax
+        env:
+          TARGET_BRANCH: ${{ github.head_ref || github.ref_name }}
+        run: |
+          test "$TARGET_BRANCH" = 'refactor/v2-foundation-review-20261027'
+          node --check tests/v2-g6-live-trades.browser.mjs
+          node v2/demo/build-online.mjs --check
+      - name: Install browser driver for test only
+        run: npm install --no-save --no-package-lock --ignore-scripts playwright@1.62.0
+      - name: Test five isolated real Firebase trade rooms, each cleaned by owner ID
+        env:
+          G6_LIVE_FIREBASE: '1'
+        run: node tests/v2-g6-live-trades.browser.mjs

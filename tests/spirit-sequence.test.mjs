@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import {RESEARCH_CATALOG_CONTRACT} from './helpers/research-catalog-contract.mjs';
 import {priceMiracleSequence} from '../src/spirit-sequence.mjs';
 import {createMatch,playMiracleAttack,defend,playAttack} from '../src/match.mjs';
 import {playStackedPlusMiracles} from '../src/plus-miracle.mjs';
@@ -12,11 +13,11 @@ function match(a,b) {
   s.players[1].hand=b.map(card);
   return s;
 }
-test('68th card is spirit doll with 0.4% appearance and price 5; partial deck stays blocked',()=>{
+test('Spirit doll keeps 0.4% reference weight and price 5; partial deck stays blocked',()=>{
   assert.equal(card('i003').referenceName,'精霊のぬいぐるみ');
   assert.equal(card('i003').price,5);assert.equal(card('i003').weight,2);
-  assert.equal(VERIFIED_BASIC_CARDS.length,68);
-  assert.equal(auditCatalog(VERIFIED_BASIC_CARDS).slots,186);
+  assert.equal(VERIFIED_BASIC_CARDS.length,RESEARCH_CATALOG_CONTRACT.unique);
+  assert.equal(auditCatalog(VERIFIED_BASIC_CARDS).slots,RESEARCH_CATALOG_CONTRACT.slots);
   assert.throws(()=>createAuditedDraw(VERIFIED_BASIC_CARDS),/incomplete/);
 });
 test('single miracle followed immediately by spirit is free',()=>{

@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import {RESEARCH_CATALOG_CONTRACT} from './helpers/research-catalog-contract.mjs';
 import {createMatch,playAttack,defend,pray} from '../src/match.mjs';
 import {VERIFIED_BASIC_CARDS,findVerifiedBasicCard} from '../src/verified-basic-cards.mjs';
 import {auditCatalog} from '../src/catalog-audit.mjs';
@@ -9,9 +10,9 @@ const match=(a,b)=>{
   const s=createMatch({playerIds:['A','B'],firstPlayerId:'A',rng:()=>0,draw});
   s.players[0].hand=a;s.players[1].hand=b;return s;
 };
-test('source-backed basic subset increases from 35 to 68, never full 353',()=>{
-  assert.equal(VERIFIED_BASIC_CARDS.length,68);
-  assert.equal(new Set(VERIFIED_BASIC_CARDS.map(c=>c.id)).size,68);
+test('source-backed partial subset stays distinct from the full reference deck',()=>{
+  assert.equal(VERIFIED_BASIC_CARDS.length,RESEARCH_CATALOG_CONTRACT.unique);
+  assert.equal(new Set(VERIFIED_BASIC_CARDS.map(c=>c.id)).size,RESEARCH_CATALOG_CONTRACT.unique);
   assert.equal(auditCatalog(VERIFIED_BASIC_CARDS).complete,false);
 });
 test('four demon armors are categorized armor but contribute attack bonus',()=>{

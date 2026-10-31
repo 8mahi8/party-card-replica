@@ -1,0 +1,45 @@
+name: V2 real-browser smoke (development only)
+
+on:
+  pull_request:
+    paths:
+      - 'v2/**'
+      - 'src/**'
+      - 'tests/v2-browser-smoke.browser.mjs'
+      - '.github/workflows/v2-browser-smoke.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  chromium-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Confirm Chrome runner
+        run: |
+          which google-chrome || which chromium
+          google-chrome --version || chromium --version
+      - name: Attempt Japanese font (nonblocking)
+        run: |
+          if timeout 35s sudo apt-get install -y fonts-noto-cjk; then
+            fc-list :lang=ja family | head -5
+          else
+            echo "Japanese CJK font unavailable; interaction checks still valid."
+          fi
+      - name: Rebuild checksum and test bundle
+        run: node v2/demo/build.mjs --check
+      - name: Real Chromium tap and viewport tests
+        run: node tests/v2-browser-smoke.browser.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v2-browser-evidence
+          path: v2/demo/browser-evidence/
+          retention-days: 5
+          if-no-files-found: warn

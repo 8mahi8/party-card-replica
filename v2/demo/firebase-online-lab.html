@@ -1,0 +1,744 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>ゴッドフィールド V2｜オンライン2人研究版</title>
+<style>
+:root{font-family:system-ui,-apple-system,"Hiragino Kaku Gothic ProN",sans-serif;color:#174d4a;background:#8bd8cc}
+*{box-sizing:border-box}body{margin:0;min-height:100dvh;background:radial-gradient(ellipse at 22% 18%,#d8fcf4 0%,transparent 57%),radial-gradient(ellipse at 76% 78%,#8dc8ed 0%,transparent 56%),linear-gradient(135deg,#9be2d5,#9bcee3);color:#174d4a}
+button,input{font:inherit;touch-action:manipulation;-webkit-tap-highlight-color:transparent}button{cursor:pointer;min-height:42px;border:1px solid #308b83;border-radius:7px;padding:7px 12px;background:linear-gradient(#effff7,#b4e6d2);color:#075f5a;font-weight:800;box-shadow:0 2px 0 #338b83}button:disabled{opacity:.48;cursor:default;box-shadow:none}
+button.primary{background:linear-gradient(#087d76,#00655e);color:white;border-color:#005c55;box-shadow:0 2px 0 #034742}
+main{max-width:940px;min-height:100dvh;margin:auto;padding:0 10px 12px}
+.brandline{min-height:28px;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:3px 12px;margin:0 -10px;background:#08786c;color:#f3fff8;font-size:13px;font-weight:900}
+.brandline span{font-size:10px;font-weight:700;color:#d0f5d9}
+.notice{margin:6px 0;padding:0 8px;font-size:11px;color:#246f68}
+.notice summary{cursor:pointer;font-weight:800}
+.notice p{margin:4px 0;line-height:1.5}
+.panel{border:1px solid #5baca0;background:#e6fff2c9;border-radius:9px;padding:9px;margin:8px 0;box-shadow:0 2px 5px #0c6d6a18}
+h2{font-size:15px;margin:3px 0 9px}
+.inline{display:flex;flex-wrap:wrap;gap:7px;align-items:center}.inline>*{flex:1;min-width:100px}
+select{font:inherit;color:#07584f;background:#fff;border:1px solid #5caaa0;border-radius:7px;min-height:42px;padding:5px 8px;max-width:100%}
+#presetNotice{font-size:11px;color:#2b7068;margin:4px 0 7px}
+input{min-height:42px;max-width:185px;padding:7px;font-size:18px;letter-spacing:.16em;text-align:center;color:#07584f;border:1px solid #5caaa0;border-radius:7px;background:white}
+#lobby{margin-top:12px}#lobby .inline{margin-top:7px}
+.connection-bar{display:flex;align-items:center;flex-wrap:wrap;gap:8px;padding:5px 8px;margin-top:7px;background:#e3fff0a8;border:1px solid #70b9af;border-radius:7px}
+#roomLabel{font-size:13px;letter-spacing:.05em;color:#006a65}#roleLabel{font-size:11px;font-weight:700}
+#status{margin:0;flex:1 1 180px;min-height:18px;font-size:11px;line-height:1.4;color:#226b63}
+#battle[hidden],#lobby[hidden],#actions[hidden],#retryPanel[hidden]{display:none}
+.battle-board{display:flex;flex-direction:column;gap:7px;margin:6px 0 0}
+.battle-topline{display:flex;justify-content:space-between;gap:7px;align-items:center;border-bottom:4px solid #058377;font-size:11px;font-weight:800}
+.battle-topline .mode{padding:2px 9px;border-radius:4px 4px 0 0;background:#058377;color:white}
+.scores{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
+.score{background:linear-gradient(#f9fff9,#d8f4e0);border:1px solid #79bba2;border-radius:8px;padding:6px 8px;min-width:0}
+.score.active{border:2px solid #128e80;padding:5px 7px;box-shadow:0 0 0 2px #baffcd}
+.score .player-title{display:flex;align-items:center;justify-content:space-between;gap:4px;font-size:12px;color:#075c55;font-weight:800}
+.score .turn-dot{background:#168e7c;color:white;font-size:9px;border-radius:12px;padding:1px 6px}
+.score .statline{display:flex;flex-wrap:wrap;gap:5px;font-size:11px;font-weight:800;margin-top:5px}
+.score .statline span{background:#fafff1;border-radius:4px;padding:1px 4px;border:1px solid #b8daca}
+.score .statline .hp{color:#bf4e54}.score .statline .mp{color:#2869b5}
+.arena{min-height:116px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.1fr);gap:8px;align-items:stretch}
+.selected-tray{min-width:0;border:1px solid #5caca1;border-radius:8px;background:#e8fff4ad;padding:6px 8px}
+.selected-tray header{font-size:10px;font-weight:800;color:#35786f;letter-spacing:.04em}
+#selectionPreview{margin-top:5px;display:flex;gap:4px;flex-wrap:wrap;align-content:start;min-height:45px}
+#selectionPreview .picked{max-width:100%;font-size:11px;background:#fffde4;border:1px solid #7fb7a3;padding:4px 6px;border-radius:4px;font-weight:800}
+#selectionPreview .empty{font-size:11px;color:#558f86;padding:6px 0}
+.phase-area{display:flex;flex-direction:column;align-items:stretch;justify-content:center;text-align:center;gap:4px;padding:5px;background:#f4fff9aa;border-radius:8px;border:1px solid #77b9b2}
+#phase{font-size:14px;font-weight:900;color:#087d72}
+#battleHint{font-size:11px;line-height:1.35;color:#376e65;min-height:27px}
+#incomingAttack{font-size:11px;line-height:1.4;color:#a23c37;font-weight:800;padding:4px 5px;border:1px solid #d4a19a;border-radius:5px;background:#fff4e5}
+#incomingAttack[hidden]{display:none}
+.learned-area{display:flex;align-items:center;gap:7px;padding:4px 7px;background:#e5fff1bd;border:1px solid #79b9a6;border-radius:7px;min-width:0}
+.learned-area .learned-title{font-size:10px;font-weight:900;white-space:nowrap;color:#287b70}
+.learned-list{display:flex;align-items:center;gap:5px;min-width:0;overflow-x:auto;padding:3px 2px 5px;-webkit-overflow-scrolling:touch}
+.learned-choice{flex:0 0 auto;min-height:36px;padding:3px 9px;font-size:11px;border-color:#b38aaf;background:linear-gradient(#fff1fd,#e4d1f0);box-shadow:0 2px 0 #ae8bb9}
+.learned-choice.selected{background:#fff0b9;border-color:#bb6450;box-shadow:0 2px 0 #bc705c}
+.learned-empty{font-size:10px;color:#537d74}
+#combatRoute{font-size:11px;font-weight:800;color:#176d68;min-height:14px}
+#combatRoute:empty{display:none}
+#selectionTotal{font-size:11px;color:#356a62;min-height:14px;line-height:1.35}
+#selectionTotal:empty{display:none}
+#selectionPreview .picked b{font-size:10px;color:#b05148;margin-right:3px}
+#actions{display:flex;flex-wrap:wrap;gap:6px;padding:0}
+#actions button{flex:1 1 100px;min-width:90px;min-height:42px;font-size:12px}
+#actions button[hidden]{display:none}
+#defend{background:linear-gradient(#e9f6ff,#aad5ef);border-color:#5ca0c9;color:#1a638b}
+.hand-area{padding:5px 6px 8px;background:#d6fff0bd;border-radius:7px;border-top:6px solid #078376}
+.hand-area header{display:flex;align-items:center;justify-content:space-between;font-size:12px;font-weight:900;padding:1px 5px 6px}
+#handCount{color:#31786f;font-weight:700;font-size:10px}
+.hand{display:flex;align-items:stretch;gap:5px;min-height:100px;max-width:100%;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x proximity;padding:4px 4px 9px;overscroll-behavior-x:contain;-webkit-overflow-scrolling:touch}
+.hand button{flex:0 0 83px;width:83px;min-height:106px;max-height:128px;scroll-snap-align:start;padding:3px;display:flex;align-items:stretch;flex-direction:column;gap:3px;text-align:center;position:relative;border:2px solid #83bda8;border-radius:5px;color:#184b3c;background:linear-gradient(#fbffe7,#d4f4d0);font-size:10px;box-shadow:0 2px 0 #6ca696}
+.hand button.armor{background:linear-gradient(#edfff3,#c9ecdf)}.hand button.miracle{background:linear-gradient(#fff5e9,#f6d4a8)}.hand button.item{background:linear-gradient(#f3efff,#d5d9f5)}
+.hand button.selected{transform:translateY(-3px);border-color:#c25a4b;background:linear-gradient(#fff7ce,#f7e2b1);box-shadow:0 3px 0 #c46a52,0 0 0 1px #fceba4}
+.hand .artmark{height:40px;display:grid;place-items:center;border-radius:3px;background:radial-gradient(circle at 65% 30%,#effff9,#92cdb5);color:#237c70;font-size:24px;font-weight:600}
+.hand .armor .artmark{background:radial-gradient(circle,#eafff7,#a0d5ce);color:#2876a0}
+.hand .miracle .artmark{background:radial-gradient(circle,#fff3e0,#d5b4db);color:#8a5997}
+.hand .item .artmark{background:radial-gradient(circle,#faf2ff,#bfcae4);color:#4b78a5}
+.hand .cardname{font-size:10px;line-height:1.15;min-height:21px;display:grid;place-items:center;font-weight:900;overflow:hidden}
+.hand .cardstats{font-size:11px;color:#195547;font-weight:900;white-space:nowrap}
+.hand .cardprice{font-size:9px;color:#6d642d;text-align:right}
+#retryPanel{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:0}
+#retryPanel p{font-size:11px;color:#446e64;margin:0;flex:1 1 170px}
+#retryPanel button{font-size:12px}
+@media(max-width:480px){
+main{padding:0 6px 8px}.brandline{margin:0 -6px}
+.notice{font-size:10px}.connection-bar{gap:5px;padding:4px 5px}
+.panel{padding:7px;margin:5px 0}.battle-board{gap:5px}
+.score{padding:5px}.score.active{padding:4px}.score .statline{gap:3px;font-size:10px}
+.arena{min-height:98px}.phase-area{padding:4px}#phase{font-size:12px}
+.hand button{flex-basis:78px;width:78px;min-height:101px}.hand .artmark{height:36px}
+}
+@media(max-height:520px){.notice p{display:none}.arena{min-height:86px}.hand button{min-height:94px}.hand .artmark{height:30px}}
+.trade-panel{padding:7px;margin:4px 0;background:#e5fff1;border:1px solid #6ca79d;border-radius:7px}
+.trade-panel p{margin:2px 0 6px;font-size:11px;line-height:1.35}
+.exchange-fields{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.exchange-fields label{font-size:11px;font-weight:800;display:flex;flex-direction:column;gap:2px}
+.exchange-fields input{width:74px;max-width:24vw;min-height:36px;border:1px solid #318b82;border-radius:5px;padding:4px;font-size:16px}
+.trade-panel .inline{margin-top:5px}
+</style>
+</head>
+<body><main>
+<header class="brandline"><strong>GOD FIELD <span>ゴッドフィールド</span></strong><span>ONLINE LAB · 2人用</span></header>
+<details class="notice"><summary>開発・試遊版について（固定補充・原作未完成）</summary>
+<p>原作の対戦画面を参考にした研究版です。カードは固定補充で、全353種類を再現したものではありません。ホスト側のタブを閉じると試合が停止します。学校iPadは未検証です。</p>
+</details>
+<section id="lobby" class="panel">
+<h2>対戦する</h2>
+<label for="labPreset">研究用の手札セット（部屋を作る人が選択）</label>
+<div class="inline"><select id="labPreset" aria-label="研究用の手札セット">
+<option value="basic">基本対戦（従来の固定4枚）</option>
+<option value="elements">属性防御（火・水）</option>
+<option value="fireArmor">新しい火属性防具3種・水属性防御</option>
+<option value="dark">闇属性と高防御</option>
+<option value="recovery">HP・MP回復と反撃</option>
+<option value="support">相手への回復と反射</option>
+<option value="broom">夜空のホウキ・手札除去</option>
+<option value="soap">女神の石けん・奇跡を忘れる</option>
+<option value="heaven">天国草・病のターン終了効果</option>
+<option value="shells">貝がら・軽い病と重い病の治療</option>
+<option value="illnessAttack">病を付ける攻撃・防御と反射</option>
+<option value="windMiracles">奇跡・風と天国風の災い</option>
+<option value="learnedTrial">習得済み奇跡・攻撃と防御</option>
+<option value="resourceMiracles">奇跡〈泉〉〈財宝〉・自己資源回復</option>
+<option value="sale">取引「売る」・受け入れと反射</option>
+<option value="buy">取引「買う」・購入と見送り</option>
+<option value="exchange">取引「両替」・HP/MP/¥振替</option>
+<option value="turbulenceBack">乱気流・攻撃者へ弾く</option>
+<option value="turbulenceSelf">乱気流・自分へ弾く</option>
+<option value="tear">ドキドキ涙・運試し</option>
+</select></div>
+<p id="presetNotice">原作の山札ではありません。選択した4枚セットで効果を試します。</p>
+<div class="inline"><button id="create" class="primary">部屋を作る</button></div>
+<div class="inline"><input id="joinCode" inputmode="numeric" maxlength="5" aria-label="5桁のルーム番号" placeholder="5桁の番号"><button id="join">部屋に参加</button></div>
+</section>
+<section class="connection-bar" aria-live="polite">
+<strong id="roomLabel">未接続</strong><span id="roleLabel">接続前</span>
+<p id="status" role="status">Firebase接続を準備しています</p>
+</section>
+<section id="battle" class="battle-board" hidden>
+<div class="battle-topline"><span>G.F. · 研究対戦</span><span class="mode">1 対 1</span></div>
+<div id="scores" class="scores" aria-label="プレイヤーのHP・MP・所持金"></div>
+<div class="arena">
+<div class="selected-tray"><header>選択中の神器 · タップ順</header><div id="selectionPreview"><span class="empty">カードをタップして選択</span></div><div id="selectionTotal" aria-live="polite"></div></div>
+<div class="phase-area"><div id="phase"></div><div id="combatRoute"></div><div id="incomingAttack" aria-live="polite" hidden></div><div id="battleHint">手札の神器をタップ</div></div>
+</div>
+<div id="learnedMiracles" class="learned-area" aria-label="習得済み奇跡の選択"></div>
+<div id="actions" hidden>
+<button id="attack" class="primary">攻撃する</button>
+<button id="useItem">雑貨を使う</button>
+<button id="sell" class="primary">売る（選んだ神器を売却）</button>
+<button id="buy" class="primary">買う（相手の神器を抽選）</button>
+<button id="itemTarget" type="button" hidden>対象：自分</button>
+<button id="defend" class="primary">防御する／許す</button>
+<button id="pray">祈る</button>
+<button id="discard">捨てる</button>
+</div>
+<section id="buyDecision" class="trade-panel" hidden><p id="buyNotice"></p>
+<div class="inline"><button id="buyAccept" class="primary">買う</button><button id="buyDecline">買わない</button></div></section>
+<section id="exchangePanel" class="trade-panel" hidden><p>両替 · HP/MP/¥の合計はそのまま（HPは1以上）</p>
+<div class="exchange-fields"><label>HP<input id="exchangeHp" type="number" inputmode="numeric" min="1"></label>
+<label>MP<input id="exchangeMp" type="number" inputmode="numeric" min="0"></label>
+<label>¥<input id="exchangeMoney" type="number" inputmode="numeric" min="0"></label></div>
+<p id="exchangeTotal" aria-live="polite"></p><button id="exchange" class="primary">この配分で両替する</button></section>
+<section class="hand-area"><header>神器 <span id="handCount">自分の手札</span></header>
+<div id="hand" class="hand" aria-label="自分の神器を選択"></div>
+</section>
+<section id="retryPanel" class="panel" hidden>
+<p>操作の応答待ち。反映が遅いときは同じ操作を再送できます。</p>
+<button id="retry" type="button">同じ操作を再送</button>
+</section>
+</section>
+</main>
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
+<script type="module">
+import {migrateLegacyCatalog} from '../legacy-adapter.mjs';
+import {createStagingRoom} from '../staging-room.mjs';
+import {createFirebaseTwoSeatHostFixture,joinFirebaseTwoSeatGuestFixture}
+ from '../firebase-two-seat-transport-fixture.mjs';
+import {VERIFIED_BASIC_CARDS} from '../../src/verified-basic-cards.mjs';
+
+const $=id=>document.getElementById(id);
+const {byId:catalog}=migrateLegacyCatalog();
+const names=new Map(VERIFIED_BASIC_CARDS.map(c=>[c.id,c.referenceName]));
+// Explicit research fixtures, not the original 353-kind / 500-slot deck.
+// These are trusted host-side presets, never supplied by a guest command.
+const LAB_PRESETS=Object.freeze({
+ basic:Object.freeze({
+  A:Object.freeze(['w016','d001','m002','d003']),
+  B:Object.freeze(['w027','d003','m001','d001'])
+ }),
+ elements:Object.freeze({
+  A:Object.freeze(['w018','w021','d035','d043']),
+  B:Object.freeze(['w021','w018','d043','d035'])
+ }),
+ fireArmor:Object.freeze({
+  A:Object.freeze(['w041','d035','w016','i006']),
+  B:Object.freeze(['d060','d061','d062','w016'])
+ }),
+ dark:Object.freeze({
+  A:Object.freeze(['w051','w054','d030','d034']),
+  B:Object.freeze(['w052','w053','d030','d034'])
+ }),
+ recovery:Object.freeze({
+  A:Object.freeze(['i006','i010','w016','d003']),
+  B:Object.freeze(['i007','i011','w027','d003'])
+ }),
+ support:Object.freeze({
+  A:Object.freeze(['i006','i010','w016','d003']),
+  B:Object.freeze(['i002','i007','w027','d003'])
+ }),
+ broom:Object.freeze({
+  A:Object.freeze(['i014','w016','d003','i006']),
+  B:Object.freeze(['i002','w027','d003','i005'])
+ }),
+ heaven:Object.freeze({
+  A:Object.freeze(['i016','w016','d003','i005']),
+  B:Object.freeze(['i002','i016','w027','d003']),
+  rngSeed:12345
+ }),
+ windMiracles:Object.freeze({
+  A:Object.freeze(['m013','m014','i003','d003']),
+  B:Object.freeze(['i002','d018','w016','i018']),
+  mpA:25,rngSeed:12345
+ }),
+ turbulenceBack:Object.freeze({
+  A:Object.freeze(['m013','m014','d018','i003']),
+  B:Object.freeze(['m007','i018','w016','d003']),
+  mpA:25,mpB:10,rngSeed:71
+ }),
+ turbulenceSelf:Object.freeze({
+  A:Object.freeze(['m013','m014','d018','i003']),
+  B:Object.freeze(['m007','i018','w016','d003']),
+  mpA:25,mpB:10,rngSeed:12345
+ }),
+ illnessAttack:Object.freeze({
+  A:Object.freeze(['w056','w059','i018','d003']),
+  B:Object.freeze(['i002','d009','i017','d003']),
+  rngSeed:12345
+ }),
+ shells:Object.freeze({
+  A:Object.freeze(['i017','i018','w016','d003']),
+  B:Object.freeze(['i002','i016','w027','d003']),
+  diseaseA:'heaven',diseaseB:'fever',rngSeed:12345
+ }),
+ buy:Object.freeze({
+  A:Object.freeze(['t002','w016','d003','d005']),
+  B:Object.freeze(['i002','d001','d003','w027']),rngSeed:71
+ }),
+ exchange:Object.freeze({
+  A:Object.freeze(['t003','w016','d003','i006']),
+  B:Object.freeze(['w027','d001','i002','d003']),rngSeed:71
+ }),
+ sale:Object.freeze({
+  A:Object.freeze(['t001','w003','d005','w016']),
+  B:Object.freeze(['i002','d001','d003','w027'])
+ }),
+ resourceMiracles:Object.freeze({
+  A:Object.freeze(['m015','m016','i003','w016']),
+  B:Object.freeze(['w027','d003','d018','m013']),
+  mpA:25,rngSeed:71
+ }),
+ learnedTrial:Object.freeze({
+  A:Object.freeze(['w016','i003','d003','m013']),
+  B:Object.freeze(['d018','w027','d003','i003']),
+  learnedA:Object.freeze(['m013','m004']),
+  learnedB:Object.freeze(['m007']),
+  mpA:25,mpB:10,rngSeed:12345
+ }),
+ soap:Object.freeze({
+  A:Object.freeze(['i015','w016','d003','i006']),
+  B:Object.freeze(['i002','w027','d003','i005']),
+  learnedA:Object.freeze(['m008','m009','m010']),
+  learnedB:Object.freeze(['m005','m008','m009'])
+ }),
+ tear:Object.freeze({
+  A:Object.freeze(['i013','i005','w016','d003']),
+  B:Object.freeze(['i013','w027','d003','i002'])
+ })
+});
+const url='https://mygame-df915-default-rtdb.firebaseio.com/';
+let db=null,session=null,view=null,seat=null,joined=false,waiting=false,selection=new Set(),lastRevision=-1,pendingId=null,pendingCommand=null,retrying=false,itemTarget="self",exchangeDraft=null;
+const randomId=()=>{const a=new Uint32Array(2);crypto.getRandomValues(a);return Array.from(a,x=>x.toString(36)).join('-');};
+const code=()=>{const a=new Uint32Array(1);crypto.getRandomValues(a);return String(10000+a[0]%90000);};
+const feedback=s=>{$('status').textContent=String(s);};
+function ensureDb(){
+ if(db)return db;
+ if(!window.firebase?.database)throw Error('Firebase SDKを読み込めませんでした');
+ let app;
+ try{app=firebase.app('godfield-v2-lab')}catch{app=firebase.initializeApp({databaseURL:url},'godfield-v2-lab')}
+ db=app.database();return db;
+}
+function onError(error){feedback((error?.commandRejected?'操作エラー: ':'通信エラー: ')+(error?.message||String(error)))}
+function callbacks(){
+ return {
+  onView(next){
+   if(!next)return;
+   if(next.revision!==lastRevision){selection.clear();itemTarget='self';exchangeDraft=null;lastRevision=next.revision;}
+   view=next;render();
+  },
+  onStatus(info){
+   if(seat==='A')joined=!!info.joined;
+   render();
+  },
+  onReceipt(ack){
+   if(!ack||ack.id!==pendingId)return;
+   waiting=false;pendingId=null;pendingCommand=null;retrying=false;
+   if(!ack.ok)onError(ack.error);
+   else feedback('操作を反映しました');
+   render();
+  },
+  onError
+ };
+}
+function showSeatLabel(id){return id==='A'?'P1（ホスト）':'P2（ゲスト）'}
+function render(){
+ $('roomLabel').textContent=session?'ルーム '+session.roomCode:'未接続';
+ $('roleLabel').textContent=seat?showSeatLabel(seat):'接続前';
+ $('lobby').hidden=!!session;$('battle').hidden=!view;
+ $('retryPanel').hidden=!waiting;
+ $('retry').disabled=!waiting||retrying||!pendingCommand;
+ if(!session)return;
+ if(!view){feedback('相手の画面情報を読み込んでいます');return}
+ const active=view.activePlayerId===seat,turn=view.phase==='turn',
+  itemDefense=view.phase==='itemDefense',saleDefense=view.phase==='tradeDefense',
+  buyDefense=view.phase==='buyDefense',buyDecision=view.phase==='buyDecision',
+  defense=view.phase==='defense'||itemDefense||saleDefense||buyDefense;
+ const player=view.players.find(p=>p.id===seat);
+ const stats=$('scores');
+ stats.replaceChildren();
+ for(const p of view.players){
+  const e=document.createElement('div');
+  e.className='score'+(view.activePlayerId===p.id?' active':'');
+  const title=document.createElement('div');title.className='player-title';
+  const name=document.createElement('span');
+  name.textContent=showSeatLabel(p.id)+(p.id===seat?' · 自分':'');
+  title.append(name);
+  if(view.activePlayerId===p.id){
+   const dot=document.createElement('span');dot.className='turn-dot';
+   dot.textContent='行動中';title.append(dot);
+  }
+  const line=document.createElement('div');line.className='statline';
+  for(const [key,label,value] of [
+   ['hp','HP',p.hp],['mp','MP',p.mp],['money','¥',p.money],
+   ['count','手札',p.handCount]
+  ]){
+   const span=document.createElement('span');span.className=key;
+   span.textContent=label+' '+value;line.append(span);
+  }
+  e.append(title,line);
+  if(p.disease){
+   const ailment=document.createElement('span');ailment.className='disease';
+   ailment.textContent='災い：'+({cold:'風邪',fever:'熱病',hell:'地獄病',heaven:'天国病'}[p.disease]||p.disease);
+   e.append(ailment);
+  }
+  stats.append(e);
+ }
+ const mine=active&&(seat!=='A'||joined),busy=waiting;
+ const learnedArea=$('learnedMiracles');
+ const learnedScroll=learnedArea.querySelector('.learned-list')?.scrollLeft??0;
+ learnedArea.replaceChildren();
+ const learnedTitle=document.createElement('span');learnedTitle.className='learned-title';
+ learnedTitle.textContent='習得済み';learnedArea.append(learnedTitle);
+ const learnedList=document.createElement('div');learnedList.className='learned-list';
+ if(!player.learned?.length){
+  const empty=document.createElement('span');empty.className='learned-empty';
+  empty.textContent='なし';learnedList.append(empty);
+ }else for(const definitionId of player.learned){
+  const def=catalog.get(definitionId),key='l:'+definitionId,picked=selection.has(key);
+  const btn=document.createElement('button');btn.type='button';
+  btn.className='learned-choice'+(picked?' selected':'');
+  btn.textContent=(names.get(definitionId)||definitionId)+' · MP'+(def?.stats.mpCost??0);
+  btn.setAttribute('aria-pressed',String(picked));
+  btn.setAttribute('aria-label','習得済み奇跡 '+btn.textContent);
+  btn.disabled=!mine||busy||!(turn?def?.playModes.includes('cast'):
+   defense&&!itemDefense&&!saleDefense&&!buyDefense&&def?.playModes.includes('defend'));
+  btn.addEventListener('click',()=>{
+   if(selection.has(key))selection.delete(key);
+   else{
+    if(defense)for(const entry of selection)if(entry.startsWith('l:'))selection.delete(entry);
+    selection.add(key);
+   }
+   render();
+  });learnedList.append(btn);
+ }
+ learnedArea.append(learnedList);
+ learnedList.scrollLeft=learnedScroll;
+ $('phase').textContent=view.phase==='finished'?'対戦終了':
+  itemDefense?(mine?'雑貨への対応':'相手の対応待ち'):
+  saleDefense?(mine?'売買への対応':'相手の売買対応待ち'):
+  buyDefense?(mine?'購入依頼への対応':'相手の購入依頼待ち'):
+  buyDecision?(mine?'買うかどうか選択':'相手の購入判断待ち'):
+  defense?(mine?'あなたの防御':'相手の防御待ち'):
+  turn?(mine?'あなたの攻撃':'相手の攻撃待ち'):'処理中…';
+ $('battleHint').textContent=busy?'操作結果を待っています':
+  itemDefense?(mine?'スーパーミラーで反射、または許す':'相手の選択を待っています'):
+  saleDefense?(mine?'売り付けられる神器を確認し、受け入れるか反射':'相手の売買対応を待っています'):
+  buyDefense?(mine?'買うへの反射は研究中。今回は購入依頼を通す操作のみ可能':'相手の選択を待っています'):
+  buyDecision?(mine?'提示された神器を買うか選んでください':'相手の選択を待っています'):
+  defense?(mine?'防具を選ぶか、「許す」':'相手の選択を待っています'):
+  turn?(mine?'神器を選び、攻撃を確定':'相手の操作を待っています'):
+  '試合結果を確認してください';
+ const selected=player.hand||[];
+ const route=['attack','useItem'].includes(view.pending?.type)?
+  {source:view.pending.sourceId,target:view.pending.targetId}:
+  turn?{source:view.activePlayerId,target:view.players.find(p=>p.id!==view.activePlayerId)?.id}:null;
+ $('combatRoute').textContent=route?.source&&route?.target?
+  '対象  '+showSeatLabel(route.source)+' → '+showSeatLabel(route.target):'';
+ const announced=view.phase==='defense'?view.pending?.declaredAttack:null;
+ const announcedItem=itemDefense?view.pending?.declaredItem:null;
+ const saleOffer=saleDefense?view.pending?.offer:null;
+ const buyOffer=buyDecision&&mine?view.pending?.offer:null;
+ $('incomingAttack').hidden=!announced?.cards?.length&&!announcedItem?.definitionId&&!saleOffer?.definitionId&&!buyOffer?.definitionId;
+ $('incomingAttack').textContent=buyOffer?.definitionId?
+   '購入候補：'+(names.get(buyOffer.definitionId)||buyOffer.definitionId)+' ／ 価格 ¥'+buyOffer.price:
+  saleOffer?.definitionId?
+   '売り付けられる神器：'+(names.get(saleOffer.definitionId)||saleOffer.definitionId)+
+   ' ／ 価格 ¥'+saleOffer.price+' ／ スーパーミラーで反射可能':
+  announcedItem?.definitionId?
+   '相手の雑貨：'+(names.get(announcedItem.definitionId)||announcedItem.definitionId)+
+   ' ／ スーパーミラーのみ対応可能':
+   announced?.cards?.length?
+   '相手の攻撃：'+announced.cards.map(c=>names.get(c.definitionId)||c.definitionId).join(' ＋ ')+
+   ' ／ 攻'+announced.printedAttackTotal+'（記載値）':'';
+ $('handCount').textContent=selected.length+'枚 / 横にスライド';
+ const preview=$('selectionPreview');preview.replaceChildren();
+ const cardsById=new Map(selected.map(c=>[c.instanceId,c]));
+ let attackSum=0,guardSum=0,mpSum=0,index=0;
+ // The engine consumes selected cards in tap order. The preview must show
+ // that same order, especially for defense effects requiring a first card.
+ for(const entry of selection){
+  const learned=entry.startsWith('l:');
+  const definitionId=learned?entry.slice(2):cardsById.get(entry)?.definitionId;
+  const def=catalog.get(definitionId);
+  if(!def)continue;
+  attackSum+=def?.stats.attack||0;
+  guardSum+=def?.stats.guard||0;
+  mpSum+=def?.stats.mpCost||0;
+  const chip=document.createElement('span');chip.className='picked';
+  const order=document.createElement('b');order.textContent=String(++index)+'.';
+  chip.append(order,document.createTextNode(
+   (learned?'✦ ':'')+(names.get(definitionId)||definitionId)));
+  preview.append(chip);
+ }
+ if(!preview.childElementCount){
+  const empty=document.createElement('span');empty.className='empty';
+  empty.textContent=mine?'カードをタップして選択':'自分の番まで待機';
+  preview.append(empty);
+ }
+ // Preview the printed stats, NOT a resolved damage estimate: elements,
+ // reflections, multi-hits and special effects belong to the battle engine.
+ const selectedIds=[...selection].filter(id=>!id.startsWith('l:')),
+  itemEffect=selection.size===1?
+   catalog.get(cardsById.get(selectedIds[0])?.definitionId)?.effects.find(
+    e=>e.when==='onDeclare'&&['restoreResource','flipHpRisk','sweepHand','forgetLearned','heavenHerb','cleanseAfflictions'].includes(e.type)):null;
+ const saleIds=[...selection].filter(id=>!id.startsWith('l:'));
+ const saleDef=catalog.get(cardsById.get(saleIds[0])?.definitionId);
+ const saleValid=selection.size===2&&saleIds.length===2&&
+  saleDef?.effects.some(e=>e.when==='onDeclare'&&e.type==='forceSale'&&e.params.kind==='sell');
+ const saleGood=catalog.get(cardsById.get(saleIds[1])?.definitionId);
+ const firstCastId=[...selection][0];
+ const firstCastDef=catalog.get(firstCastId?.startsWith('l:')?
+  firstCastId.slice(2):cardsById.get(firstCastId)?.definitionId);
+ const resourceCast=firstCastDef?.family==='miracle'&&firstCastDef.effects.some(e=>
+  e.when==='onDeclare'&&e.type==='restoreResource');
+ const resourceInfo=resourceCast?firstCastDef.effects.find(e=>e.type==='restoreResource'):null;
+ const tradeOnly=selection.size===1&&!([...selection][0]||'').startsWith('l:')?
+  catalog.get(cardsById.get([...selection][0])?.definitionId):null;
+ const buyValid=tradeOnly?.effects.some(e=>e.when==='onDeclare'&&e.type==='requestBuy'&&e.params.kind==='buy');
+ const exchangeValid=tradeOnly?.effects.some(e=>e.when==='onDeclare'&&e.type==='reallocateResources'&&e.params.kind==='exchange');
+ const mirrorChoice=selection.size===1&&catalog.get(
+   cardsById.get(selectedIds[0])?.definitionId)?.effects.some(e=>
+    e.when==='onDefense'&&e.type==='redirectAttack'&&
+    e.params.mode==='reflect'&&e.params.scope==='any');
+ $('selectionTotal').textContent=resourceInfo?
+   (resourceInfo.params.resource==='hp'?'HP':'¥')+'+'+resourceInfo.params.amount+
+   ' · MP'+firstCastDef.stats.mpCost+'（自身へ使う・手番終了）':
+  saleDefense?
+   (mirrorChoice?'スーパーミラーで取引を跳ね返す':'価格を確認して売買を受け入れる'):
+  saleValid?
+   '売却：'+(names.get(saleGood?.id)||saleGood?.id)+' ／ ¥'+saleGood.stats.price+
+   '（代金は相手の¥→MP→HP）':
+  itemDefense?
+   (mirrorChoice?'スーパーミラーで雑貨を反射':'許す／スーパーミラーを選択'):
+   itemEffect?
+   (itemEffect.type==='cleanseAfflictions'?
+     (itemEffect.params.scope==='minor'?'風邪・熱病を治す':'病系の災いをすべて治す'):
+    itemEffect.type==='heavenHerb'?'MP+20・天国病（重ねがけで悪化）':
+    itemEffect.type==='forgetLearned'?'対象の習得済み奇跡を無作為に最大2つ忘れさせる':
+    itemEffect.type==='sweepHand'?'対象の神器を無作為に最大3枚除去':
+    itemEffect.type==='flipHpRisk'?'HP+10 / 10ダメージ（各50%）':
+    (itemEffect.params.resource==='hp'?'HP':'MP')+'+'+itemEffect.params.amount+'（最大99）'):
+   index?'カード記載値の合計（参考） · '+(defense?'守 '+guardSum:'攻 '+attackSum)+
+    (mpSum?' · MP '+mpSum:''):'';
+
+ const hand=$('hand'),scroll=hand.scrollLeft;
+ hand.replaceChildren();
+ for(const c of player.hand||[]){
+  const def=catalog.get(c.definitionId),btn=document.createElement('button');
+  const picked=selection.has(c.instanceId);
+  const family=def?.family||'item';
+  btn.type='button';btn.className='artifact '+family+(picked?' selected':'');
+  const name=names.get(c.definitionId)||c.definitionId;
+  const stats=def?.stats||{};
+  const art=document.createElement('span');art.className='artmark';
+  art.textContent=family==='weapon'?'⚔':family==='armor'?'▣':
+   family==='miracle'?'✦':'◈';
+  const label=document.createElement('span');label.className='cardname';
+  label.textContent=name;
+  const stat=document.createElement('span');stat.className='cardstats';
+  const restored=def?.effects.find(e=>['restoreResource','flipHpRisk','sweepHand','forgetLearned','heavenHerb','cleanseAfflictions'].includes(e.type));
+  stat.textContent=restored?
+   (restored.type==='cleanseAfflictions'?
+     (restored.params.scope==='minor'?'風邪・熱病を治す':'病系すべて治す'):
+    restored.type==='heavenHerb'?'MP+20・天国病':
+    restored.type==='forgetLearned'?'習得奇跡を2つ消す':
+    restored.type==='sweepHand'?'神器を3枚除去':
+    restored.type==='flipHpRisk'?'HP±10（50%）':
+    (restored.params.resource==='hp'?'HP':'MP')+'+'+restored.params.amount):
+   [stats.attack?'攻'+stats.attack:'',
+    stats.guard?'守'+stats.guard:'',
+    stats.mpCost?'MP'+stats.mpCost:''].filter(Boolean).join(' · ')||'神器';
+  const price=document.createElement('span');price.className='cardprice';
+  price.textContent='¥'+(stats.price??0);
+  btn.append(art,label,stat,price);
+  btn.setAttribute('aria-label',name+' '+stat.textContent);
+  btn.setAttribute('aria-pressed',String(picked));
+  btn.disabled=!mine||waiting||buyDefense||((itemDefense||saleDefense)&&!def?.effects.some(e=>
+    e.when==='onDefense'&&e.type==='redirectAttack'&&
+    e.params.mode==='reflect'&&e.params.scope==='any'));
+  btn.addEventListener('click',()=>{
+   if(selection.has(c.instanceId))selection.delete(c.instanceId);
+   else {
+    selection.add(c.instanceId);
+    if(def?.effects.some(e=>['sweepHand','forgetLearned','heavenHerb'].includes(e.type)))itemTarget='other';
+   }
+   render();
+  });
+  hand.append(btn);
+ }
+ hand.scrollLeft=scroll;
+ const usable=mine&&!busy;
+ $('actions').hidden=!(turn||defense);
+ $('buyDecision').hidden=!buyDecision||!mine;
+ const purchaseAllowed=!!buyOffer&&player.money>=buyOffer.price;
+ $('buyNotice').textContent=buyOffer?
+   '価格 ¥'+buyOffer.price+'／手持ち ¥'+player.money+
+   (purchaseAllowed?' · 買う／買わないを選択':' · 貧乏：所持金不足なので買えません'):'';
+ $('buyAccept').disabled=!mine||busy||!purchaseAllowed;
+ $('buyDecline').disabled=!mine||busy;
+ const exchangePanel=$('exchangePanel');
+ exchangePanel.hidden=!turn||!mine||!exchangeValid;
+ if(!exchangePanel.hidden){
+  if(!exchangeDraft)exchangeDraft={hp:player.hp,mp:player.mp,money:player.money};
+  for(const [key,id] of [['hp','exchangeHp'],['mp','exchangeMp'],['money','exchangeMoney']])
+   if(document.activeElement!==$(id))$(id).value=String(exchangeDraft[key]);
+  const total=player.hp+player.mp+player.money;
+  const sum=exchangeDraft.hp+exchangeDraft.mp+exchangeDraft.money;
+  const valid=Number.isSafeInteger(sum)&&sum===total&&exchangeDraft.hp>=1&&
+   ['mp','money'].every(k=>Number.isSafeInteger(exchangeDraft[k])&&exchangeDraft[k]>=0);
+  $('exchangeTotal').textContent='配分合計 '+sum+' / '+total+(valid?' · OK':' · 合計を合わせてください');
+  $('exchange').disabled=!mine||busy||!valid;
+ }
+ $('attack').hidden=!turn;$('useItem').hidden=!turn;$('sell').hidden=!turn;
+ $('buy').hidden=!turn;
+ $('itemTarget').hidden=!turn||!itemEffect;
+ $('itemTarget').textContent='対象：'+(itemTarget==='self'?'自分':'相手');
+ $('itemTarget').disabled=!usable;
+ $('pray').hidden=!turn;$('discard').hidden=!turn;
+ $('defend').hidden=!defense;
+ const first=[...selection][0];
+ const learnedAlone=selection.size===1&&first?.startsWith('l:');
+ const standalone=learnedAlone?catalog.get(first.slice(2)):null;
+ const canCastAlone=!learnedAlone||((standalone?.stats.attack??0)>0||
+  standalone?.effects.some(e=>e.when==='onDeclare'&&
+   ['inflictDisease','restoreResource'].includes(e.type)));
+ $('attack').textContent=resourceCast?'奇跡を使う':'攻撃する';
+ $('attack').disabled=!usable||!selection.size||!canCastAlone||
+  (catalog.get(cardsById.get(selectedIds[0])?.definitionId)?.family==='trade');
+ $('useItem').disabled=!usable||!itemEffect;
+ $('sell').disabled=!usable||!saleValid;
+ $('buy').disabled=!usable||!buyValid;
+ $('discard').disabled=!usable||!selection.size||selectedIds.length!==selection.size;
+ $('pray').disabled=!usable||player.hand?.some(c=>catalog.get(c.definitionId)?.family==='weapon');
+ $('defend').disabled=!usable||((itemDefense||saleDefense)&&selection.size>0&&!mirrorChoice);
+ $('defend').textContent=buyDefense?'購入依頼を通す（反射未対応）':
+  saleDefense?
+   (mirrorChoice?'スーパーミラーで反射':'売買を受け入れる'):
+  itemDefense?
+   (mirrorChoice?'スーパーミラーで反射':'許す（反射なし）'):
+   selection.size?'防御する':'許す（防御なし）';
+ if(seat==='A'&&!joined)feedback('相手が5桁のルーム番号で参加するのを待っています');
+}
+async function send(type,accept=null){
+ if(!session||!view||waiting||view.activePlayerId!==seat||seat==='A'&&!joined)return;
+ const entries=[...selection],ids=entries.filter(id=>!id.startsWith('l:'));
+ const learned=entries.filter(id=>id.startsWith('l:'));
+ let effectiveType=type==='defend'&&view.phase==='itemDefense'?'respondItem':
+  type==='defend'&&view.phase==='tradeDefense'?'respondSale':
+  type==='defend'&&view.phase==='buyDefense'?'respondBuy':type;
+ if(type==='playCards'&&learned.length)effectiveType=entries.length===1?'castLearned':'playSequence';
+ if(type==='defend'&&view.phase==='defense'&&learned.length)effectiveType='defendSequence';
+ const command={commandId:randomId(),expectedRevision:view.revision,actorId:seat,type:effectiveType};
+ if(['playCards','defend','discard'].includes(effectiveType))command.orderedInstanceIds=ids;
+ if(effectiveType==='castLearned')command.learnedDefinitionId=learned[0].slice(2);
+ if(['playSequence','defendSequence'].includes(effectiveType))command.orderedPlays=entries.map(id=>
+  id.startsWith('l:')?{learnedDefinitionId:id.slice(2)}:{instanceId:id});
+ if(type==='useItem'){
+  command.instanceId=ids[0];
+  const effect=catalog.get(view.players.find(p=>p.id===seat)?.hand?.find(c=>
+    c.instanceId===ids[0])?.definitionId)?.effects.find(e=>
+     ['restoreResource','flipHpRisk','sweepHand','forgetLearned','heavenHerb','cleanseAfflictions'].includes(e.type));
+  if(effect)command.targetId=itemTarget==='self'?seat:(seat==='A'?'B':'A');
+ }
+ if(['respondItem','respondSale'].includes(effectiveType)&&ids.length)command.mirrorInstanceId=ids[0];
+ if(effectiveType==='declareBuy'){
+  command.buyInstanceId=ids[0];command.targetId=seat==='A'?'B':'A';
+ }
+ if(effectiveType==='exchange'){
+  command.exchangeInstanceId=ids[0];
+  command.allocation={...exchangeDraft};
+ }
+ if(effectiveType==='decideBuy')command.accept=accept;
+ if(effectiveType==='declareSale'){
+  command.targetId=seat==='A'?'B':'A';
+  command.saleInstanceId=ids[0];command.soldInstanceId=ids[1];
+ }
+ if(['playCards','playSequence','castLearned'].includes(effectiveType)){
+  const first=entries[0];
+  const card=first?.startsWith('l:')?first.slice(2):
+    view.players.find(p=>p.id===seat)?.hand?.find(c=>c.instanceId===first)?.definitionId;
+  const def=catalog.get(card);
+  const ownResourceCast=def?.family==='miracle'&&def.effects.some(e=>
+    e.when==='onDeclare'&&e.type==='restoreResource');
+  command.targetId=ownResourceCast?seat:(seat==='A'?'B':'A');
+ }
+ waiting=true;pendingId=command.commandId;pendingCommand=command;
+ feedback('操作を送信しています…');render();
+ try{await session.submit(command)}catch(error){
+  // A rejected card selection can be changed; a network failure after a
+  // committed action must preserve the same command ID for safe resending.
+  if(error?.commandRejected){
+   waiting=false;pendingId=null;pendingCommand=null;
+  }
+  onError(error);render();
+ }
+}
+async function retryPending(){
+ if(!session||!waiting||!pendingCommand||retrying)return;
+ retrying=true;feedback('同じ操作IDで再送しています…');render();
+ try{
+  await session.submit(pendingCommand);
+  if(seat==='A'&&waiting){
+   // Host submit publishes the authoritative state and reports its receipt.
+   feedback('同期結果を確認しています…');
+  }
+ }catch(error){onError(error);}
+ finally{retrying=false;render();}
+}
+$('create').addEventListener('click',async()=>{
+ $('create').disabled=true;
+ try{
+  const database=ensureDb();
+  const preset=LAB_PRESETS[$('labPreset').value];
+  if(!preset)throw Error('未対応の研究用セットです');
+  // Catch an accidentally removed research card BEFORE touching Firebase.
+  for(const ids of [preset.A,preset.B])
+   if(ids.some(id=>!catalog.has(id)))throw Error('セットの神器定義が不足しています');
+  const initialState=createStagingRoom({firstSeatId:'A',
+   seats:[{id:'A',handDefinitionIds:[...preset.A]},
+    {id:'B',handDefinitionIds:[...preset.B]}],
+   rulesetId:'partial-reference-v2-lab',rngSeed:preset.rngSeed??71},catalog);
+  for(const [index,mp] of [[0,preset.mpA],[1,preset.mpB]]){
+   if(mp!==undefined){
+    if(!Number.isSafeInteger(mp)||mp<0||mp>99)
+     throw Error('研究用MP設定が不正です');
+    initialState.players[index].mp=mp;
+   }
+  }
+  for(const [index,disease] of [[0,preset.diseaseA],[1,preset.diseaseB]]){
+   if(disease!==undefined){
+    if(!['cold','fever','hell','heaven'].includes(disease))
+     throw Error('研究用の病設定が不正です');
+    initialState.players[index].disease=disease;
+   }
+  }
+  // Host-owned fixed lab data, never accepted from a guest command.
+  for(const [index,ids] of [[0,preset.learnedA],[1,preset.learnedB]]){
+   if(ids!==undefined){
+    if(ids.length>6||new Set(ids).size!==ids.length||
+      ids.some(id=>catalog.get(id)?.family!=='miracle'))
+     throw Error('研究用習得済み奇跡の定義が不正です');
+    initialState.players[index].learned=[...ids];
+   }
+  }
+  for(let i=0;i<5;i++){
+   try{
+    const roomCode=code();
+    seat='A';joined=false;
+    session=await createFirebaseTwoSeatHostFixture({db:database,code:roomCode,
+     hostId:randomId(),initialState,catalog,...callbacks()});
+    break;
+   }catch(e){if(!/使用中/.test(e.message)||i===4)throw e;}
+  }
+  render();feedback('ルーム番号を友達に伝えてください');
+ }catch(e){onError(e);seat=null;}finally{$('create').disabled=!!session}
+});
+$('join').addEventListener('click',async()=>{
+ $('join').disabled=true;
+ try{
+  const database=ensureDb(),roomCode=$('joinCode').value.trim();
+  const key='godfield-v2-guest-'+roomCode;
+  // Google Sites can use an isolated iframe origin with storage disabled.
+  // The ID only improves same-tab rejoin; a first join must not require storage.
+  let previousId=null;
+  try{previousId=sessionStorage.getItem(key)}catch{}
+  const guestId=previousId||randomId();
+  seat='B';joined=true;
+  session=await joinFirebaseTwoSeatGuestFixture({db:database,code:roomCode,guestId,...callbacks()});
+  try{sessionStorage.setItem(key,guestId)}catch{}
+  render();feedback('接続しました。自分の順番を待ってください');
+ }catch(e){onError(e);seat=null;}finally{$('join').disabled=!!session}
+});
+$('retry').addEventListener('click',retryPending);
+$('attack').addEventListener('click',()=>send('playCards'));
+$('useItem').addEventListener('click',()=>send('useItem'));
+$('sell').addEventListener('click',()=>send('declareSale'));
+$('buy').addEventListener('click',()=>send('declareBuy'));
+$('buyAccept').addEventListener('click',()=>send('decideBuy',true));
+$('buyDecline').addEventListener('click',()=>send('decideBuy',false));
+$('exchange').addEventListener('click',()=>send('exchange'));
+for(const [key,id] of [['hp','exchangeHp'],['mp','exchangeMp'],['money','exchangeMoney']]){
+ $(id).addEventListener('input',()=>{
+  if(!exchangeDraft)return;
+  exchangeDraft[key]=$(id).value===''?NaN:Number($(id).value);
+  render();
+ });
+}
+$('itemTarget').addEventListener('click',()=>{itemTarget=itemTarget==='self'?'other':'self';render();});
+$('defend').addEventListener('click',()=>send('defend'));
+$('pray').addEventListener('click',()=>send('pray'));
+$('discard').addEventListener('click',()=>send('discard'));
+feedback('ルームを作るか、5桁の番号で参加してください');
+</script>
+</body></html>
