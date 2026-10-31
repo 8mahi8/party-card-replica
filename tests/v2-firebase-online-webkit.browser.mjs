@@ -1094,6 +1094,97 @@ try{
   }finally{await a.close();await b.close();}
  }
  await exchangeTouchTrial();
+ // G7 source-verified resource miracles: own turn, own resources, and
+ // subsequent learned recast after the other player uses a weapon.
+ async function resourceMiracleTrial({definitionId,resource}){
+  const a=await context.newPage(),b=await context.newPage();
+  for(const p of [a,b])p.on('pageerror',err=>errors.push(err.message));
+  try{
+   await a.goto(target);
+   await a.locator('#labPreset').selectOption('resourceMiracles');
+   await a.locator('#create').tap();
+   await a.waitForFunction(()=>/\b\d{5}\b/.test(
+     document.querySelector('#roomLabel')?.textContent||''));
+   const room=(await a.locator('#roomLabel').textContent()).match(/\d{5}/)[0];
+   await b.goto(target);
+   await b.locator('#joinCode').fill(room);
+   await b.locator('#join').tap();
+   await b.locator('#hand button').first().waitFor();
+   await a.locator('#hand button').nth(definitionId==='m015'?0:1).tap();
+   check(await a.locator('#attack').isEnabled()&&
+     (await a.locator('#attack').textContent()).includes('奇跡を使う'),
+    'self-resource miracle has a clear usable action rather than attack label');
+   check((await a.locator('#selectionTotal').textContent())
+     .includes(resource==='hp'?'HP+10':'¥+10'),
+    'preview identifies the exact sourced benefit and MP cost');
+   await a.locator('#attack').tap();
+   await Promise.all([a,b].map(p=>p.waitForFunction(({resource})=>{
+    const score=document.querySelectorAll('.score')[0]?.textContent||'';
+    return score.includes(resource==='hp'?'HP 50':'¥ 30')&&
+     (document.querySelector('#phase')?.textContent||'').includes('攻撃');
+   },{resource},{timeout:15000})));
+   check(await a.locator('.learned-choice').count()===1,
+    'physical resource miracle becomes one learned reusable miracle');
+   check(await a.locator('#hand button').count()===4,
+    'initial miracle is refilled exactly once');
+   await b.locator('#hand button').first().tap();
+   await b.locator('#attack').tap();
+   await a.waitForFunction(()=>document.querySelector('#phase')?.textContent
+     .includes('あなたの防御'),null,{timeout:15000});
+   await a.locator('#defend').tap();
+   await a.waitForFunction(()=>document.querySelector('#phase')?.textContent
+     .includes('あなたの攻撃'),null,{timeout:15000});
+   await a.locator('.learned-choice').first().tap();
+   check((await a.locator('#selectionPreview').textContent())
+    .includes(resource==='hp'?'泉':'財宝'),
+    'learned self-resource miracle is selectable from its own row');
+   await a.locator('#attack').tap();
+   await Promise.all([a,b].map(p=>p.waitForFunction(({resource})=>{
+    const score=document.querySelectorAll('.score')[0]?.textContent||'';
+    return score.includes(resource==='hp'?'HP 50':'¥ 40')&&
+     (document.querySelector('#phase')?.textContent||'').includes('攻撃');
+   },{resource},{timeout:15000})));
+   const money=resource==='money';
+   check((await a.locator('.score').first().textContent())
+    .includes(money?'MP 15':'MP 11'),
+    'both casts deduct the sourced MP cost from initial MP25');
+   check(await a.locator('#hand button').count()===5,
+    'learned recast gives one extra physical draw');
+   check(await b.evaluate(()=>document.documentElement.scrollWidth<=
+      document.documentElement.clientWidth+2),
+    'new resource miracle HUD stays within embedded Safari width');
+  }finally{await a.close();await b.close();}
+ }
+ await resourceMiracleTrial({definitionId:'m015',resource:'hp'});
+ await resourceMiracleTrial({definitionId:'m016',resource:'money'});
+ // An already scrolled learned miracle list must not snap to the start
+ // whenever tapping a choice forces render() to rebuild the buttons.
+ {
+  const a=await context.newPage(),b=await context.newPage();
+  try{
+   await a.goto(target);
+   await a.locator('#labPreset').selectOption('soap');
+   await a.locator('#create').tap();
+   await a.waitForFunction(()=>/\b\d{5}\b/.test(
+     document.querySelector('#roomLabel')?.textContent||''));
+   const room=(await a.locator('#roomLabel').textContent()).match(/\d{5}/)[0];
+   await b.goto(target);
+   await b.locator('#joinCode').fill(room);
+   await b.locator('#join').tap();
+   await b.locator('#hand button').first().waitFor();
+   const position=await a.evaluate(()=>{
+    const area=document.querySelector('#learnedMiracles');
+    area.style.width='125px';
+    const list=area.querySelector('.learned-list');
+    list.scrollLeft=list.scrollWidth;
+    return list.scrollLeft;
+   });
+   check(position>30,'three learned spells overflow the narrow scroll viewport');
+   await a.locator('.learned-choice').last().tap();
+   check(await a.evaluate(()=>document.querySelector('.learned-list').scrollLeft)>20,
+    'selecting learned miracle preserves horizontal scroll instead of snapping');
+  }finally{await a.close();await b.close();}
+ }
  check(errors.length===0,'all preset trials have no script errors');
  console.log('FIREBASE_ONLINE_WEBKIT_SUCCESS checks='+checks+
   ' two tabs with mock RTDB, viewport=390x430');
