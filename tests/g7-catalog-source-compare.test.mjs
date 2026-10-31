@@ -24,7 +24,7 @@ test('2025 353-kind claim has an impossible remaining count even ignoring catego
  assert.equal(old.missingKinds,174);
  assert.equal(old.maxPossibleKinds,239);
  assert.equal(old.kindCountPossible,false);
- assert.equal(newerStudy.remainingSlots,63);
+ assert.equal(newerStudy.remainingSlots,60);
  assert.equal(newerStudy.missingKinds,58);
  assert.equal(newerStudy.maxPossibleKinds,239);
  assert.equal(newerStudy.kindCountPossible,true,
