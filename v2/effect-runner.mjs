@@ -235,8 +235,8 @@ export function runEffectQueueFixture(state,catalog,queue,{
      }
    } else if(effect.type==='restoreResource'){
      // Ordinary item recovery is not a strike, must not revive a fallen
-     // player, and caps HP/MP at the source game's maximum of 99.
-     if(!['hp','mp'].includes(effect.resource)||
+     // player, and caps HP/MP/¥ at the source game's maximum of 99.
+     if(!['hp','mp','money'].includes(effect.resource)||
         !Number.isSafeInteger(effect.amount)||effect.amount<1||effect.amount>99)
        fail('Invalid plain recovery effect');
      const p=who(s,effect.playerId);
