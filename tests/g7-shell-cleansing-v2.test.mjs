@@ -46,7 +46,7 @@ test('both shells are source-backed, typed, and do not turn on incomplete weight
    [{when:'onDeclare',type:'cleanseAfflictions',params:{scope}}]);
   assert.deepEqual(catalog.get(id).playModes,['use']);
  }
- assert.deepEqual([summary.unique,summary.slots,summary.complete],[176,437,false]);
+ assert.deepEqual([summary.unique,summary.slots,summary.complete],[179,440,false]);
  assert.equal(RESEARCH_CATALOG_CONTRACT.unique,summary.unique);
  assert.equal(RESEARCH_CATALOG_CONTRACT.slots,summary.slots);
  assert.throws(()=>convertLegacyCard({...smile,weight:6}),/Invalid source-backed shell/);
