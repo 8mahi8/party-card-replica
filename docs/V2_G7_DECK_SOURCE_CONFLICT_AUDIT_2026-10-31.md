@@ -40,6 +40,12 @@
 - `tests/g7-catalog-source-compare.test.mjs`：6回帰テスト。資料総枠500の検算、176/437と区分154/130/60/16/77、353説に必要な177種類、237説に必要な61種類、単体無属性122>110、虹のカーテン／スーパーミラーの確率区分、既存`createAuditedDraw`の未完成山札拒否を検証。
 - 既存`src/catalog-audit.mjs`の**正式な完全性検査は変更していない**。部分台帳を正規デッキとして引けるようにする対応ではない。
 
+## 実行確認（2026-10-31）
+
+- Node **1047/1047 PASS**：[Actions run 41177775617](https://github.com/8mahi8/party-card-replica/actions/runs/41177775617)。新しい資料版監査6件を含む。
+- Chromium **PASS**：[Actions run 41177775717](https://github.com/8mahi8/party-card-replica/actions/runs/41177775717)。
+- WebKit **オンライン2席275/275 PASS・既存UI339/339 PASS**：[Actions run 41177775666](https://github.com/8mahi8/party-card-replica/actions/runs/41177775666)。今回は画面コードに変更なし。学校iPad実機や2026年本家クライアントの確認ではない。
+
 ## 開発判断・次の作業
 
 1. 2026年現行原作に対応した、種類数・500枠と主要な分類の証拠を優先して照合する。資料更新年とカード一覧が実際に一致するか確認。
