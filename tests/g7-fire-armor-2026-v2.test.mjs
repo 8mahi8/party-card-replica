@@ -55,13 +55,13 @@ test('one sourced fire shield reduces water-element attack, using common defense
  defend(['d060']);
  const state=A.read();
  assert.equal(state.players[1].hp,38,'water attack 4 - guard 2 = 2 damage');
- assert.equal(state.players[1].hand.length,4,'one played shield replenished once');
+ assert.equal(B.read().players[1].hand.length,4,'one played shield replenished once');
  assert.equal(state.activePlayerId,'B');
  assert.equal(B.read().players[0].hand,undefined);
 });
 test('another fire shield fully blocks and two new fire shields stack, without special cases',()=>{
  for(const names of [['d061'],['d062'],['d060','d061']]){
-  const {A,defend}=duel();
+  const {A,B,defend}=duel();
   defend(names);
   const state=A.read();
   assert.equal(state.players[1].hp,40,names.join('+'));
@@ -84,7 +84,7 @@ test('sourced additions increase the diagnostic armor count but never authorize 
  const b=report.comparisons.find(x=>x.key==='player-study-2024-11-06');
  assert.deepEqual([a.missingKinds,a.remainingSlots,a.kindCountPossible],[174,60,false]);
  assert.deepEqual([b.missingKinds,b.remainingSlots,b.kindCountPossible],[58,60,true]);
- assert.equal(report.categoryCells.armor_normal.fire,7);
+ assert.equal(report.categoryCells.armor_normal.fire,8);
  assert.equal(report.categoryCells.weapon_single.none,122,'unrelated source mismatch untouched');
  assert.equal(a.typedCellOverflows.length,1);
  assert.equal(auditCatalog(VERIFIED_BASIC_CARDS).complete,false);
