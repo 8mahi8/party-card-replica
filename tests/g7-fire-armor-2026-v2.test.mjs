@@ -65,7 +65,7 @@ test('another fire shield fully blocks and two new fire shields stack, without s
   defend(names);
   const state=A.read();
   assert.equal(state.players[1].hp,40,names.join('+'));
-  assert.equal(state.players[1].hand.length,4,'spent shield cards must refill');
+  assert.equal(B.read().players[1].hand.length,4,'spent shield cards must refill');
   assert.equal(state.activePlayerId,'B');
  }
 });
