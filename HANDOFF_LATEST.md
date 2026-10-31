@@ -10,7 +10,7 @@
 - **実施内容**：2025年9月Piong wikiの**353種／500枠（武器170・防具148・取引60・奇跡30・雑貨92）**と、2024年11月プレイヤー確率調査の**237種／500枠（武器181・防具147・取引60・奇跡30・雑貨82）**を照合。2026年5月更新の別Wikiも**237種類**と記載しているが、**現行原作の直接確認はできておらず断定しない**。
 - **独立監査を追加**：`src/catalog-source-compare.mjs`と`tests/g7-catalog-source-compare.test.mjs`（6件）。研究用176種類・437参考枠を確率表のカテゴリーへ正しく投影する。ゲーム操作上`defense_item`の虹のカーテン（3枠）・スーパーミラー（1枠）は**2025年確率表のその他防具4枠**へ計上し、既存カードデータ・対戦処理は一切変更していない。
 - **数字による結論**：現在の研究枠は武器154／防具130／取引60／奇跡16／雑貨77。500枠中残63枠。**353種類**まであと177種類必要で算術上不可能（最大239種類）。**237種類**ならあと61種類で算術上は可能だが、原作の正しい総種類数として採用しない。また、2025年細分類の**無属性単体武器110枠に現行台帳が122枠（12超過）**であり、2025年抽選表を現代の台帳にそのまま適用できない。2024/2025版の出現率を混ぜて無理に調整しない。
-- **検証**：追加した6件を含むNode **1047/1047 PASS** [run 41177672137](https://github.com/8mahi8/party-card-replica/actions/runs/41177672137)。最新HEADのWebKit/ChromiumはGitHub Actionsを確認。**正規山札の有効化は引き続き拒否**（`auditCatalog`、`createAuditedDraw`は変更なし）。
+- **検証**：追加した6件を含む最新HEADのNode **1047/1047 PASS** [run 41177775617](https://github.com/8mahi8/party-card-replica/actions/runs/41177775617)、Chromium **PASS** [run 41177775717](https://github.com/8mahi8/party-card-replica/actions/runs/41177775717)、WebKit **オンライン2席275/275 PASS＋既存画面339/339 PASS** [run 41177775666](https://github.com/8mahi8/party-card-replica/actions/runs/41177775666)。**正規山札の有効化は引き続き拒否**（`auditCatalog`、`createAuditedDraw`は変更なし）。
 - **詳細と出典**：[V2_G7_DECK_SOURCE_CONFLICT_AUDIT_2026-10-31.md](docs/V2_G7_DECK_SOURCE_CONFLICT_AUDIT_2026-10-31.md)。次は実際の2026年版の種類数・各カード重みの根拠を絞る。他のカード効果の実装は既存共通基盤へ原作の裏付けがある場合だけ増やす。学校iPad実機と学校Google Sites HTMLは未変更・未検証。main/Firebase Rules/認証も変更なし。
 
 ## 2026-10-31 G7｜奇跡〈泉〉〈財宝〉の原作資料照合・実装【最新】
