@@ -121,3 +121,12 @@ test('Buy candidate is private until defender passes and Exchange conserves tota
  assert.match(page,/if\(effectiveType==='decideBuy'\)command\.accept=accept/);
  assert.match(page,/Number\.isSafeInteger\(sum\)&&sum===total/);
 });
+
+test('self-resource miracles have clear action label, own target, and preserve learned scroll',()=>{
+ assert.match(page,/resourceMiracles/);
+ assert.match(page,/ownResourceCast\?seat:/);
+ assert.match(page,/resourceCast\?'奇跡を使う':'攻撃する'/);
+ assert.match(page,/\['inflictDisease','restoreResource'\]\.includes\(e\.type\)/);
+ assert.match(page,/const learnedScroll=learnedArea\.querySelector/);
+ assert.match(page,/learnedList\.scrollLeft=learnedScroll/);
+});
