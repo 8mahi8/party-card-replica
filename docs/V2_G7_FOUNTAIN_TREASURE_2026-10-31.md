@@ -22,7 +22,7 @@
 - `tests/g7-resource-miracles-v2.test.mjs`：2カードの定義・MP・攻撃0・原作参考入手率、初回使用、習得後の再使用、精霊でMP免除、MP不足、他者ターゲットの拒否、資源99での打ち止め、相手手札非公開を検査。
 - `tests/g7-online-loadout-presets-v2.test.mjs`：新しい19番目の研究セットの4枚が存在することを検査。
 - `tests/v2-firebase-online-webkit.browser.mjs`：Playwright WebKit 2タブ模擬RTDB上で、両奇跡それぞれを使う→相手が攻撃→習得済みをもう一度使うタップ試験。横スクロール位置の回帰も追加。
-- 単体HTML3本は既存ビルダーで再生成。GitHub Actions Node/Chromium/WebKitの実行結果は完了後に確認し引き継ぎ資料へ追記する。
+- 単体HTML3本は既存ビルダーで再生成。**GitHub Actions全成功**：Node **1041/1041 PASS** [run 41170214530](https://github.com/8mahi8/party-card-replica/actions/runs/41170214530)、Chromium **PASS** [run 41170214548](https://github.com/8mahi8/party-card-replica/actions/runs/41170214548)、WebKit **オンライン2席275/275 PASS＋既存画面339/339 PASS** [run 41170214532](https://github.com/8mahi8/party-card-replica/actions/runs/41170214532)。
 
 ## 正規山札へ進む前のデータ検証課題
 Piong wiki [ゲーム仕様](https://w.atwiki.jp/piong/pages/16.html)は「**500枠・353種類**」と記載する。しかし現在の研究用台帳は176種類で437枠を消費し、**あと63枠の中に少なくとも177種類を追加することは数学的にできない**。現在の参考出現率、総種類数、参照する原作の版の少なくとも一部に齟齬がある。2024年の[別プレイヤー研究](https://note.com/penspin_act/n/n0bde7586d68e)では237枚という異なる数字も見つかるが、こちらも完全な一次証拠ではない。**353を勝手に237へ変更することはしない**。各資料の年代とカード別の重み・カテゴリ分布を改めて監査し、実際の原作に合うデータセットを確定するまで、ランダム山札を公開用に有効化しない。
