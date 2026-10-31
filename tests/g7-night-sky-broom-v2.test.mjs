@@ -37,7 +37,7 @@ test('Night Sky Broom is source-verified 10 yen / 1 of 500 and strictly typed',(
  assert.deepEqual(def.playModes,['use']);
  assert.deepEqual(def.effects,[{when:'onDeclare',type:'sweepHand',params:{count:3}}]);
  assert.deepEqual([summary.unique,summary.slots,summary.complete],
-  [176,437,false]);
+  [179,440,false]);
  assert.equal(summary.unique,RESEARCH_CATALOG_CONTRACT.unique);
  assert.equal(summary.slots,RESEARCH_CATALOG_CONTRACT.slots);
  const bad={...src,weight:2};
