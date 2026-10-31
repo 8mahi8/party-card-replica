@@ -33,7 +33,7 @@ test('DokiDoki tear has strictly sourced 50/50 outcome definition and 2/500 weig
  assert.deepEqual(def.playModes,['use']);
  assert.deepEqual([summary.unique,summary.slots,summary.complete],
    [RESEARCH_CATALOG_CONTRACT.unique,RESEARCH_CATALOG_CONTRACT.slots,false]);
- assert.deepEqual([summary.unique,summary.slots],[174,435]);
+ assert.deepEqual([summary.unique,summary.slots],[176,437]);
 });
 test('seeded heal branch restores 10 HP, refills used item and retains attack turn',()=>{
  assert(drawRandom32(1).value<0.5);
