@@ -5,6 +5,16 @@
 
 > **この文書は引き継ぎ入口であり、実装の真実は常に開発ブランチの最新コードとGitHub Actions。** コミットSHA・テスト件数・カード数は作業のたびに変わる。本文の日付や数値を確認せず永久に正しいと扱わないこと。
 
+## 2026-10-31 G7｜奇跡〈泉〉〈財宝〉の原作資料照合・実装【最新】
+
+- **原作資料**：[Piong 奇跡一覧](https://w.atwiki.jp/piong/pages/20.html)、[GFGA 奇跡一覧](https://w.atwiki.jp/gfplusa/pages/19.html)、[2026年9月解説](https://toroccowars.jp/21523/)で相互確認。〈泉〉MP7・HP+10、〈財宝〉MP5・¥+10。ともに無属性・参考出現率1/500。初回使用で習得し、MPを払って再使用できる。
+- **実装**：部分台帳へ`m015`／`m016`を追加。`role:'resource'`から既存`onDeclare:restoreResource`へアダプタ変換。共有エフェクトキューの対象資源へ`money`を追加し、MP消費／習得／1枚補充／手番終了を流用。ゲーム本体で使用者本人への詠唱だけ扱い、原作未確認の他者指定は拒否。直後の精霊によるMP免除と習得後の唱え直しも対応。
+- **オンラインUI**：19番目の固定研究セット`resourceMiracles`追加。「奇跡を使う」の専用文言、HP/¥+10のプレビュー、詠唱コマンドの自己指定、習得済み奇跡ボタン列の横スクロール位置維持を追加。学校のGoogle Sitesは更新していない。
+- **検証**：新規`tests/g7-resource-miracles-v2.test.mjs`（9件）およびWebKit2席タップ検証で、初回／習得後／精霊／MP不足／他人指定拒否／資源99上限を確認する設計。Node **1041/1041 PASS** [run 41170214530](https://github.com/8mahi8/party-card-replica/actions/runs/41170214530)、Chromium **PASS** [run 41170214548](https://github.com/8mahi8/party-card-replica/actions/runs/41170214548)。WebKit新試験の最終結果は[run 41170214532](https://github.com/8mahi8/party-card-replica/actions/runs/41170214532)を確認のこと。単体HTML3本は生成して開発ブランチへ同期済。生成用workflowは手動専用へ復帰。
+- **台帳更新と問題**：研究台帳 **176種類・437/500参考枠**、`complete:false`のまま。これまでの資料にある「353種類・500枠」は、この部分台帳の176種類/437枠と**算術的に両立しない**（残り63枠で177種類を追加できない）。原作の版・重み・抽選仕様を照合するまで、正規の確率山札は有効化しない。旧資料の数値は履歴とみなす。
+- **詳細**：[V2_G7_FOUNTAIN_TREASURE_2026-10-31.md](docs/V2_G7_FOUNTAIN_TREASURE_2026-10-31.md)。実Firebaseによる今回の新奇跡再試験、学校iPad Safari/Google Sites直貼りは未検証。Firebase Security Rules、認証方式、mainは変更なし。
+- **次工程**：WebKit全件が通ったか確認して不具合修正し、カード台帳の版・重み・総枚数の矛盾を原作資料と照らして整理。前回実Firebase取引5経路は60/60合格、繰り返し再検証不要。Google Sites配布はユーザー依頼があるまで変更禁止。
+
 ## 2026-10-31 G6｜本物Firebase・オンライン取引5経路の2席検証【最新】
 
 - **今回の優先作業**：「売る」「買う」「両替」の新UIは模擬RTDBでしか検証していなかった。実Firebaseに2独立WebKitブラウザから接続し、友達同士のオンライン試合を模した5つの研究シナリオを実行した。
