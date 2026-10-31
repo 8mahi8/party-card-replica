@@ -128,7 +128,10 @@ test('learned resource miracle rejected on wrong target or insufficient MP',()=>
  const original=JSON.stringify(A.read());
  assert.throws(()=>send(A,'A','castLearned',{learnedDefinitionId:'m015',targetId:'A'}),
    /Not enough MP/);
- assert.throws(()=>send(A,'A','castLearned',{learnedDefinitionId:'m015',targetId:'B'}),
-   /Resource miracle must be cast on its owner/);
  assert.equal(JSON.stringify(A.read()),original);
+ const {A:ready}=room({learned:['m015'],mp:7});
+ const before=JSON.stringify(ready.read());
+ assert.throws(()=>send(ready,'A','castLearned',{learnedDefinitionId:'m015',targetId:'B'}),
+   /Resource miracle must be cast on its owner/);
+ assert.equal(JSON.stringify(ready.read()),before);
 });
