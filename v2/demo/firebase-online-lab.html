@@ -350,11 +350,11 @@ function render(){
   stats.append(e);
  }
  const mine=active&&(seat!=='A'||joined),busy=waiting;
- const learnedArea=$('learnedMiracles');learnedArea.replaceChildren();
+ const learnedArea=$('learnedMiracles');
+ const learnedScroll=learnedArea.querySelector('.learned-list')?.scrollLeft??0;
+ learnedArea.replaceChildren();
  const learnedTitle=document.createElement('span');learnedTitle.className='learned-title';
  learnedTitle.textContent='習得済み';learnedArea.append(learnedTitle);
- const previousLearnedList=learnedArea.querySelector('.learned-list');
- const learnedScroll=previousLearnedList?.scrollLeft??0;
  const learnedList=document.createElement('div');learnedList.className='learned-list';
  if(!player.learned?.length){
   const empty=document.createElement('span');empty.className='learned-empty';
