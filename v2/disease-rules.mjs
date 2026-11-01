@@ -60,7 +60,7 @@ export function planDiseaseCure(disease,scope){
  * non-disease afflictions. This array permits a future independently sourced
  * status without redefining the four-stage illness progression.
  */
-export const OTHER_AFFLICTIONS=Object.freeze(['flash','mist']);
+export const OTHER_AFFLICTIONS=Object.freeze(['flash','mist','dream']);
 export function assertOtherAfflictions(value){
  if(value===undefined)return [];
  if(!Array.isArray(value)||value.some(v=>!OTHER_AFFLICTIONS.includes(v))||
@@ -73,7 +73,8 @@ export function planOtherAfflictionCure(value,scope){
  if(!['minor','all'].includes(scope))throw new Error('Invalid affliction cure scope');
  // Both Smile and Heart cure Flash in the original; more statuses require
  // explicit original-backed membership before they can be added here.
- // Mist is a minor affliction, cured by Melody and Smile Shell.
- const after=before.filter(v=>!(['flash','mist'].includes(v)&&['minor','all'].includes(scope)));
+ // Mist is minor; Dream is major (Heart Shell / Song, not Smile/Melody).
+ const after=before.filter(v=>!(scope==='all'||
+  (scope==='minor'&&['flash','mist'].includes(v))));
  return Object.freeze({before,after,cured:before.length!==after.length});
 }
