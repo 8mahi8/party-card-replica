@@ -46,7 +46,7 @@ test('Fountain and Treasure are source-backed self-resource miracles, not fictio
   assert.throws(()=>convertLegacyCard({...src,restoreAmount:99}),
    /Unverified resource miracle/);
  }
- assert.deepEqual([summary.unique,summary.slots,summary.complete],[184,445,false]);
+ assert.deepEqual([summary.unique,summary.slots,summary.complete],[185,446,false]);
  assert.equal(summary.unique,RESEARCH_CATALOG_CONTRACT.unique);
  assert.equal(summary.slots,RESEARCH_CATALOG_CONTRACT.slots);
 });
