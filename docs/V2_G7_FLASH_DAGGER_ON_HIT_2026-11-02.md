@@ -23,4 +23,11 @@
 - 研究部分台帳：**182種類／443参考枠、complete:false**。2024/2025確率表と2026神器一覧の版差は維持し、見かけの500枠を強制的に作らない。
 - **未実装**：全体攻撃〈閃光〉、天王の指輪などの反撃付与、霧・夢・暗雲、原作の正規山札、学校iPad Safari実機およびGoogle Sites直接貼り付け実測。
 - Firebase Rules、認証方式、学校Google Sites、mainへの変更なし。GitHubの単体HTMLは開発・試遊版。
-- **注意**：CIの成功件数とrun番号は最終結果が確定した後に追記する。研究用固定補充と独立した模擬WebKitは原作・学校本番の動作保証ではない。
+## 最終CI検証（2026-11-02 日本時間）
+
+- [Rules Lab Tests run 41328918477](https://github.com/8mahi8/party-card-replica/actions/runs/41328918477)：**Node 1,077/1,077 合格**。
+- [Chromium run 41328918449](https://github.com/8mahi8/party-card-replica/actions/runs/41328918449)：**28/28 合格**。短いiframe・横向き相当の画面を操作。
+- [WebKit run 41328918484](https://github.com/8mahi8/party-card-replica/actions/runs/41328918484)：模擬Firebase Realtime Database・**独立2ブラウザで310/310合格**、従来画面**339/339合格**。フラッシュダガーの宣言時には閃光なし→防御なしでHP38と閃光付与→スマイルの貝がらを使うとHP38維持で閃光だけ解除、という手番を実際にタップして検証した。
+- `v2/demo/firebase-online-standalone.html` と `v2/demo/standalone.html`、旧研究デモ `demo/standalone.html` をGitHub開発ブランチで再生成し同期。ビルドワークフローを**手動専用へ復帰済**。
+- 中間CIの失敗は旧カード181/442と新182/443の期待値差分、古い単体HTML、光属性攻撃に対して光防具を選んだテスト誤り（光攻撃は普通の防具で防げないため虹のカーテン＋守3へ修正）。**最終コードでは全合格**。
+- 実Firebase書き込み・学校iPad Safari実機・Google Sites直貼りは未検証。研究用固定補充の成功を本家の山札や学校本番の保証と混同しない。
