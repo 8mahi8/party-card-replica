@@ -104,8 +104,10 @@ export function compileSoloMiracleResolution(state,catalog) {
  const payableMP=cached?0:(spirit?0:miracle.stats.mpCost);
  if(!cached&&caster.mp<payableMP)fail('Not enough MP');
  const self=(p.sourceId??p.originalAttackerId)===p.targetId;
- if((resourceEffect||cleansing)&&(!self||p.targetId!==caster.id))
-   fail('Support miracle must be cast on its owner in the research lab');
+ if(resourceEffect&&(!self||p.targetId!==caster.id))
+   fail('Resource miracle must be cast on its owner in the research lab');
+ if(cleansing&&(!self||p.targetId!==caster.id))
+   fail('Cleansing miracle must be cast on its owner in the research lab');
  let defense=[];
  if(self) {
    if(p.defense!==null)fail('Self cast cannot be defended');
