@@ -1640,7 +1640,7 @@ try{
    check(!(await b.locator('.score').last().textContent()).includes('災い：夢'),
     'Dream is not inflicted on declaration');
    await b.locator('#defend').tap();
-   await b.waitForFunction(()=>document.querySelector('.score:last-child')?.textContent
+   await b.waitForFunction(()=>document.querySelectorAll('.score')[1]?.textContent
     .includes('災い：夢'),null,{timeout:15000});
    check((await a.locator('.score').first().textContent()).includes('MP 4'),
     'Dream costs the verified six MP');
@@ -1650,7 +1650,7 @@ try{
     'minor shell does not cure Dream');
    await b.locator('#hand button').filter({hasText:'ハートの貝がら'}).tap();
    await b.locator('#useItem').tap();
-   await b.waitForFunction(()=>!document.querySelector('.score:last-child')?.textContent
+   await b.waitForFunction(()=>!document.querySelectorAll('.score')[1]?.textContent
     .includes('災い：夢'),null,{timeout:15000});
    check((await b.locator('#phase').textContent()).includes('あなたの攻撃'),
     'Dream cure keeps the active turn');
