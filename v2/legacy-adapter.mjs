@@ -64,11 +64,11 @@ export function convertLegacyCard(card,{ruleset=PARTIAL_CARD_SOURCE}={}) {
       effects.push(mk('afterHit','inflictDisease',{disease:card.diseaseOnHit}));
     }
     if(card.afflictionOnHit!==undefined){
-      if(card.afflictionOnHit!=='flash'||card.slot!=='main'||
+      if(!['flash','mist'].includes(card.afflictionOnHit)||card.slot!=='main'||
          card.diseaseOnHit!==undefined||card.hpAbsorb!==undefined||
          card.repeatHits!==undefined)
         throw new Error('Unverified on-hit affliction weapon definition');
-      effects.push(mk('afterHit','inflictAffliction',{affliction:'flash'}));
+      effects.push(mk('afterHit','inflictAffliction',{affliction:card.afflictionOnHit}));
     }
     if(card.hpAbsorb!==undefined){
       if(card.hpAbsorb!==true||card.slot!=='main')
