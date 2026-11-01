@@ -46,7 +46,7 @@ test('one source-backed light Absorb miracle costs MP10 and uses existing absorb
   ['吸収','miracle','attack','light',10,10,true,1]);
  assert.deepEqual(def.playModes,['cast']);
  assert.deepEqual(def.effects,[{when:'afterHit',type:'absorbHp',params:{amount:'damage'}}]);
- assert.deepEqual([summary.unique,summary.slots,summary.complete],[185,446,false]);
+ assert.deepEqual([summary.unique,summary.slots,summary.complete],[RESEARCH_CATALOG_CONTRACT.unique,RESEARCH_CATALOG_CONTRACT.slots,false]);
  assert.equal(RESEARCH_CATALOG_CONTRACT.unique,summary.unique);
  assert.equal(RESEARCH_CATALOG_CONTRACT.slots,summary.slots);
  for(const mutation of [{mpCost:9},{attack:9},{element:'fire'},{hpAbsorb:'yes'}])
