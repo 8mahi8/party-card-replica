@@ -16,7 +16,7 @@
 - `tests/g7-magical-staff-v2.test.mjs` 新規7件：型付きカードと原作値、MP8→攻16/全消費、守3防御による13ダメージ、スーパーミラー反射後のMP再徴収なし、未知連携の状態不変拒否、MP0の状態不変拒否、従来通常武器の回帰。
 - `tests/v2-firebase-online-webkit.browser.mjs` に独立2タブの模擬RTDB WebKit タップ検証を追加。宣言時の攻MP×2表示→許す→HP24・MP0→手番進行と390×430画面収まりを検査。
 - 過去の実カード追加で、古い台帳数値をコピーしたテストが十数件失敗する問題を繰り返していた。そのため個別カードのテストから固定186/447を取り除き、`tests/helpers/research-catalog-contract.mjs`の単一スナップショットを参照するよう整理。**ただしカテゴリごとの型付き参照分布は独立監査を維持**し、誤った版の確率を正当化しない。
-- GitHub ActionsのNode/Chromium/WebKit実行結果は最終HEADで別途確認する。CI合格と本家原作仕様の一次確認、および学校iPad Safari実機検証は異なる。
+- **実際のGitHub Actionsログ**：Node **1,126/1,126合格** [run 41358682761](https://github.com/8mahi8/party-card-replica/actions/runs/41358682761)、Chromium **28/28成功** [run 41358682757](https://github.com/8mahi8/party-card-replica/actions/runs/41358682757)、WebKit **模擬RTDB2画面329/329＋既存UI339/339成功** [run 41358682802](https://github.com/8mahi8/party-card-replica/actions/runs/41358682802)。このrunの後続変更は資料更新と一時ビルドworkflowの手動専用復旧のみ。CI合格と原作実操作の一次確認・学校iPad Safari実機検証は異なる。
 - Firebase Security Rules・認証・GitHub main・学校Google Sites HTMLに変更なし。
 
 ## 次
