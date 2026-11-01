@@ -8,11 +8,12 @@ import {assertOtherAfflictions,planOtherAfflictionCure} from '../v2/disease-rule
 const {byId:catalog}=migrateLegacyCatalog();
 let serial=0;
 function room({a=['w016','w016','d003','i006'],
- b=['d001','d003','i017','w016'],flashSeat='B'}={}){
+ b=['d001','d003','i017','w016'],flashSeat='B',learnedB=[]}={}){
  const initial=createStagingRoom({seats:[
   {id:'A',handDefinitionIds:a},{id:'B',handDefinitionIds:b}
  ],firstSeatId:'A',rngSeed:71,rulesetId:'partial-reference-v2-lab'},catalog);
  initial.players.find(p=>p.id===flashSeat).afflictions=['flash'];
+ initial.players[1].learned=[...learnedB];
  const host=createLocalRoomHostFixture({initialState:initial,catalog});
  return {A:host.connectSeatFixture('A'),B:host.connectSeatFixture('B')};
 }
@@ -53,18 +54,17 @@ test('Flash limits defender to a single physical artifact; failure is atomic',()
  assert.deepEqual(A.read().players[1].afflictions,['flash']);
  assert.equal(A.read().players[1].hand,undefined);
 });
-test('Flash also counts learned miracles, but empty defense is still allowed',()=>{
- const {A,B}=room();
- const state=B.read();
- // A learned miracle also occupies one defense selection under Flash.
- // The original restriction applies to artifacts, not only physical cards.
- // Learn on authoritative fixture setup in the second scenario.
+test('Flash also counts learned defensive miracles; learned-only defense remains legal',()=>{
+ const {A,B}=room({learnedB:['m001']});
  attack(A);
- assert.throws(()=>submit(B,'B','defend',{orderedInstanceIds:[
-   held(B,1,'d001'),held(B,1,'d003')]}),/Flash affliction/);
- submit(B,'B','defend',{orderedInstanceIds:[]});
+ const before=JSON.stringify(B.read());
+ assert.throws(()=>submit(B,'B','defendSequence',{orderedPlays:[
+  {instanceId:held(B,1,'d003')},{learnedDefinitionId:'m001'}]}),
+  /Flash affliction allows only one defense artifact/);
+ assert.equal(JSON.stringify(B.read()),before);
+ submit(B,'B','defendSequence',{orderedPlays:[{learnedDefinitionId:'m001'}]});
  assert.equal(B.read().activePlayerId,'B');
- assert.ok(state.players[1].hand.length===4,'defender own hand is available');
+ assert.deepEqual(B.read().players[1].afflictions,['flash']);
 });
 test('Smile Shell clears Flash during the user turn and restores ordinary defense next attack',()=>{
  const {A,B}=room();
