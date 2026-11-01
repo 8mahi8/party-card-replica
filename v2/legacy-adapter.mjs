@@ -133,10 +133,11 @@ export function convertLegacyCard(card,{ruleset=PARTIAL_CARD_SOURCE}={}) {
         effects.push(mk('afterHit','absorbHp',{amount:'damage'}));
       }
     } else if(card.role==='afflictOther') {
-      if(card.id!=='m020'||card.element!=='water'||card.attack!==undefined||
-         card.mpCost!==3||card.otherAffliction!=='mist')
+      if(card.attack!==undefined||
+         !((card.id==='m020'&&card.element==='water'&&card.mpCost===3&&card.otherAffliction==='mist')||
+           (card.id==='m021'&&card.element==='wood'&&card.mpCost===6&&card.otherAffliction==='dream')))
         throw new Error('Unverified other-affliction miracle definition');
-      modes.push('cast');effects.push(mk('onDeclare','inflictAffliction',{affliction:'mist'}));
+      modes.push('cast');effects.push(mk('onDeclare','inflictAffliction',{affliction:card.otherAffliction}));
     } else if(card.role==='resource') {
       if(card.element!=='none'||card.attack!==undefined||
          !['hp','money'].includes(card.resourceGain)||card.restoreAmount!==10||
