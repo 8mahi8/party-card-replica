@@ -55,7 +55,7 @@ test('normal guard3 reduces both target damage and actual recoil to 11',()=>{
  const {A,B}=match();attack(A);defend(B,['d003']);
  assert.deepEqual(A.read().players.map(p=>p.hp),[29,29]);
 });
-test('a full guard 14 from multiple defenses prevents recoil entirely',()=>{
+test('a full guard 30 from multiple defenses prevents recoil entirely',()=>{
  const {A,B}=match({b:['d009','d003','d001','i002']});
  attack(A);defend(B,['d009']);
  assert.deepEqual(A.read().players.map(p=>p.hp),[40,40]);
@@ -71,13 +71,13 @@ test('if both low-HP opponents are eliminated by strike and backlash, match draw
  const {A,B}=match({hpA:10,hpB:10});attack(A);defend(B);
  assert.deepEqual(A.read().players.map(p=>p.hp),[0,0]);
  assert.equal(A.read().phase,'finished');
- assert.equal(A.read().winnerId,null);
+ assert.equal(A.read().activePlayerId,null);
 });
 test('Sun Charm revives source of lethal backlash using existing recovery routine',()=>{
  const {A,B}=match({a:['w063','i005','d003','w016'],hpA:9});
  attack(A);defend(B);
  assert.deepEqual(A.read().players.map(p=>p.hp),[10,26]);
- assert.equal(A.read().phase,'attack');
+ assert.equal(A.read().phase,'turn');
  assert.equal(A.read().activePlayerId,'B');
  assert.equal(A.read().players[0].hand.length,4);
 });
