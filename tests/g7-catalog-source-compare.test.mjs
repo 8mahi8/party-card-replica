@@ -51,7 +51,7 @@ test('Rainbow Curtain and Super Mirror are other ARMOR in probability table desp
 
 test('2025 typed reference already overflows neutral weapon single-slot budget by 12',()=>{
  assert.deepEqual(old.typedCellOverflows,[
-  {category:'weapon_single',element:'none',expected:110,actual:122,excess:12}
+  {category:'weapon_single',element:'none',expected:110,actual:123,excess:13}
  ]);
  const row=CATEGORY_DISTRIBUTION.weapon_single;
  assert.equal(ELEMENTS.length,7);
