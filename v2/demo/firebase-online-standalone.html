@@ -113,6 +113,7 @@ main{padding:0 6px 8px}.brandline{margin:0 -6px}
 <option value="flashDagger">フラッシュダガー・命中で閃光→治療</option>
 <option value="mistGun">霧鉄砲・ダメージで霧→治療</option>
 <option value="magicalStaff">マジカルステッキ・残MP×2（単独攻撃）</option>
+<option value="recoilSword">邪神の大剣・与ダメ分の自傷と反射</option>
 <option value="mistMiracle">奇跡〈霧〉・相手のHP/MP/¥が見えなくなる</option>
 <option value="dark">闇属性と高防御</option>
 <option value="recovery">HP・MP回復と反撃</option>
@@ -367,8 +368,8 @@ const __online_module_1 = (() => {
  * 調査用の参照名で、オリジナルUIの表示素材ではない。
  */
 const PARTIAL_CARD_SOURCE = 'piong-atwiki-and-macaron-2026-02-28';
-const main=(id,referenceName,attack,price,weight,{element='none',guard,reaction,reactionScope='neutral_weapon',stopScope,hpAbsorb,repeatHits,diseaseOnHit,afflictionOnHit,mpAttack}={})=>
-  Object.freeze({id,referenceName,kind:'weapon',slot:'main',category:'weapon_single',element,attack,price,weight,...(guard===undefined?{}:{guard}),...(reaction===undefined?{}:{reaction,reactionScope}),...(stopScope===undefined?{}:{stopScope}),...(hpAbsorb===undefined?{}:{hpAbsorb}),...(repeatHits===undefined?{}:{repeatHits}),...(diseaseOnHit===undefined?{}:{diseaseOnHit}),...(afflictionOnHit===undefined?{}:{afflictionOnHit}),...(mpAttack===undefined?{}:{mpAttack})});
+const main=(id,referenceName,attack,price,weight,{element='none',guard,reaction,reactionScope='neutral_weapon',stopScope,hpAbsorb,repeatHits,diseaseOnHit,afflictionOnHit,mpAttack,hpRecoil}={})=>
+  Object.freeze({id,referenceName,kind:'weapon',slot:'main',category:'weapon_single',element,attack,price,weight,...(guard===undefined?{}:{guard}),...(reaction===undefined?{}:{reaction,reactionScope}),...(stopScope===undefined?{}:{stopScope}),...(hpAbsorb===undefined?{}:{hpAbsorb}),...(repeatHits===undefined?{}:{repeatHits}),...(diseaseOnHit===undefined?{}:{diseaseOnHit}),...(afflictionOnHit===undefined?{}:{afflictionOnHit}),...(mpAttack===undefined?{}:{mpAttack}),...(hpRecoil===undefined?{}:{hpRecoil})});
 const add=(id,referenceName,attack,price,weight=1,{element='none',reaction,reactionScope,stopScope,attackElementOverride}={})=>
   Object.freeze({id,referenceName,kind:'weapon',slot:'addon',category:'weapon_single',element,attack,price,weight,...(reaction===undefined?{}:{reaction,reactionScope}),...(stopScope===undefined?{}:{stopScope}),...(attackElementOverride===undefined?{}:{attackElementOverride})});
 const shield=(id,referenceName,guard,price,weight,{element='none',attackBonus,stopScope,reaction,reactionScope}={})=>
@@ -434,6 +435,8 @@ const VERIFIED_BASIC_CARDS = Object.freeze([
   main('w061','霧鉄砲',3,10,1,{element:'water',afflictionOnHit:'mist'}),
   // Piong + Macaron 2026: spends all MP to attack for twice the MP amount.
   main('w062','マジカルステッキ',0,10,1,{mpAttack:true}),
+  // Piong & Macaron: damage dealt by this neutral sword also hurts the current source.
+  main('w063','邪神の大剣',14,1,1,{hpRecoil:true}),
   // Source-checked plain weapons (2026-03-18 piong wiki, cross-checked with
   // 2024 GFGA where both agree). No special/condition/status behavior.
   // Preserve main/add factories so later cards need data, not name branches.
@@ -632,7 +635,7 @@ const MODES = new Set(['mainAttack','addAttack','defend','cast','support','trade
 // Until sourced effects are implemented, explicitly gate those definitions.
 const DISCARD_POLICIES = new Set(['ordinary','forbidden','requiresSpecialResolution']);
 const EFFECT_TRIGGERS = new Set(['onDeclare','onCost','beforeHit','onDefense','afterHit','onTurnEnd','onZeroHp']);
-const EFFECT_TYPES = new Set(['redirectAttack','stripElement','multiplyAttack','addAttack','stopAttack','waivePreviousMp','setAttackElement','forceSale','requestBuy','reallocateResources','reviveAtZeroHp','absorbHp','repeatAttack','widenAttack','restoreResource','flipHpRisk','sweepHand','forgetLearned','heavenHerb','cleanseAfflictions','inflictDisease','inflictAffliction','spendMpForAttack']);
+const EFFECT_TYPES = new Set(['redirectAttack','stripElement','multiplyAttack','addAttack','stopAttack','waivePreviousMp','setAttackElement','forceSale','requestBuy','reallocateResources','reviveAtZeroHp','absorbHp','repeatAttack','widenAttack','restoreResource','flipHpRisk','sweepHand','forgetLearned','heavenHerb','cleanseAfflictions','inflictDisease','inflictAffliction','spendMpForAttack','recoilHp']);
 
 function plainObject(v) { return v !== null && typeof v === 'object' && !Array.isArray(v); }
 function nonnegative(n) { return Number.isSafeInteger(n) && n >= 0; }
@@ -698,6 +701,9 @@ function freezeEffect(effect) {
      (effect.when!=='onDeclare'||Object.keys(params).length!==3||
       params.heal!==10||params.damage!==10||params.healChance!==0.5))
     throw new Error('Invalid flipHpRisk effect data');
+  if(effect.type==='recoilHp'&&
+      (effect.when!=='afterHit'||Object.keys(params).length!==1||params.amount!=='damage'))
+    throw new Error('Invalid HP recoil effect data');
   if(effect.type==='absorbHp'&&
       (effect.when!=='afterHit'||Object.keys(params).length!==1||params.amount!=='damage'))
     throw new Error('Invalid absorbHp effect data');
@@ -1066,7 +1072,7 @@ const {VERIFIED_BASIC_CARDS,PARTIAL_CARD_SOURCE} = __online_module_1;
 const KNOWN_KEYS=new Set([
   'id','referenceName','kind','category','slot','element','attack','guard',
   'attackBonus','price','weight','reaction','reactionScope','stopScope',
-  'role','boost','plusAttack','mpCost','effect','attackElementOverride','discardPolicy','tradeAction','hpAbsorb','repeatHits','restoreAmount','resourceGain','cleanseScope','diseaseOnHit','afflictionOnHit','disease','otherAffliction','mpAttack'
+  'role','boost','plusAttack','mpCost','effect','attackElementOverride','discardPolicy','tradeAction','hpAbsorb','repeatHits','restoreAmount','resourceGain','cleanseScope','diseaseOnHit','afflictionOnHit','disease','otherAffliction','mpAttack','hpRecoil'
 ]);
 const CATEGORY_BY_KIND=Object.freeze({weapon:'weapon_single',armor:'armor_normal',miracle:'miracle',defense_item:'item',support_item:'item',trade:'trade'});
 const mk=(when,type,params={})=>({when,type,params});
@@ -1126,6 +1132,15 @@ function convertLegacyCard(card,{ruleset=PARTIAL_CARD_SOURCE}={}) {
          card.repeatHits!==undefined)
         throw new Error('Unverified on-hit affliction weapon definition');
       effects.push(mk('afterHit','inflictAffliction',{affliction:card.afflictionOnHit}));
+    }
+    if(card.hpRecoil!==undefined){
+      if(card.hpRecoil!==true||card.slot!=='main'||card.attack!==14||
+         card.element!=='none'||card.hpAbsorb!==undefined||
+         card.repeatHits!==undefined||card.diseaseOnHit!==undefined||
+         card.afflictionOnHit!==undefined||card.mpAttack!==undefined||
+         card.guard!==undefined||card.reaction!==undefined)
+        throw new Error('Unverified HP recoil weapon definition');
+      effects.push(mk('afterHit','recoilHp',{amount:'damage'}));
     }
     if(card.hpAbsorb!==undefined){
       if(card.hpAbsorb!==true||card.slot!=='main')
@@ -3054,6 +3069,27 @@ function runEffectQueueFixture(state,catalog,queue,{
          consumedInstanceId:recovery.consumedInstanceId,
          consumedDefinitionId:recovery.consumedDefinitionId});
      }
+   } else if(effect.type==='recoil'){
+     const pending=state.pending,original=who(state,pending?.originalAttackerId);
+     const authentic=pending?.attackContext?.recoilsHp===true||
+       (pending?.attackContext===undefined &&
+        pending?.attackInstanceIds?.length===1&&
+        catalog.get(original.hand.find(x=>
+          x.instanceId===pending.attackInstanceIds[0])?.definitionId)?.effects.some(e=>
+          e.when==='afterHit'&&e.type==='recoilHp'&&e.params.amount==='damage'));
+     const hit=queue.filter(e=>e.type==='hit');
+     if(pending?.type!=='attack'||!authentic||
+        Object.keys(effect).length!==3||
+        effect.playerId!==(pending.sourceId??pending.originalAttackerId)||
+        !positiveCount(effect.damage)||hit.length!==1||
+        hit[0].damage!==effect.damage||
+        queue.filter(e=>e.type==='recoil').length!==1)
+       fail('HP recoil requires an authentic resolved strike');
+     const source=who(s,effect.playerId),before=source.hp;
+     source.hp=Math.max(0,source.hp-effect.damage);
+     events.push({type:'recoilHp',playerId:source.id,damage:effect.damage,
+       hpBefore:before,hpAfter:source.hp});
+     if(source.hp===0&&before>0)resolveIllnessZeroHp(source,before);
    } else if(effect.type==='castDisease'){
      const p=who(s,effect.targetId),pending=state.pending;
      if(Object.keys(effect).length!==4||pending?.type!=='attack'||
@@ -4139,7 +4175,7 @@ function compileOrderedWeaponAttack(state,catalog){
   let aura=null,plusCount=0,additive=0,lastWasMiracle=false,hasArmorBonus=false,itemBonus=0;
   let learnedDrawCount=0,mirageCount=0;
   let forcedAttackElement=null,absorbsHp=false,hitCount=1,diseaseOnHit=null,afflictionOnHit=null;
-  let mpAttackCost=null;
+  let mpAttackCost=null,recoilsHp=false;
   let wandPosition=-1,auraPosition=-1;
   const casts=[],selectedKinds=[];
   const miracles=[];
@@ -4191,6 +4227,12 @@ function compileOrderedWeaponAttack(state,catalog){
            ['flash','mist'].includes(eff.params.affliction)){
           if(afflictionOnHit!==null)fail('Multiple on-hit afflictions unverified');
           afflictionOnHit=eff.params.affliction;continue;
+        }
+        if(eff.type==='recoilHp'&&eff.when==='afterHit'&&
+           eff.params.amount==='damage'&&def.family==='weapon'&&
+           def.playModes.includes('mainAttack')){
+          if(recoilsHp)fail('Multiple recoil weapons not verified');
+          recoilsHp=true;continue;
         }
         if(eff.type==='absorbHp'&&eff.when==='afterHit'&&
            eff.params.amount==='damage'&&def.family==='weapon'){
@@ -4263,6 +4305,13 @@ function compileOrderedWeaponAttack(state,catalog){
     }
   }
   if(!weaponCount)fail('Attack requires a weapon');
+  // Current recoil owner changes with deflection. Verify multi-card
+  // damage order in the original before permitting attack modifiers.
+  if(recoilsHp&&(selected.length!==1||weaponCount!==1||hitCount!==1||
+     aura!==null||miracles.length>0||absorbsHp||itemBonus>0||
+     hasArmorBonus||diseaseOnHit!==null||afflictionOnHit!==null||
+     forcedAttackElement!==null||mpAttackCost!==null))
+    fail('Recoil sword combinations need original verification');
   // Original combinations with another weapon / miracle / modifier need direct evidence.
   if(mpAttackCost!==null&&(selected.length!==1||mainCount!==1||weaponCount!==1))
     fail('MP-powered wand combinations not yet verified');
@@ -4318,7 +4367,7 @@ function compileOrderedWeaponAttack(state,catalog){
     attack,element:forcedAttackElement??(aura||mirageCount?'none':attackElement),attackKind:'weapon',
     instanceIds:Object.freeze(selected.filter(x=>x.instance).map(x=>x.instance.instanceId)),
     payableMP,learnedDrawCount,learnedMiracles:Object.freeze(learnedMiracles),
-    hasModifiers:miracles.length>0||mpAttackCost!==null,absorbsHp,diseaseOnHit,afflictionOnHit,hitCount,mirageCount,
+    hasModifiers:miracles.length>0||mpAttackCost!==null,absorbsHp,recoilsHp,diseaseOnHit,afflictionOnHit,hitCount,mirageCount,
     selectedKinds:Object.freeze(selectedKinds)
   });
 }
@@ -4509,6 +4558,9 @@ function compileBasicResolution(state,catalog) {
     ...(isSelf?[]:[Object.freeze({type:'spend',playerId:defender.id,instanceIds:Object.freeze(defending.map(x=>x.instance.instanceId))})]),
     Object.freeze({type:'hit',targetId:defender.id,damage:hit.damage,hpAfter:hit.hpAfter,instantDefeat:hit.instantDefeat,
        ...(attackContext.absorbsHp?{lifeSteal:true}:{})}),
+    ...(attackContext.recoilsHp?
+      [Object.freeze({type:'recoil',playerId:p.sourceId??p.originalAttackerId,
+        damage:hit.damage})]:[]),
     ...(hit.damage>0&&attackContext.diseaseOnHit?
       [Object.freeze({type:'inflictDisease',targetId:defender.id,
         disease:attackContext.diseaseOnHit})]:[]),
@@ -6655,6 +6707,10 @@ const LAB_PRESETS=Object.freeze({
  magicalStaff:Object.freeze({
   A:Object.freeze(['w062','w016','d003','i006']),
   B:Object.freeze(['d003','d001','i002','w016']),mpA:8,rngSeed:71
+ }),
+ recoilSword:Object.freeze({
+  A:Object.freeze(['w063','i005','d003','w016']),
+  B:Object.freeze(['d003','d009','i002','w016']),rngSeed:71
  }),
  mistMiracle:Object.freeze({
   A:Object.freeze(['m020','i003','w016','d003']),
