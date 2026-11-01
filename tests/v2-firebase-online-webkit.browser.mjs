@@ -1493,6 +1493,51 @@ try{
   }finally{await a.close();await b.close();}
  }
  await mistMiracleTouchTrial();
+ // G7 water Mist Gun: source-backed on-hit effect, not instant declaration.
+ async function mistGunTouchTrial(){
+  const a=await context.newPage(),b=await context.newPage();
+  for(const p of [a,b])p.on('pageerror',e=>errors.push(e.message));
+  try{
+   await a.goto(target);
+   await a.locator('#labPreset').selectOption('mistGun');
+   await a.locator('#create').tap();
+   await a.waitForFunction(()=>/\\b\\d{5}\\b/.test(
+    document.querySelector('#roomLabel')?.textContent||''));
+   const code=(await a.locator('#roomLabel').textContent()).match(/\\d{5}/)[0];
+   await b.goto(target);
+   await b.locator('#joinCode').fill(code);
+   await b.locator('#join').tap();
+   await b.locator('#hand button').first().waitFor();
+   await a.locator('#hand button').filter({hasText:'霧鉄砲'}).tap();
+   await a.locator('#attack').tap();
+   await b.waitForFunction(()=>document.querySelector('#phase')?.textContent
+    .includes('あなたの防御'),null,{timeout:15000});
+   check((await b.locator('.score').first().textContent()).includes('HP 40'),
+    'Mist Gun declaration does not hide stats before actual damage');
+   await b.locator('#defend').tap();
+   await b.waitForFunction(()=>{
+    const rows=[...document.querySelectorAll('.score')].map(e=>e.textContent||'');
+    return rows[0]?.includes('HP ？')&&rows[0]?.includes('MP ？')&&
+     rows[0]?.includes('¥ ？')&&rows[1]?.includes('HP 37')&&
+     rows[1]?.includes('災い：霧');
+   },null,{timeout:15000});
+   check((await a.locator('.score').nth(1).textContent()).includes('HP 37'),
+    'original Mist Gun attack deals exactly 3 water damage');
+   await b.locator('#hand button').filter({hasText:'スマイルの貝がら'}).tap();
+   await b.locator('#useItem').tap();
+   await b.waitForFunction(()=>{
+    const rows=[...document.querySelectorAll('.score')].map(e=>e.textContent||'');
+    return rows[0]?.includes('HP 40')&&rows[0]?.includes('MP 10')&&
+     rows[1]&&!rows[1].includes('災い：霧');
+   },null,{timeout:15000});
+   check((await b.locator('#phase').textContent()).includes('あなたの攻撃'),
+    'Mist Gun recipient can cure without losing turn');
+   check(await b.evaluate(()=>document.documentElement.scrollWidth<=
+    document.documentElement.clientWidth+2),
+    'Mist Gun online research UI fits 390px embedded viewport');
+  }finally{await a.close();await b.close();}
+ }
+ await mistGunTouchTrial();
  check(errors.length===0,'all preset trials have no script errors');
  console.log('FIREBASE_ONLINE_WEBKIT_SUCCESS checks='+checks+
   ' two tabs with mock RTDB, viewport=390x430');
