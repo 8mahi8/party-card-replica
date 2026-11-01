@@ -1444,6 +1444,55 @@ try{
   }finally{await a.close();await b.close();}
  }
  await absorbMiracleTouchTrial();
+ // Original God Field Mist: only the fogged player's opponent status becomes
+ // unknown; the authoritative host still keeps true HP/MP/yen.
+ async function mistMiracleTouchTrial(){
+  const a=await context.newPage(),b=await context.newPage();
+  for(const p of [a,b])p.on('pageerror',e=>errors.push(e.message));
+  try{
+   await a.goto(target);
+   await a.locator('#labPreset').selectOption('mistMiracle');
+   await a.locator('#create').tap();
+   await a.waitForFunction(()=>/\b\d{5}\b/.test(
+    document.querySelector('#roomLabel')?.textContent||''));
+   const code=(await a.locator('#roomLabel').textContent()).match(/\d{5}/)[0];
+   await b.goto(target);
+   await b.locator('#joinCode').fill(code);
+   await b.locator('#join').tap();
+   await b.locator('#hand button').first().waitFor();
+   check((await b.locator('.score').first().textContent()).includes('HP 40'),
+     'before Mist: opponent HP visible');
+   await a.locator('#hand button').filter({hasText:'霧'}).tap();
+   await a.locator('#attack').tap();
+   await b.waitForFunction(()=>document.querySelector('#phase')?.textContent
+     .includes('あなたの防御'),null,{timeout:15000});
+   check((await b.locator('.score').first().textContent()).includes('HP 40'),
+     'mist is not inflicted merely by a cast declaration');
+   await b.locator('#defend').tap();
+   await b.waitForFunction(()=>{
+    const texts=[...document.querySelectorAll('.score')].map(e=>e.textContent||'');
+    return texts[0]?.includes('HP ？')&&texts[0]?.includes('MP ？')&&
+      texts[0]?.includes('¥ ？')&&texts[1]?.includes('災い：霧');
+   },null,{timeout:15000});
+   check((await a.locator('.score').first().textContent()).includes('MP 12'),
+     'caster retained original MP accounting');
+   check((await b.locator('.score').first().textContent()).includes('手札 4'),
+     'mist hides opponent resources but not card count');
+   await b.locator('#hand button').filter({hasText:'スマイルの貝がら'}).tap();
+   await b.locator('#useItem').tap();
+   await b.waitForFunction(()=>{
+    const rows=[...document.querySelectorAll('.score')].map(x=>x.textContent||'');
+    return rows[0]?.includes('HP 40')&&rows[0]?.includes('MP 12')&&
+      rows[1]&&!rows[1].includes('災い：霧');
+   },null,{timeout:15000});
+   check((await b.locator('#phase').textContent()).includes('あなたの攻撃'),
+     'mist cure must not forfeit the same turn');
+   check(await b.evaluate(()=>document.documentElement.scrollWidth<=
+     document.documentElement.clientWidth+2),
+     'mist UI stays inside school-sized iPad iframe');
+  }finally{await a.close();await b.close();}
+ }
+ await mistMiracleTouchTrial();
  check(errors.length===0,'all preset trials have no script errors');
  console.log('FIREBASE_ONLINE_WEBKIT_SUCCESS checks='+checks+
   ' two tabs with mock RTDB, viewport=390x430');
