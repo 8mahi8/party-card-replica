@@ -14,7 +14,7 @@ import {planIncomingHandTransfer} from './hand-overflow.mjs';
 import {previewBuyOfferFixture,previewBuyChoiceFixture} from './trade-buy.mjs';
 import {previewExchangeFixture} from './trade-exchange.mjs';
 import {planZeroHpRecoveryFixture} from './zero-hp-recovery.mjs';
-import {planDiseaseExposure,planDiseaseTurnEnd,planDiseaseCure} from './disease-rules.mjs';
+import {planDiseaseExposure,planDiseaseTurnEnd,planDiseaseCure,planOtherAfflictionCure,assertOtherAfflictions} from './disease-rules.mjs';
 import {drawRandom32} from './foundation.mjs';
 import {inspectHitOutcomeBoundaryFixture} from './hit-outcome-boundary.mjs';
 import {retireDreamAppearancesFixture,validateDreamOwnershipFixture} from './dream-appearance.mjs';
@@ -46,6 +46,7 @@ function cloneRoom(state,{interruptionOnly=false}={}){
    revision:state.revision+1,
    players:state.players.map(p=>({...p,
      hand:p.hand.map(c=>({...c})),learned:[...p.learned],
+     afflictions:assertOtherAfflictions(p.afflictions),
      ...(p.dreamDisguises?{dreamDisguises:p.dreamDisguises.map(x=>({...x}))}:{})})),
    pending:interruptionOnly?{...state.pending,spentByPlayer:{...state.pending.spentByPlayer}}:null,
    processedCommands:[...state.processedCommands]
@@ -210,13 +211,15 @@ export function runEffectQueueFixture(state,catalog,queue,{
        fail('Malformed original Shell cleansing effect');
      const p=who(s,effect.playerId);
      if(p.hp<=0)fail('Cannot cure defeated target');
-     // The only active G7 affliction is the four-stage disease family.
-     // No fabricated dream/mist/flash/cloud flags are introduced here.
      const plan=planDiseaseCure(p.disease??null,effect.scope);
+     const other=planOtherAfflictionCure(p.afflictions,effect.scope);
      p.disease=plan.disease;
+     p.afflictions=other.after;
      events.push({type:'cleanseAfflictions',playerId:p.id,
        scope:effect.scope,diseaseBefore:plan.before,
-       diseaseAfter:plan.disease,curedDisease:plan.cured});
+       diseaseAfter:plan.disease,curedDisease:plan.cured,
+       afflictionsBefore:other.before,afflictionsAfter:other.after,
+       curedOtherAffliction:other.cured});
    } else if(effect.type==='heavenHerb'){
      if(Object.keys(effect).length!==2||typeof effect.playerId!=='string')
        fail('Malformed Heaven Grass action');
