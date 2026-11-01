@@ -14,18 +14,18 @@ test('two independently sourced incompatible full-deck reference totals are reco
   [[353,500],[237,500]]);
  for(const claim of HISTORICAL_DECK_CLAIMS)
   assert.equal(Object.values(claim.groups).reduce((a,b)=>a+b,0),500);
- assert.deepEqual([report.unique,report.slots],[182,443]);
+ assert.deepEqual([report.unique,report.slots],[183,444]);
  assert.deepEqual(report.actualGroups,
-  {trade:60,weapon:155,armor:133,miracle:18,item:77});
+  {trade:60,weapon:155,armor:133,miracle:19,item:77});
 });
 
 test('2025 353-kind claim has an impossible remaining count even ignoring categories',()=>{
- assert.equal(old.remainingSlots,57);
- assert.equal(old.missingKinds,171);
+ assert.equal(old.remainingSlots,56);
+ assert.equal(old.missingKinds,170);
  assert.equal(old.maxPossibleKinds,239);
  assert.equal(old.kindCountPossible,false);
- assert.equal(newerStudy.remainingSlots,57);
- assert.equal(newerStudy.missingKinds,55);
+ assert.equal(newerStudy.remainingSlots,56);
+ assert.equal(newerStudy.missingKinds,54);
  assert.equal(newerStudy.maxPossibleKinds,239);
  assert.equal(newerStudy.kindCountPossible,true,
   '237 is arithmetically plausible, not authenticated');
@@ -57,7 +57,7 @@ test('2025 typed reference already overflows neutral weapon single-slot budget b
  assert.equal(row.reduce((a,b)=>a+b,0),152);
  assert.equal(Object.values(report.categoryCells.weapon_single).reduce((a,b)=>a+b,0),155);
  assert.deepEqual(newerStudy.groupRows.map(r=>[r.group,r.remaining]),
-  [['trade',0],['weapon',26],['armor',14],['miracle',12],['item',5]]);
+  [['trade',0],['weapon',26],['armor',14],['miracle',11],['item',5]]);
 });
 
 test('diagnostic never authorizes fake weighted draws or mutates audited source definitions',()=>{
