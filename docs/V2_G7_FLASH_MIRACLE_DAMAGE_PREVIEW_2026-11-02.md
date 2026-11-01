@@ -32,4 +32,7 @@
 
 ## 実測テスト
 
-CI完了後にGitHub Actions runと合否を最新の引き継ぎ資料へ記録する。GitHub Actionsのブラウザ回帰テストは今回の〈閃光〉奇跡をプレイした実機テスト**ではない**。
+- **Node 1,090/1,090成功**：[Actions #41330512630](https://github.com/8mahi8/party-card-replica/actions/runs/41330512630)。
+- **Chromium 28/28成功**：[Actions #41330512681](https://github.com/8mahi8/party-card-replica/actions/runs/41330512681)。
+- **WebKit 模擬RTDBオンライン2席310/310、既存UI339/339成功**：[Actions #41330512604](https://github.com/8mahi8/party-card-replica/actions/runs/41330512604)。
+- GitHub Actionsのブラウザ回帰テストは、今回の〈閃光〉奇跡を実際にプレイした実機テスト**ではない**。新規8件は純粋な研究用計算の自動試験。学校SafariとGoogle Sites直貼り、および実Firebaseは今回未検証。
