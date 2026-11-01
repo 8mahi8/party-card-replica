@@ -44,7 +44,7 @@ test('Piong/Macaron: Mist is a 0.2%-weight water MP3 no-damage miracle, distinct
  assert.equal(m.stats.attack,0);
  assert.deepEqual(m.effects,[{when:'onDeclare',type:'inflictAffliction',
   params:{affliction:'mist'}}]);
- assert.deepEqual([summary.unique,summary.slots,summary.complete],[184,445,false]);
+ assert.deepEqual([summary.unique,summary.slots,summary.complete],[185,446,false]);
  assert.deepEqual([summary.unique,summary.slots],
   [RESEARCH_CATALOG_CONTRACT.unique,RESEARCH_CATALOG_CONTRACT.slots]);
  for(const changes of [{mpCost:4},{element:'none'},{otherAffliction:'dream'},
