@@ -1225,6 +1225,71 @@ try{
     'three new fire armor cards fit 390px Safari embed width');
   }finally{await a.close();await b.close();}
  }
+
+ // G7 2026-source Melody/Song: same web controls for a physical cure and
+ // subsequent learned recast. The person must self-target and stop fever tick.
+ async function cleansingMiracleTouchTrial(miracleId){
+  const a=await context.newPage(),b=await context.newPage();
+  for(const p of [a,b])p.on('pageerror',e=>errors.push(e.message));
+  try{
+   await a.goto(target);
+   await a.locator('#labPreset').selectOption('cleansingMiracles');
+   await a.locator('#create').tap();
+   await a.waitForFunction(()=>/\b\d{5}\b/.test(
+    document.querySelector('#roomLabel')?.textContent||''));
+   const room=(await a.locator('#roomLabel').textContent()).match(/\d{5}/)[0];
+   await b.goto(target);
+   await b.locator('#joinCode').fill(room);
+   await b.locator('#join').tap();
+   await b.locator('#hand button').first().waitFor();
+   check((await a.locator('.score').first().textContent()).includes('熱病'),
+    'cleansing room starts with an authentic fever for the casting seat');
+   await a.locator('#hand button').nth(miracleId==='m017'?0:1).tap();
+   check((await a.locator('#attack').textContent()).includes('奇跡を使う')&&
+     await a.locator('#attack').isEnabled()&&
+     await a.locator('#useItem').isDisabled(),
+    'cleansing miracle is a cast, not a forged item-use command');
+   check((await a.locator('#selectionTotal').textContent()).includes(
+     miracleId==='m017'?'風邪・熱病':'病系'),
+    'selection preview distinguishes minor and all-affliction cure');
+   await a.locator('#attack').tap();
+   await Promise.all([a,b].map(p=>p.waitForFunction(()=>{
+    const own=document.querySelectorAll('.score')[0]?.textContent||'';
+    return own.includes('HP 40')&&!own.includes('熱病')&&
+     (document.querySelector('#phase')?.textContent||'').includes('攻撃');
+   },null,{timeout:15000})));
+   check((await a.locator('.score').first().textContent())
+      .includes(miracleId==='m017'?'MP 23':'MP 20'),
+    'cleansing casts pay MP2 or MP5 and avoid same-turn fever damage');
+   check(await a.locator('.learned-choice').count()===1&&
+    await a.locator('#hand button').count()===4,
+    'cleansing spells are learned and physical hand card is refilled');
+   await b.locator('#hand button').nth(1).tap();
+   await b.locator('#attack').tap();
+   await a.waitForFunction(()=>document.querySelector('#phase')?.textContent
+    .includes('あなたの防御'),null,{timeout:15000});
+   await a.locator('#defend').tap();
+   await a.waitForFunction(()=>document.querySelector('#phase')?.textContent
+    .includes('あなたの攻撃'),null,{timeout:15000});
+   await a.locator('.learned-choice').first().tap();
+   check((await a.locator('#attack').textContent()).includes('奇跡を使う')&&
+    await a.locator('#attack').isEnabled(),
+    'already learned cure is a reusable action without owning a physical card');
+   await a.locator('#attack').tap();
+   await Promise.all([a,b].map(p=>p.waitForFunction(()=>{
+    return (document.querySelector('#phase')?.textContent||'').includes('攻撃')&&
+      document.querySelectorAll('.score')[0]?.textContent?.includes('手札 5');
+   },null,{timeout:15000})));
+   check((await a.locator('.score').first().textContent())
+     .includes(miracleId==='m017'?'MP 21':'MP 15'),
+    'learned cure charges correct second MP cost and grants one extra card');
+   check(await b.evaluate(()=>document.documentElement.scrollWidth<=
+    document.documentElement.clientWidth+2),
+    'new cleansing HUD fits narrow 390px Safari embed');
+  }finally{await a.close();await b.close();}
+ }
+ await cleansingMiracleTouchTrial('m017');
+ await cleansingMiracleTouchTrial('m018');
  check(errors.length===0,'all preset trials have no script errors');
  console.log('FIREBASE_ONLINE_WEBKIT_SUCCESS checks='+checks+
   ' two tabs with mock RTDB, viewport=390x430');
