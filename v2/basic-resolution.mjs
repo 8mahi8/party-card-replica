@@ -158,6 +158,9 @@ export function compileBasicResolution(state,catalog) {
     ...(isSelf?[]:[Object.freeze({type:'spend',playerId:defender.id,instanceIds:Object.freeze(defending.map(x=>x.instance.instanceId))})]),
     Object.freeze({type:'hit',targetId:defender.id,damage:hit.damage,hpAfter:hit.hpAfter,instantDefeat:hit.instantDefeat,
        ...(attackContext.absorbsHp?{lifeSteal:true}:{})}),
+    ...(attackContext.recoilsHp?
+      [Object.freeze({type:'recoil',playerId:p.sourceId??p.originalAttackerId,
+        damage:hit.damage})]:[]),
     ...(hit.damage>0&&attackContext.diseaseOnHit?
       [Object.freeze({type:'inflictDisease',targetId:defender.id,
         disease:attackContext.diseaseOnHit})]:[]),
