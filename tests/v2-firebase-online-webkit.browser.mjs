@@ -1405,6 +1405,45 @@ try{
   }finally{await a.close();await b.close();}
  }
  await flashDaggerTouchTrial();
+ // G7 Absorb miracle reuses the same hit-steal rule as Ghost Sword.
+ async function absorbMiracleTouchTrial(){
+  const a=await context.newPage(),b=await context.newPage();
+  for(const p of [a,b])p.on('pageerror',e=>errors.push(e.message));
+  try{
+   await a.goto(target);
+   await a.locator('#labPreset').selectOption('absorbMiracle');
+   await a.locator('#create').tap();
+   await a.waitForFunction(()=>/\b\d{5}\b/.test(
+    document.querySelector('#roomLabel')?.textContent||''));
+   const code=(await a.locator('#roomLabel').textContent()).match(/\d{5}/)[0];
+   await b.goto(target);
+   await b.locator('#joinCode').fill(code);
+   await b.locator('#join').tap();
+   await b.locator('#hand button').first().waitFor();
+   await a.locator('#hand button').filter({hasText:'吸収'}).tap();
+   await a.locator('#attack').tap();
+   await b.waitForFunction(()=>document.querySelector('#phase')?.textContent
+     .includes('あなたの防御'),null,{timeout:15000});
+   await b.locator('#hand button').filter({hasText:'スーパーミラー'}).tap();
+   await b.locator('#defend').tap();
+   await a.waitForFunction(()=>document.querySelector('#phase')?.textContent
+     .includes('あなたの防御'),null,{timeout:15000});
+   await a.locator('#defend').tap();
+   await Promise.all([a,b].map(p=>p.waitForFunction(()=>{
+    const scores=[...document.querySelectorAll('.score')].map(x=>x.textContent||'');
+    return scores[0]?.includes('HP 30')&&scores[0]?.includes('MP 15')&&
+      scores[1]?.includes('HP 50');
+   },null,{timeout:15000})));
+   check((await b.locator('#phase').textContent()).includes('あなたの攻撃'),
+     'reflected Absorb passes to opponent after exactly one paid spell');
+   check((await b.locator('.score').nth(1).textContent()).includes('HP 50'),
+     'mirror user gains ten life from reflected Absorb');
+   check(await b.evaluate(()=>document.documentElement.scrollWidth<=
+     document.documentElement.clientWidth+2),
+     'Absorb trial fits compact Safari-like viewport');
+  }finally{await a.close();await b.close();}
+ }
+ await absorbMiracleTouchTrial();
  check(errors.length===0,'all preset trials have no script errors');
  console.log('FIREBASE_ONLINE_WEBKIT_SUCCESS checks='+checks+
   ' two tabs with mock RTDB, viewport=390x430');
