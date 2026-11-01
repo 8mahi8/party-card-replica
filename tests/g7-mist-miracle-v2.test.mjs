@@ -76,6 +76,7 @@ test('mist hides statuses in room projection, not in host combat resolution',()=
  const {A,B}=room({mistB:true});
  const b=B.read();assert.equal(b.players[0].hp,null);
  assert.equal(A.read().players[0].hp,40);
+ cast(A);defend(B);
  send(B,'B','playCards',{targetId:'A',orderedInstanceIds:[held(B,'B','w016')]});
  send(A,'A','defend',{orderedInstanceIds:[]});
  assert.equal(A.read().players[0].hp,30);
