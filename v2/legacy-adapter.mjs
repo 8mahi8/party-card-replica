@@ -9,7 +9,7 @@ import {VERIFIED_BASIC_CARDS,PARTIAL_CARD_SOURCE} from '../src/verified-basic-ca
 const KNOWN_KEYS=new Set([
   'id','referenceName','kind','category','slot','element','attack','guard',
   'attackBonus','price','weight','reaction','reactionScope','stopScope',
-  'role','boost','plusAttack','mpCost','effect','attackElementOverride','discardPolicy','tradeAction','hpAbsorb','repeatHits','restoreAmount','resourceGain','cleanseScope','diseaseOnHit','afflictionOnHit','disease','otherAffliction','mpAttack'
+  'role','boost','plusAttack','mpCost','effect','attackElementOverride','discardPolicy','tradeAction','hpAbsorb','repeatHits','restoreAmount','resourceGain','cleanseScope','diseaseOnHit','afflictionOnHit','disease','otherAffliction','mpAttack','hpRecoil'
 ]);
 const CATEGORY_BY_KIND=Object.freeze({weapon:'weapon_single',armor:'armor_normal',miracle:'miracle',defense_item:'item',support_item:'item',trade:'trade'});
 const mk=(when,type,params={})=>({when,type,params});
@@ -69,6 +69,15 @@ export function convertLegacyCard(card,{ruleset=PARTIAL_CARD_SOURCE}={}) {
          card.repeatHits!==undefined)
         throw new Error('Unverified on-hit affliction weapon definition');
       effects.push(mk('afterHit','inflictAffliction',{affliction:card.afflictionOnHit}));
+    }
+    if(card.hpRecoil!==undefined){
+      if(card.hpRecoil!==true||card.slot!=='main'||card.attack!==14||
+         card.element!=='none'||card.hpAbsorb!==undefined||
+         card.repeatHits!==undefined||card.diseaseOnHit!==undefined||
+         card.afflictionOnHit!==undefined||card.mpAttack!==undefined||
+         card.guard!==undefined||card.reaction!==undefined)
+        throw new Error('Unverified HP recoil weapon definition');
+      effects.push(mk('afterHit','recoilHp',{amount:'damage'}));
     }
     if(card.hpAbsorb!==undefined){
       if(card.hpAbsorb!==true||card.slot!=='main')
