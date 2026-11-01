@@ -893,6 +893,11 @@ const VERIFIED_BASIC_CARDS = Object.freeze([
   // Piong + GFGA + 2026 Game Breeze: self-resource miracles (each 1/500).
   Object.freeze({id:'m015',referenceName:'泉',kind:'miracle',role:'resource',resourceGain:'hp',restoreAmount:10,category:'miracle',element:'none',mpCost:7,price:0,weight:1}),
   Object.freeze({id:'m016',referenceName:'財宝',kind:'miracle',role:'resource',resourceGain:'money',restoreAmount:10,category:'miracle',element:'none',mpCost:5,price:0,weight:1}),
+  // Macaron 2026-02, Piong miracle list, and GFGA 2024 all agree on
+  // MP2/5 cleansing miracle scopes. Current engine models disease only;
+  // unimplemented fog/flash/dream status must not be fabricated.
+  Object.freeze({id:'m017',referenceName:'音色',kind:'miracle',role:'cleanse',cleanseScope:'minor',category:'miracle',element:'none',mpCost:2,price:0,weight:1}),
+  Object.freeze({id:'m018',referenceName:'歌声',kind:'miracle',role:'cleanse',cleanseScope:'all',category:'miracle',element:'none',mpCost:5,price:0,weight:1}),
   // Source: Piong other artifacts (updated 2026-10-24), GFGA 2024,
   // Macaron 2026. Only plain HP/MP recovery, no status-creating herbs.
   // Weight 12/8/4/1 means 2.4/1.6/0.8/0.2% of 500.

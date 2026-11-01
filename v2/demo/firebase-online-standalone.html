@@ -120,6 +120,7 @@ main{padding:0 6px 8px}.brandline{margin:0 -6px}
 <option value="windMiracles">奇跡・風と天国風の災い</option>
 <option value="learnedTrial">習得済み奇跡・攻撃と防御</option>
 <option value="resourceMiracles">奇跡〈泉〉〈財宝〉・自己資源回復</option>
+<option value="cleansingMiracles">奇跡〈音色〉〈歌声〉・災い解除</option>
 <option value="sale">取引「売る」・受け入れと反射</option>
 <option value="buy">取引「買う」・購入と見送り</option>
 <option value="exchange">取引「両替」・HP/MP/¥振替</option>
@@ -551,6 +552,11 @@ const VERIFIED_BASIC_CARDS = Object.freeze([
   // Piong + GFGA + 2026 Game Breeze: self-resource miracles (each 1/500).
   Object.freeze({id:'m015',referenceName:'泉',kind:'miracle',role:'resource',resourceGain:'hp',restoreAmount:10,category:'miracle',element:'none',mpCost:7,price:0,weight:1}),
   Object.freeze({id:'m016',referenceName:'財宝',kind:'miracle',role:'resource',resourceGain:'money',restoreAmount:10,category:'miracle',element:'none',mpCost:5,price:0,weight:1}),
+  // Macaron 2026-02, Piong miracle list, and GFGA 2024 all agree on
+  // MP2/5 cleansing miracle scopes. Current engine models disease only;
+  // unimplemented fog/flash/dream status must not be fabricated.
+  Object.freeze({id:'m017',referenceName:'音色',kind:'miracle',role:'cleanse',cleanseScope:'minor',category:'miracle',element:'none',mpCost:2,price:0,weight:1}),
+  Object.freeze({id:'m018',referenceName:'歌声',kind:'miracle',role:'cleanse',cleanseScope:'all',category:'miracle',element:'none',mpCost:5,price:0,weight:1}),
   // Source: Piong other artifacts (updated 2026-10-24), GFGA 2024,
   // Macaron 2026. Only plain HP/MP recovery, no status-creating herbs.
   // Weight 12/8/4/1 means 2.4/1.6/0.8/0.2% of 500.
@@ -1036,7 +1042,7 @@ const {VERIFIED_BASIC_CARDS,PARTIAL_CARD_SOURCE} = __online_module_1;
 const KNOWN_KEYS=new Set([
   'id','referenceName','kind','category','slot','element','attack','guard',
   'attackBonus','price','weight','reaction','reactionScope','stopScope',
-  'role','boost','plusAttack','mpCost','effect','attackElementOverride','discardPolicy','tradeAction','hpAbsorb','repeatHits','restoreAmount','resourceGain','diseaseOnHit','disease'
+  'role','boost','plusAttack','mpCost','effect','attackElementOverride','discardPolicy','tradeAction','hpAbsorb','repeatHits','restoreAmount','resourceGain','cleanseScope','diseaseOnHit','disease'
 ]);
 const CATEGORY_BY_KIND=Object.freeze({weapon:'weapon_single',armor:'armor_normal',miracle:'miracle',defense_item:'item',support_item:'item',trade:'trade'});
 const mk=(when,type,params={})=>({when,type,params});
@@ -1135,6 +1141,13 @@ function convertLegacyCard(card,{ruleset=PARTIAL_CARD_SOURCE}={}) {
       modes.push('cast');effects.push(mk('onDeclare','restoreResource',{
         resource:card.resourceGain,amount:10
       }));
+    } else if(card.role==='cleanse') {
+      if(card.element!=='none'||card.attack!==undefined||
+         !['minor','all'].includes(card.cleanseScope)||
+         card.mpCost!==(card.cleanseScope==='minor'?2:5))
+        throw new Error('Unverified cleansing miracle definition');
+      modes.push('cast');
+      effects.push(mk('onDeclare','cleanseAfflictions',{scope:card.cleanseScope}));
     } else if(card.role==='afflict') {
       if(card.element!=='none'||card.attack!==undefined||
          !['cold','heaven'].includes(card.disease)||
@@ -2100,7 +2113,7 @@ function takeLegalSelection(player,instanceIds,catalog,mode,{allowEmpty=false}={
       throw new Error('Not a structural attack selection');
     const first=defs[0];
     if(first.family!=='weapon' &&
-       !(first.family==='miracle' && first.playModes.includes('cast') && (first.stats.attack>0||first.effects.some(e=>e.when==='onDeclare'&&['inflictDisease','restoreResource'].includes(e.type)))))
+       !(first.family==='miracle' && first.playModes.includes('cast') && (first.stats.attack>0||first.effects.some(e=>e.when==='onDeclare'&&['inflictDisease','restoreResource','cleanseAfflictions'].includes(e.type)))))
       throw new Error('Attack must start with a weapon or offensive miracle');
     // Exact later combination legality is compiled in G3, not guessed here.
   } else if(mode==='defense') {
@@ -2133,7 +2146,7 @@ function takeOrderedPlays(actor,plays,catalog){
       if(!def||!def.playModes.some(mode=>['mainAttack','addAttack','cast','support'].includes(mode)))
         throw new Error('Not a structural attack selection');
       if(index===0 && def.family!=='weapon' &&
-         !(def.family==='miracle' && def.playModes.includes('cast') && (def.stats.attack>0||def.effects.some(e=>e.when==='onDeclare'&&['inflictDisease','restoreResource'].includes(e.type)))))
+         !(def.family==='miracle' && def.playModes.includes('cast') && (def.stats.attack>0||def.effects.some(e=>e.when==='onDeclare'&&['inflictDisease','restoreResource','cleanseAfflictions'].includes(e.type)))))
         throw new Error('Sequence must begin with weapon or offensive miracle');
       return {instanceId};
     }
@@ -2440,7 +2453,7 @@ function applyStagingCommand(state,command,catalog,{authorizedSeatId}={}) {
       learned=catalog.get(command.learnedDefinitionId);
       if(!actor.learned.includes(command.learnedDefinitionId)||
         learned?.family!=='miracle'||!learned.playModes.includes('cast')||
-        (learned.stats.attack<=0&&!learned.effects.some(e=>e.when==='onDeclare'&&['inflictDisease','restoreResource'].includes(e.type))))
+        (learned.stats.attack<=0&&!learned.effects.some(e=>e.when==='onDeclare'&&['inflictDisease','restoreResource','cleanseAfflictions'].includes(e.type))))
         throw new Error('Offensive miracle not learned');
     } else if(command.type==='playCards'){
       selected=takeLegalSelection(actor,command.orderedInstanceIds,catalog,'attack');
@@ -4723,11 +4736,15 @@ function compileSoloMiracleResolution(state,catalog) {
   miracle.effects[0].type==='restoreResource'&&miracle.element==='none'&&
   miracle.stats.attack===0&&miracle.effects[0].params.amount===10&&
   ['hp','money'].includes(miracle.effects[0].params.resource);
- const soloEffectsSupported=affliction||resourceEffect||miracle.effects.length===0 ||
+ const cleansing=miracle.effects.length===1&&miracle.effects[0].when==='onDeclare'&&
+  miracle.effects[0].type==='cleanseAfflictions'&&miracle.element==='none'&&
+  miracle.stats.attack===0&&
+  ['minor','all'].includes(miracle.effects[0].params.scope);
+ const soloEffectsSupported=affliction||resourceEffect||cleansing||miracle.effects.length===0 ||
    (miracle.effects.length===1&&miracle.effects[0].when==='onDeclare'&&
     miracle.effects[0].type==='addAttack'&&miracle.effects[0].params.scope==='weapon');
  if(miracle.family!=='miracle'||!miracle.playModes.includes('cast')||
-    (miracle.stats.attack<=0&&!affliction&&!resourceEffect)||
+    (miracle.stats.attack<=0&&!affliction&&!resourceEffect&&!cleansing)||
     !soloEffectsSupported)fail('Not a supported solo attack miracle');
  if(cached&&(cached.attack!==miracle.stats.attack||cached.element!==miracle.element))
    fail('Cached miracle payload mismatch');
@@ -4745,6 +4762,8 @@ function compileSoloMiracleResolution(state,catalog) {
  const self=(p.sourceId??p.originalAttackerId)===p.targetId;
  if(resourceEffect&&(!self||p.targetId!==caster.id))
    fail('Resource miracle must be cast on its owner in the research lab');
+ if(cleansing&&(!self||p.targetId!==caster.id))
+   fail('Cleansing miracle must be cast on its owner in the research lab');
  let defense=[];
  if(self) {
    if(p.defense!==null)fail('Self cast cannot be defended');
@@ -4777,7 +4796,7 @@ function compileSoloMiracleResolution(state,catalog) {
  const guard=sumLegalArmor(angel?'none':miracle.element,physicalShields,
    {rainbowCurtain:stripElement});
  const stopped=angel;
- const hit=stopped||affliction||resourceEffect?Object.freeze({damage:0,hpAfter:target.hp,instantDefeat:false,effectiveElement:miracle.element})
+ const hit=stopped||affliction||resourceEffect||cleansing?Object.freeze({damage:0,hpAfter:target.hp,instantDefeat:false,effectiveElement:miracle.element})
   :calculateHit({attack:miracle.stats.attack,element:miracle.element,armor:guard,hp:target.hp,rainbowCurtain:stripElement});
  const queue=Object.freeze([
    ...(cached?[]:[
@@ -4791,6 +4810,9 @@ function compileSoloMiracleResolution(state,catalog) {
    ...(resourceEffect?
      [item('restoreResource',{playerId:caster.id,
        resource:miracle.effects[0].params.resource,amount:10})]:
+     cleansing?
+       [item('cleanseAfflictions',{playerId:caster.id,
+         scope:miracle.effects[0].params.scope})]:
      affliction?
        (stopped?[]:[item('castDisease',{targetId:target.id,
          miracleId:miracle.id,disease:miracle.effects[0].params.disease})]):
@@ -6491,6 +6513,11 @@ const LAB_PRESETS=Object.freeze({
   B:Object.freeze(['w027','d003','d018','m013']),
   mpA:25,rngSeed:71
  }),
+ cleansingMiracles:Object.freeze({
+  A:Object.freeze(['m017','m018','i003','w016']),
+  B:Object.freeze(['m013','w016','d003','i002']),
+  mpA:25,diseaseA:'fever',rngSeed:71
+ }),
  learnedTrial:Object.freeze({
   A:Object.freeze(['w016','i003','d003','m013']),
   B:Object.freeze(['d018','w027','d003','i003']),
@@ -6681,7 +6708,8 @@ function render(){
  // Preview the printed stats, NOT a resolved damage estimate: elements,
  // reflections, multi-hits and special effects belong to the battle engine.
  const selectedIds=[...selection].filter(id=>!id.startsWith('l:')),
-  itemEffect=selection.size===1?
+  itemEffect=selection.size===1&&
+   catalog.get(cardsById.get(selectedIds[0])?.definitionId)?.family==='item'?
    catalog.get(cardsById.get(selectedIds[0])?.definitionId)?.effects.find(
     e=>e.when==='onDeclare'&&['restoreResource','flipHpRisk','sweepHand','forgetLearned','heavenHerb','cleanseAfflictions'].includes(e.type)):null;
  const saleIds=[...selection].filter(id=>!id.startsWith('l:'));
@@ -6695,6 +6723,9 @@ function render(){
  const resourceCast=firstCastDef?.family==='miracle'&&firstCastDef.effects.some(e=>
   e.when==='onDeclare'&&e.type==='restoreResource');
  const resourceInfo=resourceCast?firstCastDef.effects.find(e=>e.type==='restoreResource'):null;
+ const cleansingCast=firstCastDef?.family==='miracle'&&firstCastDef.effects.some(e=>
+  e.when==='onDeclare'&&e.type==='cleanseAfflictions');
+ const cleansingInfo=cleansingCast?firstCastDef.effects.find(e=>e.type==='cleanseAfflictions'):null;
  const tradeOnly=selection.size===1&&!([...selection][0]||'').startsWith('l:')?
   catalog.get(cardsById.get([...selection][0])?.definitionId):null;
  const buyValid=tradeOnly?.effects.some(e=>e.when==='onDeclare'&&e.type==='requestBuy'&&e.params.kind==='buy');
@@ -6705,6 +6736,9 @@ function render(){
     e.params.mode==='reflect'&&e.params.scope==='any');
  $('selectionTotal').textContent=resourceInfo?
    (resourceInfo.params.resource==='hp'?'HP':'¥')+'+'+resourceInfo.params.amount+
+   ' · MP'+firstCastDef.stats.mpCost+'（自身へ使う・手番終了）':
+  cleansingInfo?
+   (cleansingInfo.params.scope==='minor'?'風邪・熱病を治す':'病系の災いをすべて治す')+
    ' · MP'+firstCastDef.stats.mpCost+'（自身へ使う・手番終了）':
   saleDefense?
    (mirrorChoice?'スーパーミラーで取引を跳ね返す':'価格を確認して売買を受け入れる'):
@@ -6804,8 +6838,8 @@ function render(){
  const standalone=learnedAlone?catalog.get(first.slice(2)):null;
  const canCastAlone=!learnedAlone||((standalone?.stats.attack??0)>0||
   standalone?.effects.some(e=>e.when==='onDeclare'&&
-   ['inflictDisease','restoreResource'].includes(e.type)));
- $('attack').textContent=resourceCast?'奇跡を使う':'攻撃する';
+   ['inflictDisease','restoreResource','cleanseAfflictions'].includes(e.type)));
+ $('attack').textContent=(resourceCast||cleansingCast)?'奇跡を使う':'攻撃する';
  $('attack').disabled=!usable||!selection.size||!canCastAlone||
   (catalog.get(cardsById.get(selectedIds[0])?.definitionId)?.family==='trade');
  $('useItem').disabled=!usable||!itemEffect;
@@ -6861,9 +6895,9 @@ async function send(type,accept=null){
   const card=first?.startsWith('l:')?first.slice(2):
     view.players.find(p=>p.id===seat)?.hand?.find(c=>c.instanceId===first)?.definitionId;
   const def=catalog.get(card);
-  const ownResourceCast=def?.family==='miracle'&&def.effects.some(e=>
-    e.when==='onDeclare'&&e.type==='restoreResource');
-  command.targetId=ownResourceCast?seat:(seat==='A'?'B':'A');
+  const selfSupportCast=def?.family==='miracle'&&def.effects.some(e=>
+    e.when==='onDeclare'&&['restoreResource','cleanseAfflictions'].includes(e.type));
+  command.targetId=selfSupportCast?seat:(seat==='A'?'B':'A');
  }
  waiting=true;pendingId=command.commandId;pendingCommand=command;
  feedback('操作を送信しています…');render();

@@ -549,6 +549,11 @@ const VERIFIED_BASIC_CARDS = Object.freeze([
   // Piong + GFGA + 2026 Game Breeze: self-resource miracles (each 1/500).
   Object.freeze({id:'m015',referenceName:'泉',kind:'miracle',role:'resource',resourceGain:'hp',restoreAmount:10,category:'miracle',element:'none',mpCost:7,price:0,weight:1}),
   Object.freeze({id:'m016',referenceName:'財宝',kind:'miracle',role:'resource',resourceGain:'money',restoreAmount:10,category:'miracle',element:'none',mpCost:5,price:0,weight:1}),
+  // Macaron 2026-02, Piong miracle list, and GFGA 2024 all agree on
+  // MP2/5 cleansing miracle scopes. Current engine models disease only;
+  // unimplemented fog/flash/dream status must not be fabricated.
+  Object.freeze({id:'m017',referenceName:'音色',kind:'miracle',role:'cleanse',cleanseScope:'minor',category:'miracle',element:'none',mpCost:2,price:0,weight:1}),
+  Object.freeze({id:'m018',referenceName:'歌声',kind:'miracle',role:'cleanse',cleanseScope:'all',category:'miracle',element:'none',mpCost:5,price:0,weight:1}),
   // Source: Piong other artifacts (updated 2026-10-24), GFGA 2024,
   // Macaron 2026. Only plain HP/MP recovery, no status-creating herbs.
   // Weight 12/8/4/1 means 2.4/1.6/0.8/0.2% of 500.
@@ -1034,7 +1039,7 @@ const {VERIFIED_BASIC_CARDS,PARTIAL_CARD_SOURCE} = __v2_module_1;
 const KNOWN_KEYS=new Set([
   'id','referenceName','kind','category','slot','element','attack','guard',
   'attackBonus','price','weight','reaction','reactionScope','stopScope',
-  'role','boost','plusAttack','mpCost','effect','attackElementOverride','discardPolicy','tradeAction','hpAbsorb','repeatHits','restoreAmount','resourceGain','diseaseOnHit','disease'
+  'role','boost','plusAttack','mpCost','effect','attackElementOverride','discardPolicy','tradeAction','hpAbsorb','repeatHits','restoreAmount','resourceGain','cleanseScope','diseaseOnHit','disease'
 ]);
 const CATEGORY_BY_KIND=Object.freeze({weapon:'weapon_single',armor:'armor_normal',miracle:'miracle',defense_item:'item',support_item:'item',trade:'trade'});
 const mk=(when,type,params={})=>({when,type,params});
@@ -1133,6 +1138,13 @@ function convertLegacyCard(card,{ruleset=PARTIAL_CARD_SOURCE}={}) {
       modes.push('cast');effects.push(mk('onDeclare','restoreResource',{
         resource:card.resourceGain,amount:10
       }));
+    } else if(card.role==='cleanse') {
+      if(card.element!=='none'||card.attack!==undefined||
+         !['minor','all'].includes(card.cleanseScope)||
+         card.mpCost!==(card.cleanseScope==='minor'?2:5))
+        throw new Error('Unverified cleansing miracle definition');
+      modes.push('cast');
+      effects.push(mk('onDeclare','cleanseAfflictions',{scope:card.cleanseScope}));
     } else if(card.role==='afflict') {
       if(card.element!=='none'||card.attack!==undefined||
          !['cold','heaven'].includes(card.disease)||
@@ -2098,7 +2110,7 @@ function takeLegalSelection(player,instanceIds,catalog,mode,{allowEmpty=false}={
       throw new Error('Not a structural attack selection');
     const first=defs[0];
     if(first.family!=='weapon' &&
-       !(first.family==='miracle' && first.playModes.includes('cast') && (first.stats.attack>0||first.effects.some(e=>e.when==='onDeclare'&&['inflictDisease','restoreResource'].includes(e.type)))))
+       !(first.family==='miracle' && first.playModes.includes('cast') && (first.stats.attack>0||first.effects.some(e=>e.when==='onDeclare'&&['inflictDisease','restoreResource','cleanseAfflictions'].includes(e.type)))))
       throw new Error('Attack must start with a weapon or offensive miracle');
     // Exact later combination legality is compiled in G3, not guessed here.
   } else if(mode==='defense') {
@@ -2131,7 +2143,7 @@ function takeOrderedPlays(actor,plays,catalog){
       if(!def||!def.playModes.some(mode=>['mainAttack','addAttack','cast','support'].includes(mode)))
         throw new Error('Not a structural attack selection');
       if(index===0 && def.family!=='weapon' &&
-         !(def.family==='miracle' && def.playModes.includes('cast') && (def.stats.attack>0||def.effects.some(e=>e.when==='onDeclare'&&['inflictDisease','restoreResource'].includes(e.type)))))
+         !(def.family==='miracle' && def.playModes.includes('cast') && (def.stats.attack>0||def.effects.some(e=>e.when==='onDeclare'&&['inflictDisease','restoreResource','cleanseAfflictions'].includes(e.type)))))
         throw new Error('Sequence must begin with weapon or offensive miracle');
       return {instanceId};
     }
@@ -2438,7 +2450,7 @@ function applyStagingCommand(state,command,catalog,{authorizedSeatId}={}) {
       learned=catalog.get(command.learnedDefinitionId);
       if(!actor.learned.includes(command.learnedDefinitionId)||
         learned?.family!=='miracle'||!learned.playModes.includes('cast')||
-        (learned.stats.attack<=0&&!learned.effects.some(e=>e.when==='onDeclare'&&['inflictDisease','restoreResource'].includes(e.type))))
+        (learned.stats.attack<=0&&!learned.effects.some(e=>e.when==='onDeclare'&&['inflictDisease','restoreResource','cleanseAfflictions'].includes(e.type))))
         throw new Error('Offensive miracle not learned');
     } else if(command.type==='playCards'){
       selected=takeLegalSelection(actor,command.orderedInstanceIds,catalog,'attack');
@@ -4721,11 +4733,15 @@ function compileSoloMiracleResolution(state,catalog) {
   miracle.effects[0].type==='restoreResource'&&miracle.element==='none'&&
   miracle.stats.attack===0&&miracle.effects[0].params.amount===10&&
   ['hp','money'].includes(miracle.effects[0].params.resource);
- const soloEffectsSupported=affliction||resourceEffect||miracle.effects.length===0 ||
+ const cleansing=miracle.effects.length===1&&miracle.effects[0].when==='onDeclare'&&
+  miracle.effects[0].type==='cleanseAfflictions'&&miracle.element==='none'&&
+  miracle.stats.attack===0&&
+  ['minor','all'].includes(miracle.effects[0].params.scope);
+ const soloEffectsSupported=affliction||resourceEffect||cleansing||miracle.effects.length===0 ||
    (miracle.effects.length===1&&miracle.effects[0].when==='onDeclare'&&
     miracle.effects[0].type==='addAttack'&&miracle.effects[0].params.scope==='weapon');
  if(miracle.family!=='miracle'||!miracle.playModes.includes('cast')||
-    (miracle.stats.attack<=0&&!affliction&&!resourceEffect)||
+    (miracle.stats.attack<=0&&!affliction&&!resourceEffect&&!cleansing)||
     !soloEffectsSupported)fail('Not a supported solo attack miracle');
  if(cached&&(cached.attack!==miracle.stats.attack||cached.element!==miracle.element))
    fail('Cached miracle payload mismatch');
@@ -4743,6 +4759,8 @@ function compileSoloMiracleResolution(state,catalog) {
  const self=(p.sourceId??p.originalAttackerId)===p.targetId;
  if(resourceEffect&&(!self||p.targetId!==caster.id))
    fail('Resource miracle must be cast on its owner in the research lab');
+ if(cleansing&&(!self||p.targetId!==caster.id))
+   fail('Cleansing miracle must be cast on its owner in the research lab');
  let defense=[];
  if(self) {
    if(p.defense!==null)fail('Self cast cannot be defended');
@@ -4775,7 +4793,7 @@ function compileSoloMiracleResolution(state,catalog) {
  const guard=sumLegalArmor(angel?'none':miracle.element,physicalShields,
    {rainbowCurtain:stripElement});
  const stopped=angel;
- const hit=stopped||affliction||resourceEffect?Object.freeze({damage:0,hpAfter:target.hp,instantDefeat:false,effectiveElement:miracle.element})
+ const hit=stopped||affliction||resourceEffect||cleansing?Object.freeze({damage:0,hpAfter:target.hp,instantDefeat:false,effectiveElement:miracle.element})
   :calculateHit({attack:miracle.stats.attack,element:miracle.element,armor:guard,hp:target.hp,rainbowCurtain:stripElement});
  const queue=Object.freeze([
    ...(cached?[]:[
@@ -4789,6 +4807,9 @@ function compileSoloMiracleResolution(state,catalog) {
    ...(resourceEffect?
      [item('restoreResource',{playerId:caster.id,
        resource:miracle.effects[0].params.resource,amount:10})]:
+     cleansing?
+       [item('cleanseAfflictions',{playerId:caster.id,
+         scope:miracle.effects[0].params.scope})]:
      affliction?
        (stopped?[]:[item('castDisease',{targetId:target.id,
          miracleId:miracle.id,disease:miracle.effects[0].params.disease})]):
