@@ -1357,6 +1357,54 @@ try{
   }finally{await a.close();await b.close();}
  }
  await flashDefenseTouchTrial();
+ // New G7 source-backed Flash Dagger: hit first, then treat the resulting
+ // real affliction via the same two-seat projected Firebase UI (mock RTDB).
+ async function flashDaggerTouchTrial(){
+  const a=await context.newPage(),b=await context.newPage();
+  for(const p of [a,b])p.on('pageerror',e=>errors.push(e.message));
+  try{
+   await a.goto(target);
+   await a.locator('#labPreset').selectOption('flashDagger');
+   await a.locator('#create').tap();
+   await a.waitForFunction(()=>/\b\d{5}\b/.test(
+    document.querySelector('#roomLabel')?.textContent||''));
+   const code=(await a.locator('#roomLabel').textContent()).match(/\d{5}/)[0];
+   await b.goto(target);
+   await b.locator('#joinCode').fill(code);
+   await b.locator('#join').tap();
+   await b.locator('#hand button').first().waitFor();
+   check(!(await b.locator('.score').nth(1).textContent()).includes('閃光'),
+    'target begins without Flash in actual two-seat online page');
+   await a.locator('#hand button').filter({hasText:'フラッシュダガー'}).tap();
+   await a.locator('#attack').tap();
+   await b.waitForFunction(()=>document.querySelector('#phase')?.textContent
+    .includes('あなたの防御'),null,{timeout:15000});
+   check(!(await b.locator('.score').nth(1).textContent()).includes('閃光'),
+    'declaration alone does not inflict Flash before defender response');
+   await b.locator('#defend').tap();
+   await Promise.all([a,b].map(p=>p.waitForFunction(()=>{
+    const score=document.querySelectorAll('.score')[1]?.textContent||'';
+    return score.includes('HP 38')&&score.includes('閃光');
+   },null,{timeout:15000})));
+   check((await b.locator('#phase').textContent()).includes('あなたの攻撃'),
+    'damaging light attack gives Flash and advances to victim turn');
+   check(await b.locator('#hand button').filter({hasText:'スマイルの貝がら'}).count()===1,
+    'defender still holds original Smile Shell cure');
+   await b.locator('#hand button').filter({hasText:'スマイルの貝がら'}).tap();
+   await b.locator('#useItem').tap();
+   await Promise.all([a,b].map(p=>p.waitForFunction(()=>
+    !(document.querySelectorAll('.score')[1]?.textContent||'').includes('閃光'),
+    null,{timeout:15000})));
+   check((await b.locator('.score').nth(1).textContent()).includes('HP 38'),
+    'Flash cure removes restriction without restoring damage');
+   check((await b.locator('#phase').textContent()).includes('あなたの攻撃'),
+    'self-cure leaves the ordinary attack opportunity intact');
+   check(await b.evaluate(()=>document.documentElement.scrollWidth<=
+    document.documentElement.clientWidth+2),
+    'new Flash Dagger trial fits compact Safari-like viewport');
+  }finally{await a.close();await b.close();}
+ }
+ await flashDaggerTouchTrial();
  check(errors.length===0,'all preset trials have no script errors');
  console.log('FIREBASE_ONLINE_WEBKIT_SUCCESS checks='+checks+
   ' two tabs with mock RTDB, viewport=390x430');
