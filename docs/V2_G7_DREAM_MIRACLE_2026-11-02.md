@@ -15,7 +15,7 @@
 ## 自動テスト
 - `tests/g7-dream-miracle-v2.test.mjs`：ソース値・型、付与タイミング、元の手札不変、軽度/全治療、エンゼル無効化、スーパーミラー反射、精霊でMP免除、習得済み使用、MP不足の原子性、ホスト指定偽装の治療による表示復帰。
 - `tests/v2-firebase-online-webkit.browser.mjs`：独立WebKitタブ＋模擬RTDBで夢宣言→防御→状態付与→スマイルでは維持→ハートで解除、390px iframeの表示をタップ確認。
-- 現在の自動CIはGitHub Actionsを参照。Node・Chromium/WebKitの試験成功は、**学校iPad実機と本物のFirebase対戦の成功を保証しない**。
+- **GitHub Actions実測**：Node **1,145/1,145成功** [run 41362759626](https://github.com/8mahi8/party-card-replica/actions/runs/41362759626)、Chromium **28/28成功** [run 41362759596](https://github.com/8mahi8/party-card-replica/actions/runs/41362759596)、WebKit**模擬RTDB2画面338/338＋従来UI339/339成功** [run 41362759611](https://github.com/8mahi8/party-card-replica/actions/runs/41362759611)。その後の変更はテスト待機DOMセレクタ・文書・一時workflow元戻しのみで、ゲームの戦闘仕様は変えていない。**学校iPad Safari実機と本物のFirebase対戦の成功は未検証**。
 - 学校Google SitesのHTML、Firebase Security Rules/認証、mainブランチは未変更。開発ブランチの単体HTML3種は原始モジュールと同期して生成。
   
 ## 次の作業
