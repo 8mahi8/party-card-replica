@@ -1579,6 +1579,43 @@ try{
   }finally{await a.close();await b.close();}
  }
  await magicalStaffTouchTrial();
+
+ // G7 source-backed recoil sword: two real WebKit seat views share mock RTDB.
+ async function recoilSwordTouchTrial(){
+  const a=await context.newPage(),b=await context.newPage();
+  for(const p of [a,b])p.on('pageerror',e=>errors.push(e.message));
+  try{
+   await a.goto(target);
+   await a.locator('#labPreset').selectOption('recoilSword');
+   await a.locator('#create').tap();
+   await a.waitForFunction(()=>/\b\d{5}\b/.test(
+    document.querySelector('#roomLabel')?.textContent||''));
+   const code=(await a.locator('#roomLabel').textContent()).match(/\d{5}/)[0];
+   await b.goto(target);
+   await b.locator('#joinCode').fill(code);
+   await b.locator('#join').tap();
+   await b.locator('#hand button').first().waitFor();
+   await a.locator('#hand button').filter({hasText:'邪神の大剣'}).tap();
+   await a.locator('#attack').tap();
+   await b.waitForFunction(()=>document.querySelector('#phase')?.textContent
+    .includes('あなたの防御'),null,{timeout:15000});
+   check((await b.locator('.score').first().textContent()).includes('HP 40'),
+    'recoil not applied before damage');
+   await b.locator('#defend').tap();
+   await b.waitForFunction(()=>{
+    const rows=[...document.querySelectorAll('.score')].map(e=>e.textContent||'');
+    return rows.length===2&&rows.every(row=>row.includes('HP 26'));
+   },null,{timeout:15000});
+   check((await a.locator('.score').first().textContent()).includes('HP 26'),
+    'recoil source also takes actual resolved damage');
+   check((await b.locator('#phase').textContent()).includes('あなたの攻撃'),
+    'recoil finished as one atomic turn');
+   check(await b.evaluate(()=>document.documentElement.scrollWidth<=
+    document.documentElement.clientWidth+2),
+    'recoil trial still fits 390px embedded viewport');
+  }finally{await a.close();await b.close();}
+ }
+ await recoilSwordTouchTrial();
  check(errors.length===0,'all preset trials have no script errors');
  console.log('FIREBASE_ONLINE_WEBKIT_SUCCESS checks='+checks+
   ' two tabs with mock RTDB, viewport=390x430');
