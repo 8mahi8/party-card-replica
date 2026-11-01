@@ -68,7 +68,7 @@ export function compileOrderedWeaponAttack(state,catalog){
   let aura=null,plusCount=0,additive=0,lastWasMiracle=false,hasArmorBonus=false,itemBonus=0;
   let learnedDrawCount=0,mirageCount=0;
   let forcedAttackElement=null,absorbsHp=false,hitCount=1,diseaseOnHit=null,afflictionOnHit=null;
-  let mpAttackCost=null;
+  let mpAttackCost=null,recoilsHp=false;
   let wandPosition=-1,auraPosition=-1;
   const casts=[],selectedKinds=[];
   const miracles=[];
@@ -120,6 +120,12 @@ export function compileOrderedWeaponAttack(state,catalog){
            ['flash','mist'].includes(eff.params.affliction)){
           if(afflictionOnHit!==null)fail('Multiple on-hit afflictions unverified');
           afflictionOnHit=eff.params.affliction;continue;
+        }
+        if(eff.type==='recoilHp'&&eff.when==='afterHit'&&
+           eff.params.amount==='damage'&&def.family==='weapon'&&
+           def.playModes.includes('mainAttack')){
+          if(recoilsHp)fail('Multiple recoil weapons not verified');
+          recoilsHp=true;continue;
         }
         if(eff.type==='absorbHp'&&eff.when==='afterHit'&&
            eff.params.amount==='damage'&&def.family==='weapon'){
@@ -192,6 +198,13 @@ export function compileOrderedWeaponAttack(state,catalog){
     }
   }
   if(!weaponCount)fail('Attack requires a weapon');
+  // Current recoil owner changes with deflection. Verify multi-card
+  // damage order in the original before permitting attack modifiers.
+  if(recoilsHp&&(selected.length!==1||weaponCount!==1||hitCount!==1||
+     aura!==null||miracles.length>0||absorbsHp||itemBonus>0||
+     hasArmorBonus||diseaseOnHit!==null||afflictionOnHit!==null||
+     forcedAttackElement!==null||mpAttackCost!==null))
+    fail('Recoil sword combinations need original verification');
   // Original combinations with another weapon / miracle / modifier need direct evidence.
   if(mpAttackCost!==null&&(selected.length!==1||mainCount!==1||weaponCount!==1))
     fail('MP-powered wand combinations not yet verified');
@@ -247,7 +260,7 @@ export function compileOrderedWeaponAttack(state,catalog){
     attack,element:forcedAttackElement??(aura||mirageCount?'none':attackElement),attackKind:'weapon',
     instanceIds:Object.freeze(selected.filter(x=>x.instance).map(x=>x.instance.instanceId)),
     payableMP,learnedDrawCount,learnedMiracles:Object.freeze(learnedMiracles),
-    hasModifiers:miracles.length>0||mpAttackCost!==null,absorbsHp,diseaseOnHit,afflictionOnHit,hitCount,mirageCount,
+    hasModifiers:miracles.length>0||mpAttackCost!==null,absorbsHp,recoilsHp,diseaseOnHit,afflictionOnHit,hitCount,mirageCount,
     selectedKinds:Object.freeze(selectedKinds)
   });
 }
