@@ -9,7 +9,7 @@ import {VERIFIED_BASIC_CARDS,PARTIAL_CARD_SOURCE} from '../src/verified-basic-ca
 const KNOWN_KEYS=new Set([
   'id','referenceName','kind','category','slot','element','attack','guard',
   'attackBonus','price','weight','reaction','reactionScope','stopScope',
-  'role','boost','plusAttack','mpCost','effect','attackElementOverride','discardPolicy','tradeAction','hpAbsorb','repeatHits','restoreAmount','resourceGain','cleanseScope','diseaseOnHit','afflictionOnHit','disease'
+  'role','boost','plusAttack','mpCost','effect','attackElementOverride','discardPolicy','tradeAction','hpAbsorb','repeatHits','restoreAmount','resourceGain','cleanseScope','diseaseOnHit','afflictionOnHit','disease','otherAffliction'
 ]);
 const CATEGORY_BY_KIND=Object.freeze({weapon:'weapon_single',armor:'armor_normal',miracle:'miracle',defense_item:'item',support_item:'item',trade:'trade'});
 const mk=(when,type,params={})=>({when,type,params});
@@ -113,6 +113,11 @@ export function convertLegacyCard(card,{ruleset=PARTIAL_CARD_SOURCE}={}) {
           throw new Error('Unverified absorbing miracle definition');
         effects.push(mk('afterHit','absorbHp',{amount:'damage'}));
       }
+    } else if(card.role==='afflictOther') {
+      if(card.id!=='m020'||card.element!=='water'||card.attack!==undefined||
+         card.mpCost!==3||card.otherAffliction!=='mist')
+        throw new Error('Unverified other-affliction miracle definition');
+      modes.push('cast');effects.push(mk('onDeclare','inflictAffliction',{affliction:'mist'}));
     } else if(card.role==='resource') {
       if(card.element!=='none'||card.attack!==undefined||
          !['hp','money'].includes(card.resourceGain)||card.restoreAmount!==10||
