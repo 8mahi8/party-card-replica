@@ -46,7 +46,7 @@ test('2026 labels and source-agreed numeric fire armor data are three distinct p
   assert.deepEqual(def.effects,[]);
  }
  assert.equal(new Set(SOURCE.map(x=>x[0])).size,3);
- assert.deepEqual([summary.unique,summary.slots,summary.complete],[179,440,false]);
+ assert.deepEqual([summary.unique,summary.slots,summary.complete],[181,442,false]);
  assert.equal(summary.unique,RESEARCH_CATALOG_CONTRACT.unique);
  assert.equal(summary.slots,RESEARCH_CATALOG_CONTRACT.slots);
 });
@@ -77,13 +77,13 @@ test('fire shields cannot block fire-element attacks; rejected defense keeps roo
 });
 test('sourced additions increase the diagnostic armor count but never authorize a fake full deck',()=>{
  const report=compareHistoricalDeckClaims(VERIFIED_BASIC_CARDS);
- assert.equal(report.unique,179);
- assert.equal(report.slots,440);
- assert.deepEqual(report.actualGroups,{trade:60,weapon:154,armor:133,miracle:16,item:77});
+ assert.equal(report.unique,181);
+ assert.equal(report.slots,442);
+ assert.deepEqual(report.actualGroups,{trade:60,weapon:154,armor:133,miracle:18,item:77});
  const a=report.comparisons.find(x=>x.key==='wiki-2025-09-19');
  const b=report.comparisons.find(x=>x.key==='player-study-2024-11-06');
- assert.deepEqual([a.missingKinds,a.remainingSlots,a.kindCountPossible],[174,60,false]);
- assert.deepEqual([b.missingKinds,b.remainingSlots,b.kindCountPossible],[58,60,true]);
+ assert.deepEqual([a.missingKinds,a.remainingSlots,a.kindCountPossible],[172,58,false]);
+ assert.deepEqual([b.missingKinds,b.remainingSlots,b.kindCountPossible],[56,58,true]);
  assert.equal(report.categoryCells.armor_normal.fire,8);
  assert.equal(report.categoryCells.weapon_single.none,122,'unrelated source mismatch untouched');
  assert.equal(a.typedCellOverflows.length,1);
