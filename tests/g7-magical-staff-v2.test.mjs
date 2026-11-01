@@ -38,7 +38,7 @@ test('Piong/Macaron 2026 Magical Staff: neutral ¥10, 0.2% and all-MP x2 only',(
   raw.element,raw.mpAttack],['マジカルステッキ','main',0,10,1,'none',true]);
  const def=catalog.get('w062');
  assert.deepEqual(def.effects,[{when:'onDeclare',type:'spendMpForAttack',params:{multiplier:2}}]);
- assert.deepEqual([summary.unique,summary.slots,summary.complete],[186,447,false]);
+ assert.deepEqual([summary.unique,summary.slots,summary.complete],[RESEARCH_CATALOG_CONTRACT.unique,RESEARCH_CATALOG_CONTRACT.slots,false]);
  assert.deepEqual([summary.unique,summary.slots],[RESEARCH_CATALOG_CONTRACT.unique,RESEARCH_CATALOG_CONTRACT.slots]);
  for(const bad of [{mpAttack:false},{attack:3},{element:'fire'},
    {slot:'addon'},{repeatHits:2}]){
