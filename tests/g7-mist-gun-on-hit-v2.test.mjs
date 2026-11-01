@@ -9,7 +9,7 @@ import {RESEARCH_CATALOG_CONTRACT} from './helpers/research-catalog-contract.mjs
 const {byId:catalog,summary}=migrateLegacyCatalog();
 let nextCommand=0;
 function room({a=['w061','w016','d001','i006'],
- b=['i017','d043','w016','i002']}={}){
+ b=['i017','d062','w016','i002']}={}){
  const state=createStagingRoom({
   firstSeatId:'A',rngSeed:71,rulesetId:'partial-reference-v2-lab',
   seats:[{id:'A',handDefinitionIds:a},{id:'B',handDefinitionIds:b}]
@@ -60,9 +60,9 @@ test('Mist Gun does not curse on declaration; actual water hit both hurts and hi
  assert.equal(B.read().players[1].hp,37);
  assert.equal(A.read().players[1].hp,37);
 });
-test('Matching high-water armor prevents the hit, and never applies Mist',()=>{
+test('Correct fire-element armor prevents the hit, and never applies Mist',()=>{
  const {A,B}=room();
- shoot(A);defend(B,['d043']);
+ shoot(A);defend(B,['d062']);
  assert.equal(A.read().players[1].hp,40);
  assert.deepEqual(B.read().players[1].afflictions,[]);
  assert.equal(B.read().players[0].hp,40);
