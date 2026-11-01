@@ -10,7 +10,7 @@
 - **原作資料と実装**：Piong 2026単体武器一覧＋2026まかろんの数値一致。新カード`w063`邪神の大剣、**無属性／攻14／¥1／参考0.2%**、命中後「与えたダメージ分の反動を攻撃源が受ける」。2021頃のプレイヤー攻略記事で自分へ弾き返した場合は直接ダメージ＋反動で二回被ダメを取ると確認。**現行の本家で独立実操作した一次証拠ではない**。
 - **共通化**：`legacy-adapter`→`foundation`→`ordered-attack`→`basic-resolution`→`effect-runner`で`afterHit:recoilHp({amount:'damage'})`。属性・防具の既存`hit.damage`を使い、同量を`pending.sourceId`側に反映、太陽のお守り・補充・HP0試合終了の既存ルートに接続。通常反射では反射者が攻撃源になる。追加武器や奇跡との未知の複合は拒否。
 - **研究試遊とテスト**：オンライン研究版に28個目`recoilSword`固定手札セット。Nodeで無防御14/14、防具軽減11/11、完全防御0/0、スーパーミラー、双方HP0引分け、反動による太陽のお守り復活、無許可連携拒否、通常武器回帰を追加。WebKit模擬RTDBの2タブタップ試験も追加。
-- **独立検証**：ゲームコード入りHEADで**Node 1,136/1,136成功** [run 41361455922](https://github.com/8mahi8/party-card-replica/actions/runs/41361455922)、Chromium [run 41361455863](https://github.com/8mahi8/party-card-replica/actions/runs/41361455863) 成功。WebKitは実行結果を最終確認する（最新Actions参照）。実Firebaseと学校iPad Safariは新カード未検証。学校Google Sites／main／Firebase Rules／認証を変更しない。
+- **独立検証**：ゲームコード入りHEADで**Node 1,136/1,136成功** [run 41361455922](https://github.com/8mahi8/party-card-replica/actions/runs/41361455922)、Chromium [run 41361455863](https://github.com/8mahi8/party-card-replica/actions/runs/41361455863) 成功。**Chromium 28/28成功**、**WebKit模擬RTDB2画面333/333＋既存UI339/339成功** [run 41361455893](https://github.com/8mahi8/party-card-replica/actions/runs/41361455893)。実Firebaseと学校iPad Safariは新カード未検証。学校Google Sites／main／Firebase Rules／認証を変更しない。
 - **カード台帳**：**187種類／448参考枠、complete:false**。2025年353種と2024年237種の研究資料に矛盾があるため、正規ランダム抽選は禁止。
 - **次**：WebKit最終確認→手動専用ワークフローに復旧→原作で裏付けの強い残りの戦闘効果を共通実装。資料：[V2_G7_RECOIL_SWORD_2026-11-02.md](docs/V2_G7_RECOIL_SWORD_2026-11-02.md)。
 
