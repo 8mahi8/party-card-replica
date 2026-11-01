@@ -198,3 +198,11 @@
 - 一次出典未確認：[Piong「奇跡一覧」](https://w.atwiki.jp/piong/pages/20.html)、[God Fieldガイド＋α](https://w.atwiki.jp/gfplusa/pages/19.html)は対象の順次処理/複数周回を説明するが、「最初の相手を誰がどう決めるか」は直接裏付けられない。研究版での**初回手動指定は仮定**。この仮定をUIに常時表示する。
 - `v2/lab-controller.mjs`に3席研究配置、`v2/lab-ui.mjs`に3席起動ボタン/進捗、`v2/demo/template.html`に狭い埋込画面用3席ステータスレイアウト。`room-transition.mjs`が最初の防御前の`miragePreview`を保存し、`staging-room.mjs`が機微な実カードを隠しながら進捗を表示。**手札支払と本物の攻撃`attackContext`は最初の命中後にだけ確定**。
 - 新規8 Nodeテストと3人研究用ブラウザタップ試験を追加。学校公開版/main、オンライン同期、山札真正ドロー、原作の多人数〈壁〉と反射の処理はまだ実装していない。
+
+## 2026-11-02｜霧鉄砲・水属性攻撃と命中後霧
+
+- [Piong 単体武器](https://w.atwiki.jp/piong/pages/15.html)・[まかろん2026](https://macarongamemo.com/entry/godfield-artifact)が一致：霧鉄砲は**水・攻3・¥10・参考0.2%**。実際に1以上のダメージを与えた対象に霧。
+- [Piong災い](https://w.atwiki.jp/piong/pages/23.html)の霧による相手HP/MP/¥伏字と貝がら・奇跡による治癒を、G7既存の霧効果へ接続。
+- [Piong基本ルール](https://w.atwiki.jp/piong/pages/16.html)の属性防御：**水攻撃は火／光防具で防ぐ**。水属性防具`d043`による防御テストは誤りだったので、火属性`d062`へ修正。
+- `w061` は**単体武器**。原作〈霧の扇〉は**全体攻撃武器**であり、同じデータ／効果経路へ無条件に組み込まない。
+- 設計・テスト・権限制約：[G7霧鉄砲](V2_G7_MIST_GUN_2026-11-02.md)。原作の2026年直接プレイ検証、霧の3人以上での攻撃対象指定、実学校Safariは未確認。
