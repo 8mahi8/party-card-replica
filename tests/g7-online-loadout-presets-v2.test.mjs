@@ -10,7 +10,7 @@ const {byId:catalog,summary}=migrateLegacyCatalog();
 const literal=page.match(/const LAB_PRESETS=(Object\.freeze\(\{[\s\S]*?\}\));/);
 if(!literal)throw Error('Expected source-backed lab presets in online demo');
 const presets=vm.runInNewContext(literal[1]);
-test('online trial room offers twenty-eight explicitly named fixture hand sets, never fake random draws',()=>{
+test('online trial room offers twenty-nine explicitly named fixture hand sets, never fake random draws',()=>{
  assert.match(page,/<select id="labPreset"/);
  assert.match(page,/<option value="basic">/);
  assert.match(page,/<option value="elements">/);
@@ -21,6 +21,7 @@ test('online trial room offers twenty-eight explicitly named fixture hand sets, 
  assert.match(page,/<option value="magicalStaff">/);
  assert.match(page,/<option value="recoilSword">/);
  assert.match(page,/<option value="mistMiracle">/);
+ assert.match(page,/<option value="dreamMiracle">/);
  assert.match(page,/<option value="dark">/);
  assert.match(page,/<option value="recovery">/);
  assert.match(page,/<option value="support">/);
@@ -45,10 +46,10 @@ test('online trial room offers twenty-eight explicitly named fixture hand sets, 
  assert.match(page,/LAB_PRESETS\[\$\('labPreset'\)\.value\]/);
  assert.match(page,/handDefinitionIds:\[\.\.\.preset\.A\]/);
  assert.match(page,/handDefinitionIds:\[\.\.\.preset\.B\]/);
- assert.deepEqual(Object.keys(presets).sort(),['absorbMiracle','basic','broom','buy','cleansingMiracles','dark','elements','exchange','fireArmor','flashDagger','flashDefense','heaven','illnessAttack','learnedTrial','magicalStaff','mistGun','mistMiracle','recoilSword','recovery','resourceMiracles','sale','shells','soap','support','tear','turbulenceBack','turbulenceSelf','windMiracles']);
+ assert.deepEqual(Object.keys(presets).sort(),['absorbMiracle','basic','broom','buy','cleansingMiracles','dark','dreamMiracle','elements','exchange','fireArmor','flashDagger','flashDefense','heaven','illnessAttack','learnedTrial','magicalStaff','mistGun','mistMiracle','recoilSword','recovery','resourceMiracles','sale','shells','soap','support','tear','turbulenceBack','turbulenceSelf','windMiracles']);
  assert.equal(summary.complete,false,'deck not audited for real weighted draws');
 });
-test('all twenty-eight fixed presets contain valid catalog definitions and four cards per seat',()=>{
+test('all twenty-nine fixed presets contain valid catalog definitions and four cards per seat',()=>{
  for(const [name,hands] of Object.entries(presets)){
   for(const seat of ['A','B']){
    assert.equal(hands[seat].length,4,name+' '+seat);
@@ -64,6 +65,14 @@ test('all twenty-eight fixed presets contain valid catalog definitions and four 
   assert.equal(viewStagingRoom(room,'B',catalog).players[0].hand,undefined);
  }
 });
+test('Dream miracle preset exercises real curse and two grades of cure, without random fake deck',()=>{
+ assert.deepEqual(Array.from(presets.dreamMiracle.A),['m021','i003','w016','d003']);
+ assert.deepEqual(Array.from(presets.dreamMiracle.B),['i017','i018','d018','i002']);
+ assert.equal(presets.dreamMiracle.mpA,10);
+ assert.equal(catalog.get('m021').effects[0].params.affliction,'dream');
+ assert.equal(summary.complete,false);
+});
+
 test('Soap preset deliberately seeds three distinct learned miracles per side',()=>{
  assert.deepEqual(Array.from(presets.soap.A),['i015','w016','d003','i006']);
  assert.deepEqual(Array.from(presets.soap.B),['i002','w027','d003','i005']);
