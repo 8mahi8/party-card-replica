@@ -1616,6 +1616,50 @@ try{
   }finally{await a.close();await b.close();}
  }
  await recoilSwordTouchTrial();
+
+ // Dream research: status is real, but 50% weighted false-artifact draw is gated
+ // until the complete original artifact distribution is sourced.
+ async function dreamMiracleTouchTrial(){
+  const a=await context.newPage(),b=await context.newPage();
+  for(const p of [a,b])p.on('pageerror',e=>errors.push(e.message));
+  try{
+   await a.goto(target);
+   await a.locator('#labPreset').selectOption('dreamMiracle');
+   await a.locator('#create').tap();
+   await a.waitForFunction(()=>/\b\d{5}\b/.test(
+    document.querySelector('#roomLabel')?.textContent||''));
+   const code=(await a.locator('#roomLabel').textContent()).match(/\d{5}/)[0];
+   await b.goto(target);
+   await b.locator('#joinCode').fill(code);
+   await b.locator('#join').tap();
+   await b.locator('#hand button').first().waitFor();
+   await a.locator('#hand button').filter({hasText:'夢'}).tap();
+   await a.locator('#attack').tap();
+   await b.waitForFunction(()=>document.querySelector('#phase')?.textContent
+    .includes('あなたの防御'),null,{timeout:15000});
+   check(!(await b.locator('.score').last().textContent()).includes('災い：夢'),
+    'Dream is not inflicted on declaration');
+   await b.locator('#defend').tap();
+   await b.waitForFunction(()=>document.querySelector('.score:last-child')?.textContent
+    .includes('災い：夢'),null,{timeout:15000});
+   check((await a.locator('.score').first().textContent()).includes('MP 4'),
+    'Dream costs the verified six MP');
+   await b.locator('#hand button').filter({hasText:'スマイルの貝がら'}).tap();
+   await b.locator('#useItem').tap();
+   check((await b.locator('.score').last().textContent()).includes('災い：夢'),
+    'minor shell does not cure Dream');
+   await b.locator('#hand button').filter({hasText:'ハートの貝がら'}).tap();
+   await b.locator('#useItem').tap();
+   await b.waitForFunction(()=>!document.querySelector('.score:last-child')?.textContent
+    .includes('災い：夢'),null,{timeout:15000});
+   check((await b.locator('#phase').textContent()).includes('あなたの攻撃'),
+    'Dream cure keeps the active turn');
+   check(await b.evaluate(()=>document.documentElement.scrollWidth<=
+    document.documentElement.clientWidth+2),
+    'Dream status remains usable in school-sized iframe');
+  }finally{await a.close();await b.close();}
+ }
+ await dreamMiracleTouchTrial();
  check(errors.length===0,'all preset trials have no script errors');
  console.log('FIREBASE_ONLINE_WEBKIT_SUCCESS checks='+checks+
   ' two tabs with mock RTDB, viewport=390x430');
