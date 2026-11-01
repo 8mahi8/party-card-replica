@@ -1250,7 +1250,7 @@ try{
      await a.locator('#useItem').isDisabled(),
     'cleansing miracle is a cast, not a forged item-use command');
    check((await a.locator('#selectionTotal').textContent()).includes(
-     miracleId==='m017'?'風邪・熱病':'病系'),
+     miracleId==='m017'?'風邪・熱病':'対応する災い'),
     'selection preview distinguishes minor and all-affliction cure');
    await a.locator('#attack').tap();
    await Promise.all([a,b].map(p=>p.waitForFunction(()=>{
@@ -1290,6 +1290,73 @@ try{
  }
  await cleansingMiracleTouchTrial('m017');
  await cleansingMiracleTouchTrial('m018');
+ // G7 Flash: an actual two-browser touch test, from a source-backed lab
+ // affliction through constrained defense, Smile cure and regained defense.
+ async function flashDefenseTouchTrial(){
+  const a=await context.newPage(),b=await context.newPage();
+  for(const p of [a,b])p.on('pageerror',e=>errors.push(e.message));
+  try{
+   await a.goto(target);
+   await a.locator('#labPreset').selectOption('flashDefense');
+   await a.locator('#create').tap();
+   await a.waitForFunction(()=>/\\b\\d{5}\\b/.test(
+    document.querySelector('#roomLabel')?.textContent||''));
+   const code=(await a.locator('#roomLabel').textContent()).match(/\\d{5}/)[0];
+   await b.goto(target);
+   await b.locator('#joinCode').fill(code);
+   await b.locator('#join').tap();
+   await b.locator('#hand button').first().waitFor();
+   check((await b.locator('.score').nth(1).textContent()).includes('閃光'),
+    'Flash icon and one-defense-artifact explanation are present on guest HUD');
+   await a.locator('#hand button').first().tap();
+   await a.locator('#attack').tap();
+   await b.waitForFunction(()=>document.querySelector('#phase')?.textContent
+    .includes('あなたの防御'),null,{timeout:15000});
+   await b.locator('#hand button').nth(0).tap();
+   await b.locator('#hand button').nth(1).tap();
+   check(await b.locator('#defend').isDisabled(),
+    'Flash disables confirmation for two physical defense artifacts');
+   await b.locator('#hand button').nth(1).tap();
+   check(await b.locator('#defend').isEnabled(),
+    'Flash still allows single defense');
+   await b.locator('#defend').tap();
+   await b.waitForFunction(()=>document.querySelector('#phase')?.textContent
+    .includes('あなたの攻撃'),null,{timeout:15000});
+   await b.locator('#hand button').filter({hasText:'スマイルの貝がら'}).tap();
+   check((await b.locator('#selectionTotal').textContent()).includes('閃光'),
+    'Shell preview explicitly describes Flash cure');
+   await b.locator('#useItem').tap();
+   await Promise.all([a,b].map(p=>p.waitForFunction(()=>
+    !(document.querySelectorAll('.score')[1]?.textContent||'').includes('閃光'),
+    null,{timeout:15000})));
+   check((await b.locator('#phase').textContent()).includes('あなたの攻撃'),
+    'self-use Smile Shell clears Flash without consuming the entire turn');
+   await b.locator('#hand button').filter({hasText:'ワンダーソード'}).tap();
+   await b.locator('#attack').tap();
+   await a.waitForFunction(()=>document.querySelector('#phase')?.textContent
+    .includes('あなたの防御'),null,{timeout:15000});
+   await a.locator('#defend').tap();
+   await a.waitForFunction(()=>document.querySelector('#phase')?.textContent
+    .includes('あなたの攻撃'),null,{timeout:15000});
+   await a.locator('#hand button').filter({hasText:'ワンダーソード'}).tap();
+   await a.locator('#attack').tap();
+   await b.waitForFunction(()=>document.querySelector('#phase')?.textContent
+    .includes('あなたの防御'),null,{timeout:15000});
+   const shields=b.locator('#hand button').filter({hasText:'革の帽子'});
+   check(await shields.count()>=2,'two ordinary guards are available after cure');
+   await shields.nth(0).tap();
+   await shields.nth(1).tap();
+   check(await b.locator('#defend').isEnabled(),
+    'two physical defenses become legal again after Flash cure');
+   await b.locator('#defend').tap();
+   await b.waitForFunction(()=>document.querySelector('#phase')?.textContent
+    .includes('あなたの攻撃'),null,{timeout:15000});
+   check(await b.evaluate(()=>document.documentElement.scrollWidth<=
+    document.documentElement.clientWidth+2),
+    'Flash HUD and cure controls fit 390px Safari-style frame');
+  }finally{await a.close();await b.close();}
+ }
+ await flashDefenseTouchTrial();
  check(errors.length===0,'all preset trials have no script errors');
  console.log('FIREBASE_ONLINE_WEBKIT_SUCCESS checks='+checks+
   ' two tabs with mock RTDB, viewport=390x430');
