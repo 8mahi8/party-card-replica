@@ -1,0 +1,47 @@
+name: G6 one-off commit portable HTML to development branch
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  package:
+    if: (github.event_name == 'workflow_dispatch' && github.ref_name == 'refactor/v2-foundation-review-20261027') || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref || github.ref_name }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify only the approved development branch is the target
+        env:
+          TARGET_BRANCH: ${{ github.head_ref || github.ref_name }}
+        run: |
+          test "$TARGET_BRANCH" = 'refactor/v2-foundation-review-20261027'
+      - name: Regenerate legacy, V2 offline and online trial HTML bundles
+        run: |
+          node demo/build.mjs
+          node v2/demo/build.mjs
+          node v2/demo/build-online.mjs
+          node v2/demo/build.mjs --check
+          node v2/demo/build-online.mjs --check
+          node --test tests/g6-online-bundle-v2.test.mjs
+      - name: Commit all generated HTML files to the same development branch
+        env:
+          TARGET_BRANCH: ${{ github.head_ref || github.ref_name }}
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add demo/standalone.html v2/demo/firebase-online-standalone.html v2/demo/standalone.html
+          if git diff --cached --quiet; then
+            echo 'G6_PORTABLE_HTML_ALREADY_CURRENT'
+          else
+            git commit -m 'build(g6): refresh synchronized offline and online trial HTML'
+            git push origin "HEAD:$TARGET_BRANCH"
+            echo 'G6_PORTABLE_HTML_PUSH_SUCCESS'
+          fi

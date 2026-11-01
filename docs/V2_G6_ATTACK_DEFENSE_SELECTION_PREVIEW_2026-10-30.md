@@ -1,0 +1,37 @@
+# G6｜攻撃・防御の選択順と対戦情報の表示（2026-10-30）
+
+## 原作資料を再確認した理由
+
+原作ブラウザ版は、画面内の「選択した神器」欄に攻撃・防御カードを並べ、その上で確定する操作が中心。複数カードの攻撃や防御は順番が重要である。現在のG6オンライン研究版はタップ順を`orderedInstanceIds`としてエンジンに送っている一方、画面の選択済み神器欄だけは**手札の元の配列順**で表示していた。これでは画面と実際に処理する順番が一致せず、組み合わせの理解を妨げる。
+
+**確認した外部資料**：
+- [ゴッドフィールド初心者向け説明](https://godfield-beginner.game-info.wiki/)：「ステータス」「神器」「選択画面」の機能と、カードに表示される攻・守・追加武器の説明
+- [ゴッドフィールドWiki・ゲームの仕様](https://w.atwiki.jp/piong/pages/16.html)：攻撃の対象選択と確定、使用できる防具の選択、防具を使わず「許す」動作
+- [God Fieldガイド＋α](https://w.atwiki.jp/gfplusa/pages/18.html)：単体武器、追加武器の組み合わせ、原作の相手をタップする操作（ただしG6の2人戦では攻撃先を自動設定）
+- [原作スクリーンショット付き記事](https://note.com/kakinsita/n/n2258ee9591c6)：左側に選択神器と攻撃の合計値、中央で攻防結果を表示する対戦配置の参照
+
+## 今回の変更
+
+`v2/demo/firebase-online-lab.html`：
+- 選択済みの神器名を**Setの挿入順＝実際のタップ順**で描画し、`1.`、`2.`の番号を付ける。複数防御における最初の神器が重要な仕様と表示を一致させる。選択解除後に再選択した場合も、送信側の順番と同じになる。
+- 選択カードの`stats.attack`/`stats.guard`/`stats.mpCost`を参考値として表示。属性・奇跡・効果・複数回攻撃・反射を考慮した**確定ダメージ/最終守備力ではない**ので、「カード記載値の合計（参考）」と明示し、相手のHP減少予測は表示しない。ルールや計算処理には一切変更を加えていない。
+- 原作の「誰が誰を攻撃しているか」の文脈を2人研究用のビューから表示。防御時は公開済み`view.pending.sourceId/targetId`、攻撃手番は自分/相手の席から`P1 → P2`などを表示。**相手の未公開手札や内部乱数は配送しない**。
+- 学校向けの固定高さ430pxでも新しい参考表示が過度に画面を圧迫しないように、小文字・不要時非表示とした。
+
+## テスト計画・注意
+
+- `tests/firebase-online-lab-page-v2.test.mjs`：選択順を`for(const instanceId of selection)`で表示し、攻撃対象と参考値が存在することを静的検証。
+- `tests/v2-firebase-online-webkit.browser.mjs`：390×430のタッチ2画面で、手札の**2番目→1番目**をタップし、選択欄がその順になることを検証。攻撃参考値（攻10）、ゲストに公開される`P1→P2`攻撃対象、ゲストが防具をタップしたときの守3、解除後の「許す」の復帰を確認。既存の攻撃/防御/再送の検証も継続。
+- `v2/demo/build-online.mjs`で単体HTMLを自動生成し、`tests/g6-online-bundle-v2.test.mjs`で保存内容と現在のビルドが一致することを検証する。
+- 重要：**本ゲームはまだ研究用の固定4枚・固定補充**。原作の9枚・全カード正規山札・発動時の詳細アニメーションは別工程。今回の表示改善を「原作の全効果に対応した攻撃力計算」とは言わない。
+
+## 実測結果・保存状態
+
+- **新UIおよび回帰テストを含むコード**：`abfa5a50937146c7d571dbb49038cfa1ad772fec`（Nodeの新規静的検査が入った時点）を含み、ビルド済み単体HTMLを再生成。生成物はbot commit `fb55f8c649ba5948d1bea8ac748388a0931f8878` で開発ブランチに保存済み。
+- **Node 905/905 PASS**：GitHub Actions run [`40971530720`](https://github.com/8mahi8/party-card-replica/actions/runs/40971530720)。一度目はHTMLの自動再生成前に古い配布ファイルを読んだため、配布一致検査1件だけ失敗。その後再生成済みHEADの全Nodeテストで成功。
+- **Playwright WebKitの新オンライン2画面 24/24 PASS**（run [`40971341208`](https://github.com/8mahi8/party-card-replica/actions/runs/40971341208)）。Aが2番目→1番目にタップして選択表示順を確認、攻10の参考値、Bが確認するP1→P2の攻撃先、防御にd003を選択して守3、選択解除で「許す」へ戻ることも確認。A攻撃→B防御→再送復旧および従来の画面回帰 **WebKit 339/339 PASS**（同run）。
+- **Chromium 28/28 PASS**：GitHub Actions run [`40971341041`](https://github.com/8mahi8/party-card-replica/actions/runs/40971341041)。
+- 配布用の最新1ファイルHTMLは開発ブランチの`v2/demo/firebase-online-standalone.html`、[ZIP artifact](https://github.com/8mahi8/party-card-replica/actions/runs/40971341208/artifacts/12941095297)、WebKitの[画像エビデンス](https://github.com/8mahi8/party-card-replica/actions/runs/40971341208/artifacts/12940582371)。画面キャプチャは生成したがAI自身の画像目視レビューは未実施。単発再生成workflowは終了後手動起動へ戻した。
+- 学校のiPad実機 / 本物のFirebase上での**今回の新UI**による通信は未検証。既存の本物のFirebase二人対戦検証はrun `40934112303`。Firebase Rules・認証、GitHub `main`、Google Sites学校埋込HTMLは変更していない。
+
+次の優先課題：生成したHTMLを**学校iPadのSafariで2台実際に触って、430px高さにボタンが入るか**を検証。外部HTTPSの配信先が不明な間は、学校Google Sitesの既存ゲームHTMLやFirebase Rulesを変更しない。
