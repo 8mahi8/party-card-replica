@@ -9,7 +9,7 @@ import {VERIFIED_BASIC_CARDS,PARTIAL_CARD_SOURCE} from '../src/verified-basic-ca
 const KNOWN_KEYS=new Set([
   'id','referenceName','kind','category','slot','element','attack','guard',
   'attackBonus','price','weight','reaction','reactionScope','stopScope',
-  'role','boost','plusAttack','mpCost','effect','attackElementOverride','discardPolicy','tradeAction','hpAbsorb','repeatHits','restoreAmount','resourceGain','diseaseOnHit','disease'
+  'role','boost','plusAttack','mpCost','effect','attackElementOverride','discardPolicy','tradeAction','hpAbsorb','repeatHits','restoreAmount','resourceGain','cleanseScope','diseaseOnHit','disease'
 ]);
 const CATEGORY_BY_KIND=Object.freeze({weapon:'weapon_single',armor:'armor_normal',miracle:'miracle',defense_item:'item',support_item:'item',trade:'trade'});
 const mk=(when,type,params={})=>({when,type,params});
@@ -108,6 +108,13 @@ export function convertLegacyCard(card,{ruleset=PARTIAL_CARD_SOURCE}={}) {
       modes.push('cast');effects.push(mk('onDeclare','restoreResource',{
         resource:card.resourceGain,amount:10
       }));
+    } else if(card.role==='cleanse') {
+      if(card.element!=='none'||card.attack!==undefined||
+         !['minor','all'].includes(card.cleanseScope)||
+         card.mpCost!==(card.cleanseScope==='minor'?2:5))
+        throw new Error('Unverified cleansing miracle definition');
+      modes.push('cast');
+      effects.push(mk('onDeclare','cleanseAfflictions',{scope:card.cleanseScope}));
     } else if(card.role==='afflict') {
       if(card.element!=='none'||card.attack!==undefined||
          !['cold','heaven'].includes(card.disease)||
