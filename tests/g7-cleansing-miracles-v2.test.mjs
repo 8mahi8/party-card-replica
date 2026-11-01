@@ -71,7 +71,9 @@ test('Melody removes cold but does not falsely clear heaven or hell sickness',()
  for(const disease of ['heaven','hell']){
   const {A}=fixture({disease});
   cast(A,'m017');
-  assert.equal(A.read().players[0].disease,disease);
+  // The end-of-turn disease engine can progress hell to heaven. Melody
+  // must leave severe illness active, rather than silently cure it.
+  assert.equal(A.read().players[0].disease,disease==='hell'?'heaven':disease);
  }
 });
 test('Song removes heaven and hell, whereas minor Melody does not',()=>{
