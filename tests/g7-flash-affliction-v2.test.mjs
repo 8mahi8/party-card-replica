@@ -34,7 +34,8 @@ test('Flash is a separate non-disease affliction, minor and all cures clear it',
  });
  assert.deepEqual(planOtherAfflictionCure(['flash'],'all').after,[]);
  assert.deepEqual(planOtherAfflictionCure([],'minor').after,[]);
- assert.throws(()=>assertOtherAfflictions(['dream']),/Unknown non-disease affliction/);
+ assert.deepEqual(assertOtherAfflictions(['dream']),['dream']);
+ assert.throws(()=>assertOtherAfflictions(['unresearched']),/Unknown non-disease affliction/);
  assert.throws(()=>assertOtherAfflictions(['flash','flash']),/Unknown non-disease affliction/);
  assert.throws(()=>planOtherAfflictionCure(['flash'],'neither'),/Invalid affliction cure scope/);
 });
