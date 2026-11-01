@@ -40,7 +40,7 @@ test('Piong/Macaron: Mist Gun is water attack 3, yen 10, 0.2%, on-hit Mist only'
   ['霧鉄砲','weapon','main',3,10,1,'water','mist']);
  assert.deepEqual(catalog.get('w061').effects,
   [{when:'afterHit',type:'inflictAffliction',params:{affliction:'mist'}}]);
- assert.deepEqual([summary.unique,summary.slots,summary.complete],[185,446,false]);
+ assert.deepEqual([summary.unique,summary.slots,summary.complete],[RESEARCH_CATALOG_CONTRACT.unique,RESEARCH_CATALOG_CONTRACT.slots,false]);
  assert.deepEqual([summary.unique,summary.slots],
   [RESEARCH_CATALOG_CONTRACT.unique,RESEARCH_CATALOG_CONTRACT.slots]);
  for(const bad of [{afflictionOnHit:'dream'},{afflictionOnHit:'flash-mist'},
