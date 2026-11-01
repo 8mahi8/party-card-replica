@@ -48,10 +48,10 @@ test('Flash Dagger is one sourced light main weapon, not a full-deck approval',(
  assert.equal(summary.complete,false);
  assert.deepEqual([summary.unique,summary.slots],
   [RESEARCH_CATALOG_CONTRACT.unique,RESEARCH_CATALOG_CONTRACT.slots]);
- for(const invalid of ['dream','mist','hell'])
+ for(const invalid of ['dream','rain','hell'])
   assert.throws(()=>convertLegacyCard({...raw,afflictionOnHit:invalid}),
    /Unverified on-hit affliction weapon definition/);
- for(const params of [{affliction:'mist'},{affliction:'flash',x:1},{}])
+ for(const params of [{affliction:'dream'},{affliction:'flash',x:1},{}])
   assert.throws(()=>defineCard({id:'invalid',family:'weapon',element:'light',
     drawWeight:1,stats:{attack:2,price:15},playModes:['mainAttack'],
     effects:[{when:'afterHit',type:'inflictAffliction',params}],
