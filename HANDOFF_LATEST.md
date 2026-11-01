@@ -5,6 +5,15 @@
 
 > **この文書は引き継ぎ入口であり、実装の真実は常に開発ブランチの最新コードとGitHub Actions。** コミットSHA・テスト件数・カード数は作業のたびに変わる。本文の日付や数値を確認せず永久に正しいと扱わないこと。
 
+## 2026-11-02 G7｜〈閃光〉の命中後ダメージ／災い付与プレビュー【最新】
+
+- **原作の確定仕様**：〈閃光〉=MP3・光属性・25%全体攻撃・攻1。相手ごとの命中判定後、**実際にダメージが通った生存相手に閃光付与**。Piong・2026まかろん・Game Breeze、属性防御Piongの資料と照合。通常の光属性防具は無効、虹のカーテンで無属性化するとガードできる。
+- **今回のコード**：`v2/flash-miracle-research.mjs`（研究専用）と `tests/g7-flash-miracle-research-v2.test.mjs`（8追加テスト）。前回の独立25%命中判定 `v2/area-accuracy-research.mjs`、既存の `src/rules.mjs`（防御属性・守備・HP計算）を**再利用**。命中／外れ、虹のカーテン、HP0、複数生存者、MP3不足、不正入力を決定的なseedで検証。`wouldInflictFlash` は研究用の**計算結果のみ**。
+- **実戦接続状態**：**まだ使用可能カード・オンライン対戦に接続していない**。手札・MP・HP・災い・ルームrevisionやFirebase書込を変更せず、原作の不明点を勝手に埋めない。〈閃光〉奇跡の正式定義ID `m019` は未登録。前回のフラッシュダガーは別途実戦研究セットに登録済。
+- **原作で未確定の点**：命中しない相手にも防御UIが出るか、手札消費の有無、複数対象の防御／反射／弾く順序、反射後の再抽選、チーム戦、暗雲時の必中。これらが確認できてから共通 `miracle-resolution` と `room-transition` に接続すること。**次の担当は推測で本番向け仕様を決めない。**
+- **自動テスト**：Node **1090/1090 合格** [run 41330453720](https://github.com/8mahi8/party-card-replica/actions/runs/41330453720)、Chromium既存画面成功 [run 41330453736](https://github.com/8mahi8/party-card-replica/actions/runs/41330453736)。WebKitは完了後の結果を参照。今回の新規8テストは**研究用であり、実戦の奇跡詠唱UIを試したものではない**。
+- **変更せず維持**：研究台帳182種類／443参考枠・`complete:false`、23試遊セット、GitHub main、学校Google Sites直接貼付版、Firebase Rulesと認証。詳細 [V2_G7_FLASH_MIRACLE_DAMAGE_PREVIEW_2026-11-02.md](docs/V2_G7_FLASH_MIRACLE_DAMAGE_PREVIEW_2026-11-02.md)。
+
 ## 2026-11-02 G7｜〈閃光〉の全体攻撃・命中判定研究【最新】
 
 - **原作照合済み**：〈閃光〉＝光属性・MP3・25%攻1・全体攻撃。ダメージが通った対象だけ閃光を受ける。**全体攻撃は各相手に独立して命中抽選**（[Piong奇跡](https://w.atwiki.jp/piong/pages/20.html)、[まかろん2026神器一覧](https://macarongamemo.com/entry/godfield-artifact)、[全体攻撃の対象別抽選の説明](https://w.atwiki.jp/aniwotawiki/pages/47010.html)）。同じ25%抽選を全員へ流用する実装は原作と異なる。
