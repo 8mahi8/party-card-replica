@@ -392,6 +392,31 @@ export function runEffectQueueFixture(state,catalog,queue,{
          resolveIllnessZeroHp(p,beforeHp);
        }
      }
+   } else if(effect.type==='inflictAffliction'){
+     if(Object.keys(effect).length!==3||effect.affliction!=='flash')
+       fail('Malformed on-hit non-disease affliction effect');
+     const p=who(s,effect.targetId),pending=state.pending;
+     if(pending?.type!=='attack'||pending.targetId!==p.id||
+        queue.filter(q=>q?.type==='inflictAffliction').length!==1||
+        !queue.some(q=>q?.type==='hit'&&q.targetId===p.id&&q.damage>0))
+       fail('Flash affliction requires an authentic damaging strike');
+     // After reflection the original card may already have been spent.
+     const sourced=pending.attackContext?
+       pending.attackContext.afflictionOnHit:
+       pending.attackInstanceIds?.map(id=>{
+         const original=who(state,pending.originalAttackerId);
+         const held=original.hand.find(c=>c.instanceId===id);
+         return catalog.get(held?.definitionId)?.effects.find(e=>
+           e.when==='afterHit'&&e.type==='inflictAffliction')?.params.affliction;
+       }).filter(Boolean).at(0);
+     if(sourced!==effect.affliction)
+       fail('Flash was not authorized by the original attack card');
+     if(p.hp>0){
+       const before=assertOtherAfflictions(p.afflictions);
+       p.afflictions=[...new Set([...before,effect.affliction])];
+       events.push({type:'inflictAffliction',targetId:p.id,
+         affliction:effect.affliction,before,after:[...p.afflictions]});
+     }
    } else if(effect.type==='exchange'){
      // All Exchange allocations are server-side staged and self-directed.
      // There is no opposing defense and no change of total HP+MP+money.
