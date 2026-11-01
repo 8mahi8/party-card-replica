@@ -79,11 +79,11 @@ test('sourced additions increase the diagnostic armor count but never authorize 
  const report=compareHistoricalDeckClaims(VERIFIED_BASIC_CARDS);
  assert.equal(report.unique,RESEARCH_CATALOG_CONTRACT.unique);
  assert.equal(report.slots,RESEARCH_CATALOG_CONTRACT.slots);
- assert.deepEqual(report.actualGroups,{trade:60,weapon:158,armor:133,miracle:20,item:77});
+ assert.deepEqual(report.actualGroups,{trade:60,weapon:158,armor:133,miracle:21,item:77});
  const a=report.comparisons.find(x=>x.key==='wiki-2025-09-19');
  const b=report.comparisons.find(x=>x.key==='player-study-2024-11-06');
- assert.deepEqual([a.missingKinds,a.remainingSlots,a.kindCountPossible],[166,52,false]);
- assert.deepEqual([b.missingKinds,b.remainingSlots,b.kindCountPossible],[50,52,true]);
+ assert.deepEqual([a.missingKinds,a.remainingSlots,a.kindCountPossible],[165,51,false]);
+ assert.deepEqual([b.missingKinds,b.remainingSlots,b.kindCountPossible],[49,51,true]);
  assert.equal(report.categoryCells.armor_normal.fire,8);
  assert.equal(report.categoryCells.weapon_single.none,124,'source-audited neutral weapon budget mismatch preserved');
  assert.equal(a.typedCellOverflows.length,1);
