@@ -9,10 +9,9 @@ const players=()=>[
  {id:'C',hp:18,mp:10},{id:'D',hp:0,mp:10}
 ];
 function sample(hit){
- for(let seed=1;seed<=1000;seed++){
-   if((drawRandom32(seed).value<.25)===hit)return seed;
- }
- throw Error('No deterministic seed found');
+ const seed=hit?71:4096;
+ assert.equal(drawRandom32(seed).value<.25,hit,'deliberate PRNG fixture seed');
+ return seed;
 }
 test('Flash spell metadata is sourced and exactly 25%-attack1 light MP3',()=>{
  assert.deepEqual(ref,{referenceName:'閃光',attack:1,element:'light',
@@ -74,6 +73,5 @@ test('no MP or invalid fake defense data is rejected before any mutation',()=>{
   {B:{shields:[{element:'none',guard:1,attack:3}]}},
   null
  ])assert.throws(()=>plan({players:ps,sourceId:'A',rngSeed:71,defenses}));
- assert.deepEqual(ps,{...original[0],mp:3}&&
-  [ {...original[0],mp:3},...original.slice(1)]);
+ assert.deepEqual(ps,[{...original[0],mp:3},...original.slice(1)]);
 });
