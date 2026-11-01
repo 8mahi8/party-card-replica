@@ -79,10 +79,12 @@ export function compileSoloMiracleResolution(state,catalog) {
  const otherAffliction=miracle.effects.length===1&&
    miracle.effects[0].when==='onDeclare'&&
    miracle.effects[0].type==='inflictAffliction'&&
-   miracle.effects[0].params.affliction==='mist'&&
-   miracle.stats.attack===0&&miracle.stats.mpCost===3&&miracle.element==='water';
+   ['mist','dream'].includes(miracle.effects[0].params.affliction)&&
+   miracle.stats.attack===0&&
+   ((miracle.effects[0].params.affliction==='mist'&&miracle.stats.mpCost===3&&miracle.element==='water')||
+    (miracle.effects[0].params.affliction==='dream'&&miracle.stats.mpCost===6&&miracle.element==='wood'));
  if(otherAffliction&&state.players.length!==2)
-   fail('Mist targeting outside two-seat research not implemented');
+   fail('Non-disease curse targeting outside two-seat research not implemented');
  const resourceEffect=miracle.effects.length===1&&miracle.effects[0].when==='onDeclare'&&
   miracle.effects[0].type==='restoreResource'&&miracle.element==='none'&&
   miracle.stats.attack===0&&miracle.effects[0].params.amount===10&&
@@ -169,7 +171,7 @@ export function compileSoloMiracleResolution(state,catalog) {
          scope:miracle.effects[0].params.scope})]:
      otherAffliction?
        (stopped?[]:[item('castAffliction',{targetId:target.id,
-         miracleId:miracle.id,affliction:'mist'})]):
+         miracleId:miracle.id,affliction:miracle.effects[0].params.affliction})]):
      affliction?
        (stopped?[]:[item('castDisease',{targetId:target.id,
          miracleId:miracle.id,disease:miracle.effects[0].params.disease})]):
