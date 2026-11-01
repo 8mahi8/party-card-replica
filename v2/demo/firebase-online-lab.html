@@ -110,6 +110,7 @@ main{padding:0 6px 8px}.brandline{margin:0 -6px}
 <option value="elements">属性防御（火・水）</option>
 <option value="fireArmor">新しい火属性防具3種・水属性防御</option>
 <option value="flashDefense">閃光・防御は1枚まで／貝がら解除</option>
+<option value="flashDagger">フラッシュダガー・命中で閃光→治療</option>
 <option value="dark">闇属性と高防御</option>
 <option value="recovery">HP・MP回復と反撃</option>
 <option value="support">相手への回復と反射</option>
@@ -193,6 +194,10 @@ const LAB_PRESETS=Object.freeze({
  elements:Object.freeze({
   A:Object.freeze(['w018','w021','d035','d043']),
   B:Object.freeze(['w021','w018','d043','d035'])
+ }),
+ flashDagger:Object.freeze({
+  A:Object.freeze(['w060','w016','d001','i006']),
+  B:Object.freeze(['i017','d001','w016','i002']),rngSeed:71
  }),
  flashDefense:Object.freeze({
   A:Object.freeze(['w027','w016','d003','i006']),
