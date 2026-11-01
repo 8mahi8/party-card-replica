@@ -161,6 +161,9 @@ export function compileBasicResolution(state,catalog) {
     ...(hit.damage>0&&attackContext.diseaseOnHit?
       [Object.freeze({type:'inflictDisease',targetId:defender.id,
         disease:attackContext.diseaseOnHit})]:[]),
+    ...(hit.damage>0&&attackContext.afflictionOnHit?
+      [Object.freeze({type:'inflictAffliction',targetId:defender.id,
+        affliction:attackContext.afflictionOnHit})]:[]),
     ...(multiplayerMirage?
       [Object.freeze({type:'advanceMirageRoute',attackContext,route:mirageRoute})]:
       continueStrike?
