@@ -68,6 +68,7 @@ export function compileOrderedWeaponAttack(state,catalog){
   let aura=null,plusCount=0,additive=0,lastWasMiracle=false,hasArmorBonus=false,itemBonus=0;
   let learnedDrawCount=0,mirageCount=0;
   let forcedAttackElement=null,absorbsHp=false,hitCount=1,diseaseOnHit=null,afflictionOnHit=null;
+  let mpAttackCost=null;
   let wandPosition=-1,auraPosition=-1;
   const casts=[],selectedKinds=[];
   const miracles=[];
@@ -93,6 +94,14 @@ export function compileOrderedWeaponAttack(state,catalog){
             fail('Multiple attack-element override wands unverified');
           forcedAttackElement=eff.params.element;
           wandPosition=position;
+          continue;
+        }
+        if(eff.type==='spendMpForAttack'&&eff.when==='onDeclare'&&
+           eff.params.multiplier===2&&def.family==='weapon'&&
+           def.playModes.includes('mainAttack')&&def.stats.attack===0){
+          if(mpAttackCost!==null)fail('Only one MP-powered main weapon');
+          if(caster.mp<=0)fail('Zero-MP wand attack is not yet verified');
+          mpAttackCost=caster.mp;
           continue;
         }
         if(eff.type==='repeatAttack'&&eff.when==='onDeclare'&&
@@ -183,6 +192,9 @@ export function compileOrderedWeaponAttack(state,catalog){
     }
   }
   if(!weaponCount)fail('Attack requires a weapon');
+  // Original combinations with another weapon / miracle / modifier need direct evidence.
+  if(mpAttackCost!==null&&(selected.length!==1||mainCount!==1||weaponCount!==1))
+    fail('MP-powered wand combinations not yet verified');
   // Original Mist target selection is not verified for three or more seats.
   if(afflictionOnHit==='mist'&&state.players.length!==2)
     fail('Mist on-hit targeting outside two-seat research not implemented');
@@ -223,8 +235,9 @@ export function compileOrderedWeaponAttack(state,catalog){
       fail('Attribute wand before Aura: original dye priority unverified');
   }
   // Aura multiplies all weapon attack values, even addons chosen later.
-  const attack=add(add(aura?add(weaponAttack,weaponAttack):weaponAttack,additive),itemBonus);
-  const payableMP=miracles.reduce((n,m)=>add(n,m.discounted?0:m.mpCost),0);
+  const attack=add(add(aura?add(weaponAttack,weaponAttack):weaponAttack,additive),
+    mpAttackCost===null?itemBonus:add(mpAttackCost,mpAttackCost));
+  const payableMP=mpAttackCost??miracles.reduce((n,m)=>add(n,m.discounted?0:m.mpCost),0);
   if(caster.mp<payableMP)fail('Not enough MP');
   const learnedMiracles=[...new Set(miracles.map(m=>m.id))];
   return Object.freeze({
@@ -234,7 +247,7 @@ export function compileOrderedWeaponAttack(state,catalog){
     attack,element:forcedAttackElement??(aura||mirageCount?'none':attackElement),attackKind:'weapon',
     instanceIds:Object.freeze(selected.filter(x=>x.instance).map(x=>x.instance.instanceId)),
     payableMP,learnedDrawCount,learnedMiracles:Object.freeze(learnedMiracles),
-    hasModifiers:miracles.length>0,absorbsHp,diseaseOnHit,afflictionOnHit,hitCount,mirageCount,
+    hasModifiers:miracles.length>0||mpAttackCost!==null,absorbsHp,diseaseOnHit,afflictionOnHit,hitCount,mirageCount,
     selectedKinds:Object.freeze(selectedKinds)
   });
 }
