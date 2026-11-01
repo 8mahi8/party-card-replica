@@ -1,5 +1,5 @@
 /**
- * Original-faithful disease family only (not mist/flash/dream/dark cloud).
+ * Disease stages and the independently sourced Flash defense restriction.
  * Sources: Piong disaster list (2026), beginner rules, AnimeWiki.
  * All mutations are applied in the host effect runner, never on a client.
  */
@@ -44,13 +44,35 @@ export function planDiseaseTurnEnd(disease,hp,roll){
 }
 
 /**
- * Current disease-only boundary. Original Smile Shell also cures mist and
- * flash; Heart Shell also cures dream/cloud. Those afflictions are not yet
- * represented in the active V2 room model, so never pretend they were cured.
+ * The disease progression is separate from non-disease afflictions. The
+ * supported Smile/Heart scope below also clears Flash, but does not pretend
+ * that unimplemented mist, dream, or dark cloud are modeled.
  */
 export function planDiseaseCure(disease,scope){
  const current=assertDisease(disease);
  if(!['minor','all'].includes(scope))throw new Error('Invalid affliction cure scope');
  const cures=current!==null&&(scope==='all'||['cold','fever'].includes(current));
  return Object.freeze({before:current,disease:cures?null:current,cured:cures});
+}
+
+/** Flash: while affected, a defender may select at most one artifact.
+ * Piong disaster list and Godfield beginner guide; no guessing about other
+ * non-disease afflictions. This array permits a future independently sourced
+ * status without redefining the four-stage illness progression.
+ */
+export const OTHER_AFFLICTIONS=Object.freeze(['flash']);
+export function assertOtherAfflictions(value){
+ if(value===undefined)return [];
+ if(!Array.isArray(value)||value.some(v=>!OTHER_AFFLICTIONS.includes(v))||
+    new Set(value).size!==value.length)
+   throw new Error('Unknown non-disease affliction');
+ return [...value];
+}
+export function planOtherAfflictionCure(value,scope){
+ const before=assertOtherAfflictions(value);
+ if(!['minor','all'].includes(scope))throw new Error('Invalid affliction cure scope');
+ // Both Smile and Heart cure Flash in the original; more statuses require
+ // explicit original-backed membership before they can be added here.
+ const after=before.filter(v=>!(v==='flash'&&['minor','all'].includes(scope)));
+ return Object.freeze({before,after,cured:before.length!==after.length});
 }
