@@ -12,8 +12,8 @@
  * 調査用の参照名で、オリジナルUIの表示素材ではない。
  */
 export const PARTIAL_CARD_SOURCE = 'piong-atwiki-and-macaron-2026-02-28';
-const main=(id,referenceName,attack,price,weight,{element='none',guard,reaction,reactionScope='neutral_weapon',stopScope,hpAbsorb,repeatHits,diseaseOnHit,afflictionOnHit,mpAttack}={})=>
-  Object.freeze({id,referenceName,kind:'weapon',slot:'main',category:'weapon_single',element,attack,price,weight,...(guard===undefined?{}:{guard}),...(reaction===undefined?{}:{reaction,reactionScope}),...(stopScope===undefined?{}:{stopScope}),...(hpAbsorb===undefined?{}:{hpAbsorb}),...(repeatHits===undefined?{}:{repeatHits}),...(diseaseOnHit===undefined?{}:{diseaseOnHit}),...(afflictionOnHit===undefined?{}:{afflictionOnHit}),...(mpAttack===undefined?{}:{mpAttack})});
+const main=(id,referenceName,attack,price,weight,{element='none',guard,reaction,reactionScope='neutral_weapon',stopScope,hpAbsorb,repeatHits,diseaseOnHit,afflictionOnHit,mpAttack,hpRecoil}={})=>
+  Object.freeze({id,referenceName,kind:'weapon',slot:'main',category:'weapon_single',element,attack,price,weight,...(guard===undefined?{}:{guard}),...(reaction===undefined?{}:{reaction,reactionScope}),...(stopScope===undefined?{}:{stopScope}),...(hpAbsorb===undefined?{}:{hpAbsorb}),...(repeatHits===undefined?{}:{repeatHits}),...(diseaseOnHit===undefined?{}:{diseaseOnHit}),...(afflictionOnHit===undefined?{}:{afflictionOnHit}),...(mpAttack===undefined?{}:{mpAttack}),...(hpRecoil===undefined?{}:{hpRecoil})});
 const add=(id,referenceName,attack,price,weight=1,{element='none',reaction,reactionScope,stopScope,attackElementOverride}={})=>
   Object.freeze({id,referenceName,kind:'weapon',slot:'addon',category:'weapon_single',element,attack,price,weight,...(reaction===undefined?{}:{reaction,reactionScope}),...(stopScope===undefined?{}:{stopScope}),...(attackElementOverride===undefined?{}:{attackElementOverride})});
 const shield=(id,referenceName,guard,price,weight,{element='none',attackBonus,stopScope,reaction,reactionScope}={})=>
@@ -79,6 +79,8 @@ export const VERIFIED_BASIC_CARDS = Object.freeze([
   main('w061','霧鉄砲',3,10,1,{element:'water',afflictionOnHit:'mist'}),
   // Piong + Macaron 2026: spends all MP to attack for twice the MP amount.
   main('w062','マジカルステッキ',0,10,1,{mpAttack:true}),
+  // Piong & Macaron: damage dealt by this neutral sword also hurts the current source.
+  main('w063','邪神の大剣',14,1,1,{hpRecoil:true}),
   // Source-checked plain weapons (2026-03-18 piong wiki, cross-checked with
   // 2024 GFGA where both agree). No special/condition/status behavior.
   // Preserve main/add factories so later cards need data, not name branches.
