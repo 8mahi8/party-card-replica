@@ -1,9 +1,18 @@
 # ゴッドフィールド再現ゲーム｜開発担当AI 引き継ぎ【最新・入口固定】
 
-**最終更新：2026年11月1日（日本時間）**  
+**最終更新：2026年11月2日（日本時間）**  
 **ユーザーが新しいチャットで「ゴッドフィールドの開発引き継いで」とだけ言ったら、この文書から開発を再開する。** チャットの過去ログや古いREADMEを読めない状態でも、このファイル・GitHubのコード・CI・資料で引き継げるようにしている。
 
 > **この文書は引き継ぎ入口であり、実装の真実は常に開発ブランチの最新コードとGitHub Actions。** コミットSHA・テスト件数・カード数は作業のたびに変わる。本文の日付や数値を確認せず永久に正しいと扱わないこと。
+
+## 2026-11-02 G7｜〈音色〉〈歌声〉実Firebase2席検証【最新】
+
+- **実施した作業**：G7で実装済みの奇跡`m017`〈音色〉MP2／`m018`〈歌声〉MP5について、**初の実Firebase・2独立WebKitブラウザ**による対戦シナリオを追加（`tests/v2-g7-live-cleansing.browser.mjs`）。ゲーム本体に新機能は追加せず、前回の模擬RTDBテストだけでは確かめられない実通信を検証。
+- **範囲**：各奇跡を別ルームで試し、ホスト・ゲスト入室、病気状態とHP/MP同期、詠唱／MP支払い／習得／手札補充、ゲストの通常攻撃、ホストの習得後再詠唱、revision・手番一致、相手の手札・習得済み奇跡の非公開を実データで確認。
+- **結果**：**2シナリオすべて成功・計33チェック** [Actions run 41323117337](https://github.com/8mahi8/party-card-replica/actions/runs/41323117337)。`G7_LIVE_CLEANSING_M017_SUCCESS checks=14`／`...M018_SUCCESS checks=30`／`G7_LIVE_CLEANSING_ALL_SUCCESS checks=33`。2つの一時ルームはそれぞれ作成者`hostId`とversionを一致確認して削除。Node **1063/1063 PASS**（例：[run 41323141678](https://github.com/8mahi8/party-card-replica/actions/runs/41323141678)）、Chromium **PASS**（例：[run 41323141664](https://github.com/8mahi8/party-card-replica/actions/runs/41323141664)）。本物Firebaseの試験結果と学校実機検証を混同しない。
+- **初回失敗の原因**：[run 41322971112](https://github.com/8mahi8/party-card-replica/actions/runs/41322971112) は本物FirebaseのJSON保存時に`null`属性が省略されることをテストが考慮していなかった。テスト側の`disease===null`を`disease==null`へ修正した再試験が合格。**ゲーム本体の不具合ではない**。初回は所有者を確定した一時ルームで、cleanup失敗ログなし。
+- **運用**：実Firebase試験ワークフロー`.github/workflows/g7-live-cleansing-20261102.yml`は自動実行後**手動専用へ復帰済**。Firebase Security Rules・認証・GitHub main・学校Google Sites埋め込みHTMLの変更なし。**学校iPad Safari・直接貼り付け版は未検証**。
+- **状態と次**：G7カード台帳は**181種類／442参考枠・`complete:false`**のまま。原作の資料差や未実装効果を勝手に修正しない。次の作業は本家再現に直結する実装・試遊完成度の高い部分を優先。記録：[V2_G7_LIVE_FIREBASE_CLEANSING_2026-11-02.md](docs/V2_G7_LIVE_FIREBASE_CLEANSING_2026-11-02.md)。
 
 ## 2026-11-01 G7｜奇跡〈音色〉〈歌声〉の共通災い解除【最新】
 
