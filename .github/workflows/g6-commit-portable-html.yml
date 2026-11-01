@@ -1,9 +1,6 @@
 name: G6 one-off commit portable HTML to development branch
 
 on:
-  push:
-    branches:
-      - refactor/v2-foundation-review-20261027
   workflow_dispatch:
 
 permissions:
@@ -11,7 +8,7 @@ permissions:
 
 jobs:
   package:
-    if: ((github.event_name == 'workflow_dispatch' || github.event_name == 'push') && github.ref_name == 'refactor/v2-foundation-review-20261027') || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository)
+    if: (github.event_name == 'workflow_dispatch' && github.ref_name == 'refactor/v2-foundation-review-20261027') || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository)
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
