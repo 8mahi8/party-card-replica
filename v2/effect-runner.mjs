@@ -266,7 +266,8 @@ export function runEffectQueueFixture(state,catalog,queue,{
      if(!positiveCount(effect.damage)||!positiveCount(effect.hpAfter)||
         effect.hpAfter>p.hp||typeof effect.instantDefeat!=='boolean')
        fail('Malformed hit effect');
-     // A source-backed absorbing weapon heals by the RESOLVED damage amount,
+     // Source-backed absorbing weapons and the solo <Absorb> miracle
+     // heal by the RESOLVED damage amount, including overkill.
      // even on overkill. A self-targeted absorber may reach transient HP0
      // and recover without spending a Sun Charm (observed original behavior).
      // Use the current attack source, which changes with reflect/deflect,
@@ -278,13 +279,21 @@ export function runEffectQueueFixture(state,catalog,queue,{
        const pending=state.pending;
        if(pending.type!=='attack'||pending.targetId!==effect.targetId||
          (pending.attackContext
-           ?pending.attackContext.absorbsHp!==true
-           :!pending.attackInstanceIds?.some(id=>{
-             const attacker=who(state,pending.originalAttackerId);
-             const instance=attacker.hand.find(c=>c.instanceId===id);
-             return catalog.get(instance?.definitionId)?.effects.some(e=>
-               e.when==='afterHit'&&e.type==='absorbHp'&&e.params.amount==='damage');
-           })))
+           ?(pending.attackContext.attackKind==='weapon'
+             ?pending.attackContext.absorbsHp!==true
+             :pending.attackContext.attackKind!=='miracle'||
+               !catalog.get(pending.attackContext.miracleId)?.effects.some(e=>
+                 e.when==='afterHit'&&e.type==='absorbHp'&&e.params.amount==='damage'))
+           :!(()=>{
+             const original=who(state,pending.originalAttackerId);
+             const ids=[
+               ...(pending.attackLearnedDefinitionId?[pending.attackLearnedDefinitionId]:[]),
+               ...(pending.attackInstanceIds??[]).map(id=>original.hand.find(c=>
+                 c.instanceId===id)?.definitionId)
+             ];
+             return ids.some(id=>catalog.get(id)?.effects.some(e=>
+               e.when==='afterHit'&&e.type==='absorbHp'&&e.params.amount==='damage'));
+           })()))
          fail('Absorption requires an authentic attack effect');
        if(effect.instantDefeat)
          fail('Absorbing instant-defeat attacks need original verification');
