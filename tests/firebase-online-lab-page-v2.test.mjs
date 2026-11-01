@@ -126,7 +126,7 @@ test('self-resource miracles have clear action label, own target, and preserve l
  assert.match(page,/resourceMiracles/);
  assert.match(page,/selfSupportCast\?seat:/);
  assert.match(page,/\(resourceCast\|\|cleansingCast\)\?'奇跡を使う':'攻撃する'/);
- assert.match(page,/\['inflictDisease','restoreResource','cleanseAfflictions'\]\.includes\(e\.type\)/);
+ assert.match(page,/\['inflictDisease','inflictAffliction','restoreResource','cleanseAfflictions'\]\.includes\(e\.type\)/);
  assert.match(page,/cleansingMiracles/);
  assert.match(page,/cleanseAfflictions/);
  assert.match(page,/const learnedScroll=learnedArea\.querySelector/);
