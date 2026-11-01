@@ -30,4 +30,11 @@
 
 〈閃光〉の確率全体攻撃の防御・反射順は引き続き未確定。全体確率攻撃の基礎計算と仮想防御は別の研究モジュールとして存在し、実戦への接続は原作確認が取れた部分のみ行う。
 
-CIの最終件数・結果はテスト完了後にこの資料と`HANDOFF_LATEST.md`へ記録する。
+## CI最終検証（実測・2026-11-02 JST）
+
+- [Node run 41332076268](https://github.com/8mahi8/party-card-replica/actions/runs/41332076268)：**1,101 / 1,101 合格**。新規10件の〈吸収〉原作戦闘テスト含む。
+- [Chromium run 41332076394](https://github.com/8mahi8/party-card-replica/actions/runs/41332076394)：**28 / 28 合格**。
+- [Playwright WebKit run 41332076406](https://github.com/8mahi8/party-card-replica/actions/runs/41332076406)：**独立2画面・模擬RTDBオンライン 313 / 313 合格、従来UI 339 / 339 合格**。WebKitのタップにより〈吸収〉初回詠唱→スーパーミラーで反射→元詠唱者はHP30/MP15・反射者はHP50になることを確認。
+- 途中のCI失敗は台帳旧固定値182/443、単体HTMLが未再生成だったことが主因。最終ソース・テスト・開発用HTMLは同期済み。再生成ワークフローは**手動専用へ戻した**。
+- WebKitはシミュレーションであり学校iPad Safari実機・本物Firebaseでの〈吸収〉試合は未検証。
+
