@@ -11,7 +11,7 @@
 - **範囲**：研究版2席で単独使用のみ。MP0での使用可否、他の武器／奇跡との複雑な合成は**原作未検証なので拒否**。本家の全仕様を実装済みと称しない。
 - **UI・試験**：27番目の`magicalStaff`固定研究プリセット、攻撃者・防御者双方に「攻MP×2」を表示。新規Node 7件と模擬RTDB・独立2画面WebKitタップ検証を追加。台帳 **186種類／447参考枠、complete:false**。
 - **開発効率**：これまで新カードを足すたび何度も失敗していた旧カード総数のテスト直書きを、多数の個別テストで`RESEARCH_CATALOG_CONTRACT`参照に統一した。別版のカテゴリごとの分布監査は維持し、正規抽選はまだ禁止。
-- **CI・未確認**：最新HEADのGitHub Actionsを再確認すること。学校iPad Safari、本物Firebaseでの新カード対戦は未検証。学校Google Sites埋込版、Firebase Rules/認証、GitHub mainは変更しない。
+- **CI実測**：ゲームコードを含むコミットで**Node 1,126/1,126成功** [run 41358682761](https://github.com/8mahi8/party-card-replica/actions/runs/41358682761)、**Chromium 28/28成功** [run 41358682757](https://github.com/8mahi8/party-card-replica/actions/runs/41358682757)、**WebKit模擬RTDB2画面329/329＋既存UI339/339成功** [run 41358682802](https://github.com/8mahi8/party-card-replica/actions/runs/41358682802)。単体HTML3本再生成済み・ビルドworkflowは手動専用に戻した。学校iPad Safari、本物Firebaseでの新カード対戦は未検証。学校Google Sites埋込版、Firebase Rules/認証、GitHub mainは変更しない。
 - 詳細：[V2_G7_MAGICAL_STAFF_2026-11-02.md](docs/V2_G7_MAGICAL_STAFF_2026-11-02.md)。次はCI最終確認→原作に裏付けのある次のカード／未完成効果。
 
 ## 2026-11-02 G7｜霧鉄砲（命中後の霧）・研究用2人オンライン【最新】
