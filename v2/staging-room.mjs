@@ -538,7 +538,13 @@ export function viewStagingRoom(state,viewerId,catalog=null) {
     schemaVersion:2,rulesetId:state.rulesetId,revision:state.revision,
     phase:state.phase,activePlayerId:state.activePlayerId,
     players:state.players.map(q=>({
-      id:q.id,hp:q.hp,mp:q.mp,money:q.money,disease:q.disease??null,
+      // Mist hides an opponent's HP/MP/money from this seat. Do not
+      // serialize the true values at all into the user's room projection.
+      id:q.id,
+      hp:q.id!==p.id&&assertOtherAfflictions(p.afflictions).includes('mist')?null:q.hp,
+      mp:q.id!==p.id&&assertOtherAfflictions(p.afflictions).includes('mist')?null:q.mp,
+      money:q.id!==p.id&&assertOtherAfflictions(p.afflictions).includes('mist')?null:q.money,
+      disease:q.disease??null,
       afflictions:assertOtherAfflictions(q.afflictions),handCount:q.hand.length,
       ...(q.id===p.id?{hand:q.hand.map(x=>({instanceId:x.instanceId,
          definitionId:dreamVisibleDefinitionIdFixture(q,x,catalog)})),learned:[...q.learned]}:{})
