@@ -85,7 +85,7 @@ test('sourced additions increase the diagnostic armor count but never authorize 
  assert.deepEqual([a.missingKinds,a.remainingSlots,a.kindCountPossible],[167,53,false]);
  assert.deepEqual([b.missingKinds,b.remainingSlots,b.kindCountPossible],[51,53,true]);
  assert.equal(report.categoryCells.armor_normal.fire,8);
- assert.equal(report.categoryCells.weapon_single.none,122,'unrelated source mismatch untouched');
+ assert.equal(report.categoryCells.weapon_single.none,123,'source-audited neutral weapon budget mismatch preserved');
  assert.equal(a.typedCellOverflows.length,1);
  assert.equal(auditCatalog(VERIFIED_BASIC_CARDS).complete,false);
  assert.throws(()=>createAuditedDraw(VERIFIED_BASIC_CARDS),/Catalog incomplete/);
