@@ -662,7 +662,7 @@ try{
    check((await defender.locator('.score').nth(1).textContent()).includes('熱病'),
     'Shell trial guest starts with curable fever');
    await attacker.locator('#hand button').nth(heart?1:0).tap();
-   check((await attacker.locator('#selectionTotal').textContent()).includes(heart?'病系の災いをすべて治す':'風邪・熱病を治す'),
+   check((await attacker.locator('#selectionTotal').textContent()).includes(heart?'対応する災いをすべて治す':'風邪・熱病・閃光を治す'),
     'Shell preview has precise minor/all disease scope');
    await attacker.locator('#itemTarget').tap();
    await attacker.locator('#useItem').tap();
