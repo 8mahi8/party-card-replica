@@ -124,7 +124,7 @@ test('Buy candidate is private until defender passes and Exchange conserves tota
 
 test('self-resource miracles have clear action label, own target, and preserve learned scroll',()=>{
  assert.match(page,/resourceMiracles/);
- assert.match(page,/ownResourceCast\?seat:/);
+ assert.match(page,/selfSupportCast\?seat:/);
  assert.match(page,/resourceCast\?'奇跡を使う':'攻撃する'/);
  assert.match(page,/\['inflictDisease','restoreResource'\]\.includes\(e\.type\)/);
  assert.match(page,/const learnedScroll=learnedArea\.querySelector/);
