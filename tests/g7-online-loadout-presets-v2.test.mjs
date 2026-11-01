@@ -10,11 +10,12 @@ const {byId:catalog,summary}=migrateLegacyCatalog();
 const literal=page.match(/const LAB_PRESETS=(Object\.freeze\(\{[\s\S]*?\}\));/);
 if(!literal)throw Error('Expected source-backed lab presets in online demo');
 const presets=vm.runInNewContext(literal[1]);
-test('online trial room offers twenty-one explicitly named fixture hand sets, never fake random draws',()=>{
+test('online trial room offers twenty-two explicitly named fixture hand sets, never fake random draws',()=>{
  assert.match(page,/<select id="labPreset"/);
  assert.match(page,/<option value="basic">/);
  assert.match(page,/<option value="elements">/);
  assert.match(page,/<option value="fireArmor">/);
+ assert.match(page,/<option value="flashDefense">/);
  assert.match(page,/<option value="dark">/);
  assert.match(page,/<option value="recovery">/);
  assert.match(page,/<option value="support">/);
@@ -38,10 +39,10 @@ test('online trial room offers twenty-one explicitly named fixture hand sets, ne
  assert.match(page,/LAB_PRESETS\[\$\('labPreset'\)\.value\]/);
  assert.match(page,/handDefinitionIds:\[\.\.\.preset\.A\]/);
  assert.match(page,/handDefinitionIds:\[\.\.\.preset\.B\]/);
- assert.deepEqual(Object.keys(presets).sort(),['basic','broom','buy','cleansingMiracles','dark','elements','exchange','fireArmor','heaven','illnessAttack','learnedTrial','recovery','resourceMiracles','sale','shells','soap','support','tear','turbulenceBack','turbulenceSelf','windMiracles']);
+ assert.deepEqual(Object.keys(presets).sort(),['basic','broom','buy','cleansingMiracles','dark','elements','exchange','fireArmor','flashDefense','heaven','illnessAttack','learnedTrial','recovery','resourceMiracles','sale','shells','soap','support','tear','turbulenceBack','turbulenceSelf','windMiracles']);
  assert.equal(summary.complete,false,'deck not audited for real weighted draws');
 });
-test('all twenty-one fixed presets contain valid catalog definitions and four cards per seat',()=>{
+test('all twenty-two fixed presets contain valid catalog definitions and four cards per seat',()=>{
  for(const [name,hands] of Object.entries(presets)){
   for(const seat of ['A','B']){
    assert.equal(hands[seat].length,4,name+' '+seat);
@@ -127,5 +128,13 @@ test('Melody and Song trial is an explicit twenty-first controlled source-backed
   assert.equal(def.family,'miracle');
   assert.deepEqual(def.effects.map(x=>x.type),['cleanseAfflictions']);
  }
+ assert.equal(summary.complete,false);
+});
+
+test('Flash research preset is an explicit test state and never used as real card distribution',()=>{
+ assert.deepEqual(Array.from(presets.flashDefense.A),['w027','w016','d003','i006']);
+ assert.deepEqual(Array.from(presets.flashDefense.B),['d001','d003','i017','w016']);
+ assert.deepEqual(Array.from(presets.flashDefense.afflictionsB),['flash']);
+ assert.match(page,/initialState\.players\[index\]\.afflictions=\[\.\.\.list\]/);
  assert.equal(summary.complete,false);
 });
