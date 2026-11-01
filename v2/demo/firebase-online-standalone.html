@@ -122,6 +122,7 @@ main{padding:0 6px 8px}.brandline{margin:0 -6px}
 <option value="windMiracles">奇跡・風と天国風の災い</option>
 <option value="learnedTrial">習得済み奇跡・攻撃と防御</option>
 <option value="resourceMiracles">奇跡〈泉〉〈財宝〉・自己資源回復</option>
+<option value="absorbMiracle">奇跡〈吸収〉・与ダメ回復／反射／防御</option>
 <option value="cleansingMiracles">奇跡〈音色〉〈歌声〉・災い解除</option>
 <option value="sale">取引「売る」・受け入れと反射</option>
 <option value="buy">取引「買う」・購入と見送り</option>
@@ -561,6 +562,8 @@ const VERIFIED_BASIC_CARDS = Object.freeze([
   // unimplemented fog/flash/dream status must not be fabricated.
   Object.freeze({id:'m017',referenceName:'音色',kind:'miracle',role:'cleanse',cleanseScope:'minor',category:'miracle',element:'none',mpCost:2,price:0,weight:1}),
   Object.freeze({id:'m018',referenceName:'歌声',kind:'miracle',role:'cleanse',cleanseScope:'all',category:'miracle',element:'none',mpCost:5,price:0,weight:1}),
+  // Piong / Macaron 2026: MP10, light attack10, heal the resolved damage.
+  Object.freeze({id:'m019',referenceName:'吸収',kind:'miracle',role:'attack',category:'miracle',element:'light',attack:10,mpCost:10,hpAbsorb:true,price:0,weight:1}),
   // Source: Piong other artifacts (updated 2026-10-24), GFGA 2024,
   // Macaron 2026. Only plain HP/MP recovery, no status-creating herbs.
   // Weight 12/8/4/1 means 2.4/1.6/0.8/0.2% of 500.
@@ -1148,6 +1151,12 @@ function convertLegacyCard(card,{ruleset=PARTIAL_CARD_SOURCE}={}) {
           stacking:VERIFIED_IDENTICAL_PLUS_PAIRS.has(card.id)?'identicalPair':'single'
         }));
       } else if(card.plusAttack!==undefined)throw new Error('Unknown plus-attack flag');
+      if(card.hpAbsorb!==undefined){
+        if(card.hpAbsorb!==true||card.element!=='light'||
+          card.attack!==10||card.mpCost!==10||card.plusAttack!==undefined)
+          throw new Error('Unverified absorbing miracle definition');
+        effects.push(mk('afterHit','absorbHp',{amount:'damage'}));
+      }
     } else if(card.role==='resource') {
       if(card.element!=='none'||card.attack!==undefined||
          !['hp','money'].includes(card.resourceGain)||card.restoreAmount!==10||
@@ -2933,7 +2942,8 @@ function runEffectQueueFixture(state,catalog,queue,{
      if(!positiveCount(effect.damage)||!positiveCount(effect.hpAfter)||
         effect.hpAfter>p.hp||typeof effect.instantDefeat!=='boolean')
        fail('Malformed hit effect');
-     // A source-backed absorbing weapon heals by the RESOLVED damage amount,
+     // Source-backed absorbing weapons and the solo <Absorb> miracle
+     // heal by the RESOLVED damage amount, including overkill.
      // even on overkill. A self-targeted absorber may reach transient HP0
      // and recover without spending a Sun Charm (observed original behavior).
      // Use the current attack source, which changes with reflect/deflect,
@@ -2945,13 +2955,21 @@ function runEffectQueueFixture(state,catalog,queue,{
        const pending=state.pending;
        if(pending.type!=='attack'||pending.targetId!==effect.targetId||
          (pending.attackContext
-           ?pending.attackContext.absorbsHp!==true
-           :!pending.attackInstanceIds?.some(id=>{
-             const attacker=who(state,pending.originalAttackerId);
-             const instance=attacker.hand.find(c=>c.instanceId===id);
-             return catalog.get(instance?.definitionId)?.effects.some(e=>
-               e.when==='afterHit'&&e.type==='absorbHp'&&e.params.amount==='damage');
-           })))
+           ?(pending.attackContext.attackKind==='weapon'
+             ?pending.attackContext.absorbsHp!==true
+             :pending.attackContext.attackKind!=='miracle'||
+               !catalog.get(pending.attackContext.miracleId)?.effects.some(e=>
+                 e.when==='afterHit'&&e.type==='absorbHp'&&e.params.amount==='damage'))
+           :!(()=>{
+             const original=who(state,pending.originalAttackerId);
+             const ids=[
+               ...(pending.attackLearnedDefinitionId?[pending.attackLearnedDefinitionId]:[]),
+               ...(pending.attackInstanceIds??[]).map(id=>original.hand.find(c=>
+                 c.instanceId===id)?.definitionId)
+             ];
+             return ids.some(id=>catalog.get(id)?.effects.some(e=>
+               e.when==='afterHit'&&e.type==='absorbHp'&&e.params.amount==='damage'));
+           })()))
          fail('Absorption requires an authentic attack effect');
        if(effect.instantDefeat)
          fail('Absorbing instant-defeat attacks need original verification');
@@ -4827,7 +4845,10 @@ function compileSoloMiracleResolution(state,catalog) {
   miracle.effects[0].type==='cleanseAfflictions'&&miracle.element==='none'&&
   miracle.stats.attack===0&&
   ['minor','all'].includes(miracle.effects[0].params.scope);
- const soloEffectsSupported=affliction||resourceEffect||cleansing||miracle.effects.length===0 ||
+ const absorbingMiracle=miracle.effects.length===1&&miracle.effects[0].when==='afterHit'&&
+  miracle.effects[0].type==='absorbHp'&&miracle.effects[0].params.amount==='damage'&&
+  miracle.stats.attack===10&&miracle.stats.mpCost===10&&miracle.element==='light';
+ const soloEffectsSupported=affliction||resourceEffect||cleansing||absorbingMiracle||miracle.effects.length===0 ||
    (miracle.effects.length===1&&miracle.effects[0].when==='onDeclare'&&
     miracle.effects[0].type==='addAttack'&&miracle.effects[0].params.scope==='weapon');
  if(miracle.family!=='miracle'||!miracle.playModes.includes('cast')||
@@ -4903,7 +4924,8 @@ function compileSoloMiracleResolution(state,catalog) {
      affliction?
        (stopped?[]:[item('castDisease',{targetId:target.id,
          miracleId:miracle.id,disease:miracle.effects[0].params.disease})]):
-       [item('hit',{targetId:target.id,...hit,stopped})]),
+       [item('hit',{targetId:target.id,...hit,stopped,
+         ...(absorbingMiracle&&!stopped?{lifeSteal:true}:{})})]),
    item('refill'),item('advance',{afterId:caster.id})
  ]);
  return Object.freeze({miracleId:miracle.id,attack:miracle.stats.attack,element:miracle.element,
@@ -6603,6 +6625,11 @@ const LAB_PRESETS=Object.freeze({
  sale:Object.freeze({
   A:Object.freeze(['t001','w003','d005','w016']),
   B:Object.freeze(['i002','d001','d003','w027'])
+ }),
+ absorbMiracle:Object.freeze({
+  A:Object.freeze(['m019','i003','w016','d003']),
+  B:Object.freeze(['i002','i001','d003','w016']),
+  mpA:25,rngSeed:71
  }),
  resourceMiracles:Object.freeze({
   A:Object.freeze(['m015','m016','i003','w016']),
