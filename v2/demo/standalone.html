@@ -1563,7 +1563,7 @@ const __v2_module_11 = (() => {
 "use strict";
 
 /**
- * Original-faithful disease family only (not mist/flash/dream/dark cloud).
+ * Disease stages and the independently sourced Flash defense restriction.
  * Sources: Piong disaster list (2026), beginner rules, AnimeWiki.
  * All mutations are applied in the host effect runner, never on a client.
  */
@@ -1608,9 +1608,9 @@ function planDiseaseTurnEnd(disease,hp,roll){
 }
 
 /**
- * Current disease-only boundary. Original Smile Shell also cures mist and
- * flash; Heart Shell also cures dream/cloud. Those afflictions are not yet
- * represented in the active V2 room model, so never pretend they were cured.
+ * The disease progression is separate from non-disease afflictions. The
+ * supported Smile/Heart scope below also clears Flash, but does not pretend
+ * that unimplemented mist, dream, or dark cloud are modeled.
  */
 function planDiseaseCure(disease,scope){
  const current=assertDisease(disease);
@@ -1619,7 +1619,29 @@ function planDiseaseCure(disease,scope){
  return Object.freeze({before:current,disease:cures?null:current,cured:cures});
 }
 
-return {DISEASE_STAGES,assertDisease,planDiseaseExposure,planDiseaseTurnEnd,planDiseaseCure};
+/** Flash: while affected, a defender may select at most one artifact.
+ * Piong disaster list and Godfield beginner guide; no guessing about other
+ * non-disease afflictions. This array permits a future independently sourced
+ * status without redefining the four-stage illness progression.
+ */
+const OTHER_AFFLICTIONS=Object.freeze(['flash']);
+function assertOtherAfflictions(value){
+ if(value===undefined)return [];
+ if(!Array.isArray(value)||value.some(v=>!OTHER_AFFLICTIONS.includes(v))||
+    new Set(value).size!==value.length)
+   throw new Error('Unknown non-disease affliction');
+ return [...value];
+}
+function planOtherAfflictionCure(value,scope){
+ const before=assertOtherAfflictions(value);
+ if(!['minor','all'].includes(scope))throw new Error('Invalid affliction cure scope');
+ // Both Smile and Heart cure Flash in the original; more statuses require
+ // explicit original-backed membership before they can be added here.
+ const after=before.filter(v=>!(v==='flash'&&['minor','all'].includes(scope)));
+ return Object.freeze({before,after,cured:before.length!==after.length});
+}
+
+return {DISEASE_STAGES,assertDisease,planDiseaseExposure,planDiseaseTurnEnd,planDiseaseCure,OTHER_AFFLICTIONS,assertOtherAfflictions,planOtherAfflictionCure};
 })();
 
 const __v2_module_12 = (() => {
@@ -2017,6 +2039,7 @@ const {previewBuyOfferFixture} = __v2_module_8;
 const {previewExchangeFixture} = __v2_module_9;
 const {previewSelfSaleFixture} = __v2_module_12;
 const {dreamVisibleDefinitionIdFixture} = __v2_module_15;
+const {assertOtherAfflictions} = __v2_module_11;
 
 /**
  * V2 G2: authoritatively *stage* a combat interaction.
@@ -2030,6 +2053,7 @@ const {dreamVisibleDefinitionIdFixture} = __v2_module_15;
  * Only a trusted transport should supply the authorizedSeatId context. A
  * client-controlled actorId alone never authenticates a sender.
  */
+
 
 
 
@@ -2215,7 +2239,7 @@ function createStagingRoom({seats,firstSeatId,rulesetId='lab-v2',rngSeed=1},cata
     if(!Array.isArray(p.handDefinitionIds)||p.handDefinitionIds.length>MAX_HAND)
       throw new Error('Invalid starting hand');
     const hand=p.handDefinitionIds.map(definitionId=>createInstance(definitionId,serial++,catalog));
-    return {id:p.id,hp:40,mp:10,money:20,hand,learned:[],disease:null};
+    return {id:p.id,hp:40,mp:10,money:20,hand,learned:[],disease:null,afflictions:[]};
   });
   return {
     schemaVersion:2,rulesetId,revision:0,phase:'turn',
@@ -2484,6 +2508,12 @@ function applyStagingCommand(state,command,catalog,{authorizedSeatId}={}) {
         learned?.family!=='miracle'||!learned.playModes.includes('defend'))
         throw new Error('Defensive miracle not learned');
     }
+    // Source-backed Flash: defense is restricted to a SINGLE chosen artifact,
+    // whether it is a physical card or a learned miracle. Passing uses zero.
+    // Validate before staging so failed attempts cannot alter the revision.
+    if(assertOtherAfflictions(actor.afflictions).includes('flash')&&
+       (sequence?sequence.length:selected.length+(learned?1:0))>1)
+      throw new Error('Flash affliction allows only one defense artifact');
     pending={...state.pending,defense:{playerId:actor.id,
       instanceIds:sequence?sequence.filter(x=>x.instanceId).map(x=>x.instanceId)
         :selected.map(x=>x.instanceId),
@@ -2550,7 +2580,8 @@ function viewStagingRoom(state,viewerId,catalog=null) {
     schemaVersion:2,rulesetId:state.rulesetId,revision:state.revision,
     phase:state.phase,activePlayerId:state.activePlayerId,
     players:state.players.map(q=>({
-      id:q.id,hp:q.hp,mp:q.mp,money:q.money,disease:q.disease??null,handCount:q.hand.length,
+      id:q.id,hp:q.hp,mp:q.mp,money:q.money,disease:q.disease??null,
+      afflictions:assertOtherAfflictions(q.afflictions),handCount:q.hand.length,
       ...(q.id===p.id?{hand:q.hand.map(x=>({instanceId:x.instanceId,
          definitionId:dreamVisibleDefinitionIdFixture(q,x,catalog)})),learned:[...q.learned]}:{})
     })),
@@ -2611,7 +2642,7 @@ const {planIncomingHandTransfer} = __v2_module_7;
 const {previewBuyOfferFixture,previewBuyChoiceFixture} = __v2_module_8;
 const {previewExchangeFixture} = __v2_module_9;
 const {planZeroHpRecoveryFixture} = __v2_module_10;
-const {planDiseaseExposure,planDiseaseTurnEnd,planDiseaseCure} = __v2_module_11;
+const {planDiseaseExposure,planDiseaseTurnEnd,planDiseaseCure,planOtherAfflictionCure,assertOtherAfflictions} = __v2_module_11;
 const {drawRandom32} = __v2_module_2;
 const {inspectHitOutcomeBoundaryFixture} = __v2_module_13;
 const {retireDreamAppearancesFixture,validateDreamOwnershipFixture} = __v2_module_15;
@@ -2664,6 +2695,7 @@ function cloneRoom(state,{interruptionOnly=false}={}){
    revision:state.revision+1,
    players:state.players.map(p=>({...p,
      hand:p.hand.map(c=>({...c})),learned:[...p.learned],
+     afflictions:assertOtherAfflictions(p.afflictions),
      ...(p.dreamDisguises?{dreamDisguises:p.dreamDisguises.map(x=>({...x}))}:{})})),
    pending:interruptionOnly?{...state.pending,spentByPlayer:{...state.pending.spentByPlayer}}:null,
    processedCommands:[...state.processedCommands]
@@ -2828,13 +2860,15 @@ function runEffectQueueFixture(state,catalog,queue,{
        fail('Malformed original Shell cleansing effect');
      const p=who(s,effect.playerId);
      if(p.hp<=0)fail('Cannot cure defeated target');
-     // The only active G7 affliction is the four-stage disease family.
-     // No fabricated dream/mist/flash/cloud flags are introduced here.
      const plan=planDiseaseCure(p.disease??null,effect.scope);
+     const other=planOtherAfflictionCure(p.afflictions,effect.scope);
      p.disease=plan.disease;
+     p.afflictions=other.after;
      events.push({type:'cleanseAfflictions',playerId:p.id,
        scope:effect.scope,diseaseBefore:plan.before,
-       diseaseAfter:plan.disease,curedDisease:plan.cured});
+       diseaseAfter:plan.disease,curedDisease:plan.cured,
+       afflictionsBefore:other.before,afflictionsAfter:other.after,
+       curedOtherAffliction:other.cured});
    } else if(effect.type==='heavenHerb'){
      if(Object.keys(effect).length!==2||typeof effect.playerId!=='string')
        fail('Malformed Heaven Grass action');
