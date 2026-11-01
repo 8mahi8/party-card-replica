@@ -14,6 +14,13 @@
 - `tests/g7-area-accuracy-research-v2.test.mjs`：個別サンプリング、決定性、生存席選別、各確率での単調性、1vs1、異常入力拒否、HP／状態未変更を検証。
 - あくまで命中候補を算出する**検証専用の計算器**。正式山札にカード`m019`を追加していない。オンラインルーム、攻撃、防御、反射、補充には**接続していない**。学校版／GitHub Pages／Firebase Security Rules／認証方式には変更なし。
 
+## 検証結果（今回の研究コード）
+
+- Node.js **1,082/1,082成功**：[Actions #41329729074](https://github.com/8mahi8/party-card-replica/actions/runs/41329729074)。今回追加した純粋命中判定の5テストと従来のゲームエンジンの回帰。
+- Chromium **28/28成功**：[Actions #41329728983](https://github.com/8mahi8/party-card-replica/actions/runs/41329728983)。
+- Playwright WebKit **模擬RTDBオンライン2席310/310＋既存画面339/339成功**：[Actions #41329729077](https://github.com/8mahi8/party-card-replica/actions/runs/41329729077)。
+- 対象コードは研究用命中判定モジュールの追加のみ。**今回のWebKit検証は〈閃光〉奇跡を画面から使ったテストではない**（実戦接続未実装）。学校iPad Safari実機・実Firebaseでの今回の動作は未検証。
+
 ## 次に必要な検証と実装順
 
 1. 原作の**命中・はずれの確定時点**を確認する。はずれた相手にも防御UIが表示されるか、全員の命中結果をいつ公開するか、同時／順次処理、反射・弾く先が全体ルートへどう戻るか。現状不明のため「ミスでも先に防御カードを消費」といった独自挙動を実装しない。
