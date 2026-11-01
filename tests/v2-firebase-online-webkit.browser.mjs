@@ -1299,9 +1299,9 @@ try{
    await a.goto(target);
    await a.locator('#labPreset').selectOption('flashDefense');
    await a.locator('#create').tap();
-   await a.waitForFunction(()=>/\\b\\d{5}\\b/.test(
+   await a.waitForFunction(()=>/\b\d{5}\b/.test(
     document.querySelector('#roomLabel')?.textContent||''));
-   const code=(await a.locator('#roomLabel').textContent()).match(/\\d{5}/)[0];
+   const code=(await a.locator('#roomLabel').textContent()).match(/\d{5}/)[0];
    await b.goto(target);
    await b.locator('#joinCode').fill(code);
    await b.locator('#join').tap();
