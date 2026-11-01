@@ -702,8 +702,8 @@ function playStackedPlusMiracles(state,{
  * 調査用の参照名で、オリジナルUIの表示素材ではない。
  */
 const PARTIAL_CARD_SOURCE = 'piong-atwiki-and-macaron-2026-02-28';
-const main=(id,referenceName,attack,price,weight,{element='none',guard,reaction,reactionScope='neutral_weapon',stopScope,hpAbsorb,repeatHits,diseaseOnHit}={})=>
-  Object.freeze({id,referenceName,kind:'weapon',slot:'main',category:'weapon_single',element,attack,price,weight,...(guard===undefined?{}:{guard}),...(reaction===undefined?{}:{reaction,reactionScope}),...(stopScope===undefined?{}:{stopScope}),...(hpAbsorb===undefined?{}:{hpAbsorb}),...(repeatHits===undefined?{}:{repeatHits}),...(diseaseOnHit===undefined?{}:{diseaseOnHit})});
+const main=(id,referenceName,attack,price,weight,{element='none',guard,reaction,reactionScope='neutral_weapon',stopScope,hpAbsorb,repeatHits,diseaseOnHit,afflictionOnHit}={})=>
+  Object.freeze({id,referenceName,kind:'weapon',slot:'main',category:'weapon_single',element,attack,price,weight,...(guard===undefined?{}:{guard}),...(reaction===undefined?{}:{reaction,reactionScope}),...(stopScope===undefined?{}:{stopScope}),...(hpAbsorb===undefined?{}:{hpAbsorb}),...(repeatHits===undefined?{}:{repeatHits}),...(diseaseOnHit===undefined?{}:{diseaseOnHit}),...(afflictionOnHit===undefined?{}:{afflictionOnHit})});
 const add=(id,referenceName,attack,price,weight=1,{element='none',reaction,reactionScope,stopScope,attackElementOverride}={})=>
   Object.freeze({id,referenceName,kind:'weapon',slot:'addon',category:'weapon_single',element,attack,price,weight,...(reaction===undefined?{}:{reaction,reactionScope}),...(stopScope===undefined?{}:{stopScope}),...(attackElementOverride===undefined?{}:{attackElementOverride})});
 const shield=(id,referenceName,guard,price,weight,{element='none',attackBonus,stopScope,reaction,reactionScope}={})=>
@@ -763,6 +763,8 @@ const VERIFIED_BASIC_CARDS = Object.freeze([
   main('w057','激烈疾風剣',13,15,1,{diseaseOnHit:'cold'}),
   main('w058','風のカギ爪',1,10,1,{element:'earth',diseaseOnHit:'cold'}),
   main('w059','地獄のハサミ',8,15,1,{diseaseOnHit:'hell'}),
+  // 2026 Macaron and Piong: 1+ actual damage inflicts Flash, not merely an attack declaration.
+  main('w060','フラッシュダガー',2,15,1,{element:'light',afflictionOnHit:'flash'}),
   // Source-checked plain weapons (2026-03-18 piong wiki, cross-checked with
   // 2024 GFGA where both agree). No special/condition/status behavior.
   // Preserve main/add factories so later cards need data, not name branches.

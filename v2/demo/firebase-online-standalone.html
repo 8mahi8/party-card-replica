@@ -110,6 +110,7 @@ main{padding:0 6px 8px}.brandline{margin:0 -6px}
 <option value="elements">属性防御（火・水）</option>
 <option value="fireArmor">新しい火属性防具3種・水属性防御</option>
 <option value="flashDefense">閃光・防御は1枚まで／貝がら解除</option>
+<option value="flashDagger">フラッシュダガー・命中で閃光→治療</option>
 <option value="dark">闇属性と高防御</option>
 <option value="recovery">HP・MP回復と反撃</option>
 <option value="support">相手への回復と反射</option>
@@ -362,8 +363,8 @@ const __online_module_1 = (() => {
  * 調査用の参照名で、オリジナルUIの表示素材ではない。
  */
 const PARTIAL_CARD_SOURCE = 'piong-atwiki-and-macaron-2026-02-28';
-const main=(id,referenceName,attack,price,weight,{element='none',guard,reaction,reactionScope='neutral_weapon',stopScope,hpAbsorb,repeatHits,diseaseOnHit}={})=>
-  Object.freeze({id,referenceName,kind:'weapon',slot:'main',category:'weapon_single',element,attack,price,weight,...(guard===undefined?{}:{guard}),...(reaction===undefined?{}:{reaction,reactionScope}),...(stopScope===undefined?{}:{stopScope}),...(hpAbsorb===undefined?{}:{hpAbsorb}),...(repeatHits===undefined?{}:{repeatHits}),...(diseaseOnHit===undefined?{}:{diseaseOnHit})});
+const main=(id,referenceName,attack,price,weight,{element='none',guard,reaction,reactionScope='neutral_weapon',stopScope,hpAbsorb,repeatHits,diseaseOnHit,afflictionOnHit}={})=>
+  Object.freeze({id,referenceName,kind:'weapon',slot:'main',category:'weapon_single',element,attack,price,weight,...(guard===undefined?{}:{guard}),...(reaction===undefined?{}:{reaction,reactionScope}),...(stopScope===undefined?{}:{stopScope}),...(hpAbsorb===undefined?{}:{hpAbsorb}),...(repeatHits===undefined?{}:{repeatHits}),...(diseaseOnHit===undefined?{}:{diseaseOnHit}),...(afflictionOnHit===undefined?{}:{afflictionOnHit})});
 const add=(id,referenceName,attack,price,weight=1,{element='none',reaction,reactionScope,stopScope,attackElementOverride}={})=>
   Object.freeze({id,referenceName,kind:'weapon',slot:'addon',category:'weapon_single',element,attack,price,weight,...(reaction===undefined?{}:{reaction,reactionScope}),...(stopScope===undefined?{}:{stopScope}),...(attackElementOverride===undefined?{}:{attackElementOverride})});
 const shield=(id,referenceName,guard,price,weight,{element='none',attackBonus,stopScope,reaction,reactionScope}={})=>
@@ -423,6 +424,8 @@ const VERIFIED_BASIC_CARDS = Object.freeze([
   main('w057','激烈疾風剣',13,15,1,{diseaseOnHit:'cold'}),
   main('w058','風のカギ爪',1,10,1,{element:'earth',diseaseOnHit:'cold'}),
   main('w059','地獄のハサミ',8,15,1,{diseaseOnHit:'hell'}),
+  // 2026 Macaron and Piong: 1+ actual damage inflicts Flash, not merely an attack declaration.
+  main('w060','フラッシュダガー',2,15,1,{element:'light',afflictionOnHit:'flash'}),
   // Source-checked plain weapons (2026-03-18 piong wiki, cross-checked with
   // 2024 GFGA where both agree). No special/condition/status behavior.
   // Preserve main/add factories so later cards need data, not name branches.
@@ -617,7 +620,7 @@ const MODES = new Set(['mainAttack','addAttack','defend','cast','support','trade
 // Until sourced effects are implemented, explicitly gate those definitions.
 const DISCARD_POLICIES = new Set(['ordinary','forbidden','requiresSpecialResolution']);
 const EFFECT_TRIGGERS = new Set(['onDeclare','onCost','beforeHit','onDefense','afterHit','onTurnEnd','onZeroHp']);
-const EFFECT_TYPES = new Set(['redirectAttack','stripElement','multiplyAttack','addAttack','stopAttack','waivePreviousMp','setAttackElement','forceSale','requestBuy','reallocateResources','reviveAtZeroHp','absorbHp','repeatAttack','widenAttack','restoreResource','flipHpRisk','sweepHand','forgetLearned','heavenHerb','cleanseAfflictions','inflictDisease']);
+const EFFECT_TYPES = new Set(['redirectAttack','stripElement','multiplyAttack','addAttack','stopAttack','waivePreviousMp','setAttackElement','forceSale','requestBuy','reallocateResources','reviveAtZeroHp','absorbHp','repeatAttack','widenAttack','restoreResource','flipHpRisk','sweepHand','forgetLearned','heavenHerb','cleanseAfflictions','inflictDisease','inflictAffliction']);
 
 function plainObject(v) { return v !== null && typeof v === 'object' && !Array.isArray(v); }
 function nonnegative(n) { return Number.isSafeInteger(n) && n >= 0; }
@@ -661,6 +664,10 @@ function freezeEffect(effect) {
       !((effect.when==='afterHit'&&['cold','hell'].includes(params.disease))||
         (effect.when==='onDeclare'&&['cold','heaven'].includes(params.disease)))))
     throw new Error('Invalid inflictDisease effect data');
+  if(effect.type==='inflictAffliction'&&
+     (effect.when!=='afterHit'||Object.keys(params).length!==1||
+      params.affliction!=='flash'))
+    throw new Error('Invalid inflictAffliction effect data');
   if(effect.type==='heavenHerb'&&
      (effect.when!=='onDeclare'||Object.keys(params).length!==2||
       params.mp!==20||params.disease!=='heaven'))
@@ -1043,7 +1050,7 @@ const {VERIFIED_BASIC_CARDS,PARTIAL_CARD_SOURCE} = __online_module_1;
 const KNOWN_KEYS=new Set([
   'id','referenceName','kind','category','slot','element','attack','guard',
   'attackBonus','price','weight','reaction','reactionScope','stopScope',
-  'role','boost','plusAttack','mpCost','effect','attackElementOverride','discardPolicy','tradeAction','hpAbsorb','repeatHits','restoreAmount','resourceGain','cleanseScope','diseaseOnHit','disease'
+  'role','boost','plusAttack','mpCost','effect','attackElementOverride','discardPolicy','tradeAction','hpAbsorb','repeatHits','restoreAmount','resourceGain','cleanseScope','diseaseOnHit','afflictionOnHit','disease'
 ]);
 const CATEGORY_BY_KIND=Object.freeze({weapon:'weapon_single',armor:'armor_normal',miracle:'miracle',defense_item:'item',support_item:'item',trade:'trade'});
 const mk=(when,type,params={})=>({when,type,params});
@@ -1096,6 +1103,13 @@ function convertLegacyCard(card,{ruleset=PARTIAL_CARD_SOURCE}={}) {
          card.hpAbsorb!==undefined||card.repeatHits!==undefined)
         throw new Error('Unverified disease weapon definition');
       effects.push(mk('afterHit','inflictDisease',{disease:card.diseaseOnHit}));
+    }
+    if(card.afflictionOnHit!==undefined){
+      if(card.afflictionOnHit!=='flash'||card.slot!=='main'||
+         card.diseaseOnHit!==undefined||card.hpAbsorb!==undefined||
+         card.repeatHits!==undefined)
+        throw new Error('Unverified on-hit affliction weapon definition');
+      effects.push(mk('afterHit','inflictAffliction',{affliction:'flash'}));
     }
     if(card.hpAbsorb!==undefined){
       if(card.hpAbsorb!==true||card.slot!=='main')
@@ -3045,6 +3059,31 @@ function runEffectQueueFixture(state,catalog,queue,{
          resolveIllnessZeroHp(p,beforeHp);
        }
      }
+   } else if(effect.type==='inflictAffliction'){
+     if(Object.keys(effect).length!==3||effect.affliction!=='flash')
+       fail('Malformed on-hit non-disease affliction effect');
+     const p=who(s,effect.targetId),pending=state.pending;
+     if(pending?.type!=='attack'||pending.targetId!==p.id||
+        queue.filter(q=>q?.type==='inflictAffliction').length!==1||
+        !queue.some(q=>q?.type==='hit'&&q.targetId===p.id&&q.damage>0))
+       fail('Flash affliction requires an authentic damaging strike');
+     // After reflection the original card may already have been spent.
+     const sourced=pending.attackContext?
+       pending.attackContext.afflictionOnHit:
+       pending.attackInstanceIds?.map(id=>{
+         const original=who(state,pending.originalAttackerId);
+         const held=original.hand.find(c=>c.instanceId===id);
+         return catalog.get(held?.definitionId)?.effects.find(e=>
+           e.when==='afterHit'&&e.type==='inflictAffliction')?.params.affliction;
+       }).filter(Boolean).at(0);
+     if(sourced!==effect.affliction)
+       fail('Flash was not authorized by the original attack card');
+     if(p.hp>0){
+       const before=assertOtherAfflictions(p.afflictions);
+       p.afflictions=[...new Set([...before,effect.affliction])];
+       events.push({type:'inflictAffliction',targetId:p.id,
+         affliction:effect.affliction,before,after:[...p.afflictions]});
+     }
    } else if(effect.type==='exchange'){
      // All Exchange allocations are server-side staged and self-directed.
      // There is no opposing defense and no change of total HP+MP+money.
@@ -4019,7 +4058,7 @@ function compileOrderedWeaponAttack(state,catalog){
   let weaponAttack=0,attackElement='none',mainCount=0,weaponCount=0;
   let aura=null,plusCount=0,additive=0,lastWasMiracle=false,hasArmorBonus=false,itemBonus=0;
   let learnedDrawCount=0,mirageCount=0;
-  let forcedAttackElement=null,absorbsHp=false,hitCount=1,diseaseOnHit=null;
+  let forcedAttackElement=null,absorbsHp=false,hitCount=1,diseaseOnHit=null,afflictionOnHit=null;
   let wandPosition=-1,auraPosition=-1;
   const casts=[],selectedKinds=[];
   const miracles=[];
@@ -4057,6 +4096,11 @@ function compileOrderedWeaponAttack(state,catalog){
            ['cold','hell'].includes(eff.params.disease)){
           if(diseaseOnHit!==null)fail('Multiple disease weapons not verified');
           diseaseOnHit=eff.params.disease;continue;
+        }
+        if(eff.type==='inflictAffliction'&&eff.when==='afterHit'&&
+           def.playModes.includes('mainAttack')&&eff.params.affliction==='flash'){
+          if(afflictionOnHit!==null)fail('Multiple on-hit afflictions unverified');
+          afflictionOnHit='flash';continue;
         }
         if(eff.type==='absorbHp'&&eff.when==='afterHit'&&
            eff.params.amount==='damage'&&def.family==='weapon'){
@@ -4129,6 +4173,11 @@ function compileOrderedWeaponAttack(state,catalog){
     }
   }
   if(!weaponCount)fail('Attack requires a weapon');
+  if(afflictionOnHit!==null&&
+    (hitCount!==1||mirageCount>0||absorbsHp||aura||plusCount||
+     hasArmorBonus||itemBonus||miracles.length>0||forcedAttackElement!==null||
+     weaponCount!==1||diseaseOnHit!==null))
+    fail('On-hit affliction combinations require original verification');
   if(diseaseOnHit!==null&&
     (hitCount!==1||mirageCount>0||absorbsHp||aura||plusCount||
      hasArmorBonus||itemBonus||miracles.length>0||forcedAttackElement!==null||weaponCount!==1))
@@ -4172,7 +4221,7 @@ function compileOrderedWeaponAttack(state,catalog){
     attack,element:forcedAttackElement??(aura||mirageCount?'none':attackElement),attackKind:'weapon',
     instanceIds:Object.freeze(selected.filter(x=>x.instance).map(x=>x.instance.instanceId)),
     payableMP,learnedDrawCount,learnedMiracles:Object.freeze(learnedMiracles),
-    hasModifiers:miracles.length>0,absorbsHp,diseaseOnHit,hitCount,mirageCount,
+    hasModifiers:miracles.length>0,absorbsHp,diseaseOnHit,afflictionOnHit,hitCount,mirageCount,
     selectedKinds:Object.freeze(selectedKinds)
   });
 }
@@ -4366,6 +4415,9 @@ function compileBasicResolution(state,catalog) {
     ...(hit.damage>0&&attackContext.diseaseOnHit?
       [Object.freeze({type:'inflictDisease',targetId:defender.id,
         disease:attackContext.diseaseOnHit})]:[]),
+    ...(hit.damage>0&&attackContext.afflictionOnHit?
+      [Object.freeze({type:'inflictAffliction',targetId:defender.id,
+        affliction:attackContext.afflictionOnHit})]:[]),
     ...(multiplayerMirage?
       [Object.freeze({type:'advanceMirageRoute',attackContext,route:mirageRoute})]:
       continueStrike?
@@ -6480,6 +6532,10 @@ const LAB_PRESETS=Object.freeze({
  elements:Object.freeze({
   A:Object.freeze(['w018','w021','d035','d043']),
   B:Object.freeze(['w021','w018','d043','d035'])
+ }),
+ flashDagger:Object.freeze({
+  A:Object.freeze(['w060','w016','d001','i006']),
+  B:Object.freeze(['i017','d001','w016','i002']),rngSeed:71
  }),
  flashDefense:Object.freeze({
   A:Object.freeze(['w027','w016','d003','i006']),
