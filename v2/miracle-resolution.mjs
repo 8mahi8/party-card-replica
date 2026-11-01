@@ -84,7 +84,10 @@ export function compileSoloMiracleResolution(state,catalog) {
   miracle.effects[0].type==='cleanseAfflictions'&&miracle.element==='none'&&
   miracle.stats.attack===0&&
   ['minor','all'].includes(miracle.effects[0].params.scope);
- const soloEffectsSupported=affliction||resourceEffect||cleansing||miracle.effects.length===0 ||
+ const absorbingMiracle=miracle.effects.length===1&&miracle.effects[0].when==='afterHit'&&
+  miracle.effects[0].type==='absorbHp'&&miracle.effects[0].params.amount==='damage'&&
+  miracle.stats.attack===10&&miracle.stats.mpCost===10&&miracle.element==='light';
+ const soloEffectsSupported=affliction||resourceEffect||cleansing||absorbingMiracle||miracle.effects.length===0 ||
    (miracle.effects.length===1&&miracle.effects[0].when==='onDeclare'&&
     miracle.effects[0].type==='addAttack'&&miracle.effects[0].params.scope==='weapon');
  if(miracle.family!=='miracle'||!miracle.playModes.includes('cast')||
@@ -160,7 +163,8 @@ export function compileSoloMiracleResolution(state,catalog) {
      affliction?
        (stopped?[]:[item('castDisease',{targetId:target.id,
          miracleId:miracle.id,disease:miracle.effects[0].params.disease})]):
-       [item('hit',{targetId:target.id,...hit,stopped})]),
+       [item('hit',{targetId:target.id,...hit,stopped,
+         ...(absorbingMiracle&&!stopped?{lifeSteal:true}:{})})]),
    item('refill'),item('advance',{afterId:caster.id})
  ]);
  return Object.freeze({miracleId:miracle.id,attack:miracle.stats.attack,element:miracle.element,
