@@ -18,7 +18,7 @@
 ## 検証
 - `tests/g7-recoil-sword-v2.test.mjs`：数値・データ検証、無防御14/14、守3で11/11、完全防御0/0、ミラー反射、双方0HPで引き分け、攻撃側への致命的反動と太陽のお守り蘇生、未検証連携の無変更拒否、従来武器の回帰。
 - `tests/v2-firebase-online-webkit.browser.mjs`：2独立タブ＋模擬RTDBで邪神の大剣をタップし、相手の許可から双方HP26、手番進行、390px内の画面収まりを確認するシナリオを追加。
-- GitHub Actions CIの成功状況は最新HEADの結果を確認する。HTMLは開発ブランチで再生成して同梱する。
+- **GitHub Actionsで検証した実測**：Node **1,136/1,136成功** [run 41361455922](https://github.com/8mahi8/party-card-replica/actions/runs/41361455922)、Chromium **28/28成功** [run 41361455863](https://github.com/8mahi8/party-card-replica/actions/runs/41361455863)、WebKit **模擬RTDB2画面333/333＋旧UI339/339成功** [run 41361455893](https://github.com/8mahi8/party-card-replica/actions/runs/41361455893)。HTML3本を開発ブランチで再生成して同梱し、ビルドWorkflowは元の手動専用設定に戻した。
 - 本物Firebaseを用いた今回のカードの通信と**学校iPad実機 Safari・Google Sites貼付版は未検証**。Firebase Rules・認証、学校HTML、mainは変更しない。
 
 ## 次の作業
