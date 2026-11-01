@@ -122,6 +122,7 @@ main{padding:0 6px 8px}.brandline{margin:0 -6px}
 <option value="windMiracles">奇跡・風と天国風の災い</option>
 <option value="learnedTrial">習得済み奇跡・攻撃と防御</option>
 <option value="resourceMiracles">奇跡〈泉〉〈財宝〉・自己資源回復</option>
+<option value="absorbMiracle">奇跡〈吸収〉・与ダメ回復／反射／防御</option>
 <option value="cleansingMiracles">奇跡〈音色〉〈歌声〉・災い解除</option>
 <option value="sale">取引「売る」・受け入れと反射</option>
 <option value="buy">取引「買う」・購入と見送り</option>
@@ -265,6 +266,11 @@ const LAB_PRESETS=Object.freeze({
  sale:Object.freeze({
   A:Object.freeze(['t001','w003','d005','w016']),
   B:Object.freeze(['i002','d001','d003','w027'])
+ }),
+ absorbMiracle:Object.freeze({
+  A:Object.freeze(['m019','i003','w016','d003']),
+  B:Object.freeze(['i002','i001','d003','w016']),
+  mpA:25,rngSeed:71
  }),
  resourceMiracles:Object.freeze({
   A:Object.freeze(['m015','m016','i003','w016']),
