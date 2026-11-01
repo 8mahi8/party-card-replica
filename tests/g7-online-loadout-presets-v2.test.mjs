@@ -154,7 +154,7 @@ test('Flash Dagger research preset supplies an authentic hit weapon and a cure',
 
 test('Mist Gun preset covers hit, water defense, Mirror and a cure',()=>{
  assert.deepEqual(Array.from(presets.mistGun.A),['w061','w016','d001','i006']);
- assert.deepEqual(Array.from(presets.mistGun.B),['i017','d043','w016','i002']);
+ assert.deepEqual(Array.from(presets.mistGun.B),['i017','d062','w016','i002']);
  const gun=catalog.get('w061');
  assert.deepEqual([gun.stats.attack,gun.element,gun.stats.price],[3,'water',10]);
  assert.deepEqual(gun.effects,[{when:'afterHit',type:'inflictAffliction',params:{affliction:'mist'}}]);
