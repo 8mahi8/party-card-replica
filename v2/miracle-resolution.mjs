@@ -76,6 +76,13 @@ export function compileSoloMiracleResolution(state,catalog) {
    miracle.effects[0].type==='inflictDisease'&&
    ['cold','heaven'].includes(miracle.effects[0].params.disease)&&
    miracle.stats.attack===0&&miracle.element==='none';
+ const otherAffliction=miracle.effects.length===1&&
+   miracle.effects[0].when==='onDeclare'&&
+   miracle.effects[0].type==='inflictAffliction'&&
+   miracle.effects[0].params.affliction==='mist'&&
+   miracle.stats.attack===0&&miracle.stats.mpCost===3&&miracle.element==='water';
+ if(otherAffliction&&state.players.length!==2)
+   fail('Mist targeting outside two-seat research not implemented');
  const resourceEffect=miracle.effects.length===1&&miracle.effects[0].when==='onDeclare'&&
   miracle.effects[0].type==='restoreResource'&&miracle.element==='none'&&
   miracle.stats.attack===0&&miracle.effects[0].params.amount===10&&
@@ -87,11 +94,11 @@ export function compileSoloMiracleResolution(state,catalog) {
  const absorbingMiracle=miracle.effects.length===1&&miracle.effects[0].when==='afterHit'&&
   miracle.effects[0].type==='absorbHp'&&miracle.effects[0].params.amount==='damage'&&
   miracle.stats.attack===10&&miracle.stats.mpCost===10&&miracle.element==='light';
- const soloEffectsSupported=affliction||resourceEffect||cleansing||absorbingMiracle||miracle.effects.length===0 ||
+ const soloEffectsSupported=affliction||otherAffliction||resourceEffect||cleansing||absorbingMiracle||miracle.effects.length===0 ||
    (miracle.effects.length===1&&miracle.effects[0].when==='onDeclare'&&
     miracle.effects[0].type==='addAttack'&&miracle.effects[0].params.scope==='weapon');
  if(miracle.family!=='miracle'||!miracle.playModes.includes('cast')||
-    (miracle.stats.attack<=0&&!affliction&&!resourceEffect&&!cleansing)||
+    (miracle.stats.attack<=0&&!affliction&&!otherAffliction&&!resourceEffect&&!cleansing)||
     !soloEffectsSupported)fail('Not a supported solo attack miracle');
  if(cached&&(cached.attack!==miracle.stats.attack||cached.element!==miracle.element))
    fail('Cached miracle payload mismatch');
@@ -143,7 +150,7 @@ export function compileSoloMiracleResolution(state,catalog) {
  const guard=sumLegalArmor(angel?'none':miracle.element,physicalShields,
    {rainbowCurtain:stripElement});
  const stopped=angel;
- const hit=stopped||affliction||resourceEffect||cleansing?Object.freeze({damage:0,hpAfter:target.hp,instantDefeat:false,effectiveElement:miracle.element})
+ const hit=stopped||affliction||otherAffliction||resourceEffect||cleansing?Object.freeze({damage:0,hpAfter:target.hp,instantDefeat:false,effectiveElement:miracle.element})
   :calculateHit({attack:miracle.stats.attack,element:miracle.element,armor:guard,hp:target.hp,rainbowCurtain:stripElement});
  const queue=Object.freeze([
    ...(cached?[]:[
@@ -160,6 +167,9 @@ export function compileSoloMiracleResolution(state,catalog) {
      cleansing?
        [item('cleanseAfflictions',{playerId:caster.id,
          scope:miracle.effects[0].params.scope})]:
+     otherAffliction?
+       (stopped?[]:[item('castAffliction',{targetId:target.id,
+         miracleId:miracle.id,affliction:'mist'})]):
      affliction?
        (stopped?[]:[item('castDisease',{targetId:target.id,
          miracleId:miracle.id,disease:miracle.effects[0].params.disease})]):
