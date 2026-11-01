@@ -81,7 +81,8 @@ async function trial(miracleId,mpCost){
   check(first.views.A.activePlayerId==='B'&&first.views.B.activePlayerId==='B',
    'cure finishes its turn without a defense request');
   const host=first.views.A.players[0],other=first.views.B.players[0];
-  check(host.disease===null&&other.disease===null&&host.hp===40&&other.hp===40,
+  // Realtime Database omits JSON null object properties during persistence.
+  check(host.disease==null&&other.disease==null&&host.hp===40&&other.hp===40,
    'cure removes fever without inflicting end-of-turn damage');
   check(host.mp===25-mpCost&&other.mp===25-mpCost,
    'both peers publish original 2/5 MP payment');
@@ -99,7 +100,7 @@ async function trial(miracleId,mpCost){
   const second=await room(currentCode);
   check(second.views.A.players[0].hp===30&&
    second.views.B.players[0].hp===30&&
-   second.views.A.players[0].disease===null,
+   second.views.A.players[0].disease==null,
    'another player hits for ten; cured fever remains clear');
   await a.locator('.learned-choice').first().tap();
   check(await a.locator('#attack').isEnabled()&&
