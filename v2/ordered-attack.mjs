@@ -107,9 +107,10 @@ export function compileOrderedWeaponAttack(state,catalog){
           diseaseOnHit=eff.params.disease;continue;
         }
         if(eff.type==='inflictAffliction'&&eff.when==='afterHit'&&
-           def.playModes.includes('mainAttack')&&eff.params.affliction==='flash'){
+           def.playModes.includes('mainAttack')&&
+           ['flash','mist'].includes(eff.params.affliction)){
           if(afflictionOnHit!==null)fail('Multiple on-hit afflictions unverified');
-          afflictionOnHit='flash';continue;
+          afflictionOnHit=eff.params.affliction;continue;
         }
         if(eff.type==='absorbHp'&&eff.when==='afterHit'&&
            eff.params.amount==='damage'&&def.family==='weapon'){
@@ -182,6 +183,9 @@ export function compileOrderedWeaponAttack(state,catalog){
     }
   }
   if(!weaponCount)fail('Attack requires a weapon');
+  // Original Mist target selection is not verified for three or more seats.
+  if(afflictionOnHit==='mist'&&state.players.length!==2)
+    fail('Mist on-hit targeting outside two-seat research not implemented');
   if(afflictionOnHit!==null&&
     (hitCount!==1||mirageCount>0||absorbsHp||aura||plusCount||
      hasArmorBonus||itemBonus||miracles.length>0||forcedAttackElement!==null||
