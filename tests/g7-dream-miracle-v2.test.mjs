@@ -104,7 +104,7 @@ test('all cure immediately reveals host-chosen Dream aliases and keeps physical 
  let state=createStagingRoom({firstSeatId:'A',rngSeed:71,
   rulesetId:'partial-reference-v2-lab',
   seats:[{id:'A',handDefinitionIds:['w016','d003','i006','i003']},
-   {id:'B',handDefinitionIds:['w027','i018','i017','d003']}]},catalog);
+   {id:'B',handDefinitionIds:['w003','i018','i017','d003']}]},catalog);
  state.players[1].afflictions=['dream'];
  // Explicit controlled alias standing in for an artifact drawn AFTER Dream.
  // Not a claimed reproduction of original 50% weighted disguise distribution.
@@ -123,5 +123,5 @@ test('all cure immediately reveals host-chosen Dream aliases and keeps physical 
  assert.equal(B.read().players[1].hand[0].definitionId,'w016');
  send(B,'B','useItem',{instanceId:held(B,'B','i018'),targetId:'B'});
  assert.deepEqual(B.read().players[1].afflictions,[]);
- assert.equal(B.read().players[1].hand[0].definitionId,'w027');
+ assert.equal(B.read().players[1].hand[0].definitionId,'w003');
 });
