@@ -640,7 +640,7 @@ function render(){
  const standalone=learnedAlone?catalog.get(first.slice(2)):null;
  const canCastAlone=!learnedAlone||((standalone?.stats.attack??0)>0||
   standalone?.effects.some(e=>e.when==='onDeclare'&&
-   ['inflictDisease','restoreResource','cleanseAfflictions'].includes(e.type)));
+   ['inflictDisease','inflictAffliction','restoreResource','cleanseAfflictions'].includes(e.type)));
  $('attack').textContent=(resourceCast||cleansingCast)?'奇跡を使う':'攻撃する';
  $('attack').disabled=!usable||!selection.size||!canCastAlone||
   (catalog.get(cardsById.get(selectedIds[0])?.definitionId)?.family==='trade');
