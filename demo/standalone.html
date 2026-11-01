@@ -765,6 +765,8 @@ const VERIFIED_BASIC_CARDS = Object.freeze([
   main('w059','地獄のハサミ',8,15,1,{diseaseOnHit:'hell'}),
   // 2026 Macaron and Piong: 1+ actual damage inflicts Flash, not merely an attack declaration.
   main('w060','フラッシュダガー',2,15,1,{element:'light',afflictionOnHit:'flash'}),
+  // Piong (2026-03) + Macaron (2026-02): water attack3, mist only after damage.
+  main('w061','霧鉄砲',3,10,1,{element:'water',afflictionOnHit:'mist'}),
   // Source-checked plain weapons (2026-03-18 piong wiki, cross-checked with
   // 2024 GFGA where both agree). No special/condition/status behavior.
   // Preserve main/add factories so later cards need data, not name branches.

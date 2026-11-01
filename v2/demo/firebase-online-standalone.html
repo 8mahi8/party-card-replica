@@ -111,6 +111,7 @@ main{padding:0 6px 8px}.brandline{margin:0 -6px}
 <option value="fireArmor">新しい火属性防具3種・水属性防御</option>
 <option value="flashDefense">閃光・防御は1枚まで／貝がら解除</option>
 <option value="flashDagger">フラッシュダガー・命中で閃光→治療</option>
+<option value="mistGun">霧鉄砲・ダメージで霧→治療</option>
 <option value="mistMiracle">奇跡〈霧〉・相手のHP/MP/¥が見えなくなる</option>
 <option value="dark">闇属性と高防御</option>
 <option value="recovery">HP・MP回復と反撃</option>
@@ -428,6 +429,8 @@ const VERIFIED_BASIC_CARDS = Object.freeze([
   main('w059','地獄のハサミ',8,15,1,{diseaseOnHit:'hell'}),
   // 2026 Macaron and Piong: 1+ actual damage inflicts Flash, not merely an attack declaration.
   main('w060','フラッシュダガー',2,15,1,{element:'light',afflictionOnHit:'flash'}),
+  // Piong (2026-03) + Macaron (2026-02): water attack3, mist only after damage.
+  main('w061','霧鉄砲',3,10,1,{element:'water',afflictionOnHit:'mist'}),
   // Source-checked plain weapons (2026-03-18 piong wiki, cross-checked with
   // 2024 GFGA where both agree). No special/condition/status behavior.
   // Preserve main/add factories so later cards need data, not name branches.
@@ -1112,11 +1115,11 @@ function convertLegacyCard(card,{ruleset=PARTIAL_CARD_SOURCE}={}) {
       effects.push(mk('afterHit','inflictDisease',{disease:card.diseaseOnHit}));
     }
     if(card.afflictionOnHit!==undefined){
-      if(card.afflictionOnHit!=='flash'||card.slot!=='main'||
+      if(!['flash','mist'].includes(card.afflictionOnHit)||card.slot!=='main'||
          card.diseaseOnHit!==undefined||card.hpAbsorb!==undefined||
          card.repeatHits!==undefined)
         throw new Error('Unverified on-hit affliction weapon definition');
-      effects.push(mk('afterHit','inflictAffliction',{affliction:'flash'}));
+      effects.push(mk('afterHit','inflictAffliction',{affliction:card.afflictionOnHit}));
     }
     if(card.hpAbsorb!==undefined){
       if(card.hpAbsorb!==true||card.slot!=='main')
@@ -3119,13 +3122,15 @@ function runEffectQueueFixture(state,catalog,queue,{
        }
      }
    } else if(effect.type==='inflictAffliction'){
-     if(Object.keys(effect).length!==3||effect.affliction!=='flash')
+     if(Object.keys(effect).length!==3||!['flash','mist'].includes(effect.affliction))
        fail('Malformed on-hit non-disease affliction effect');
      const p=who(s,effect.targetId),pending=state.pending;
      if(pending?.type!=='attack'||pending.targetId!==p.id||
         queue.filter(q=>q?.type==='inflictAffliction').length!==1||
         !queue.some(q=>q?.type==='hit'&&q.targetId===p.id&&q.damage>0))
-       fail('Flash affliction requires an authentic damaging strike');
+       fail('On-hit affliction requires an authentic damaging strike');
+     if(effect.affliction==='mist'&&state.players.length!==2)
+       fail('Mist on-hit targeting outside two-seat research not implemented');
      // After reflection the original card may already have been spent.
      const sourced=pending.attackContext?
        pending.attackContext.afflictionOnHit:
@@ -3136,7 +3141,7 @@ function runEffectQueueFixture(state,catalog,queue,{
            e.when==='afterHit'&&e.type==='inflictAffliction')?.params.affliction;
        }).filter(Boolean).at(0);
      if(sourced!==effect.affliction)
-       fail('Flash was not authorized by the original attack card');
+       fail('Affliction was not authorized by the original attack card');
      if(p.hp>0){
        const before=assertOtherAfflictions(p.afflictions);
        p.afflictions=[...new Set([...before,effect.affliction])];
@@ -4157,9 +4162,10 @@ function compileOrderedWeaponAttack(state,catalog){
           diseaseOnHit=eff.params.disease;continue;
         }
         if(eff.type==='inflictAffliction'&&eff.when==='afterHit'&&
-           def.playModes.includes('mainAttack')&&eff.params.affliction==='flash'){
+           def.playModes.includes('mainAttack')&&
+           ['flash','mist'].includes(eff.params.affliction)){
           if(afflictionOnHit!==null)fail('Multiple on-hit afflictions unverified');
-          afflictionOnHit='flash';continue;
+          afflictionOnHit=eff.params.affliction;continue;
         }
         if(eff.type==='absorbHp'&&eff.when==='afterHit'&&
            eff.params.amount==='damage'&&def.family==='weapon'){
@@ -4232,6 +4238,9 @@ function compileOrderedWeaponAttack(state,catalog){
     }
   }
   if(!weaponCount)fail('Attack requires a weapon');
+  // Original Mist target selection is not verified for three or more seats.
+  if(afflictionOnHit==='mist'&&state.players.length!==2)
+    fail('Mist on-hit targeting outside two-seat research not implemented');
   if(afflictionOnHit!==null&&
     (hitCount!==1||mirageCount>0||absorbsHp||aura||plusCount||
      hasArmorBonus||itemBonus||miracles.length>0||forcedAttackElement!==null||
@@ -6609,6 +6618,10 @@ const LAB_PRESETS=Object.freeze({
  flashDagger:Object.freeze({
   A:Object.freeze(['w060','w016','d001','i006']),
   B:Object.freeze(['i017','d001','w016','i002']),rngSeed:71
+ }),
+ mistGun:Object.freeze({
+  A:Object.freeze(['w061','w016','d001','i006']),
+  B:Object.freeze(['i017','d043','w016','i002']),rngSeed:71
  }),
  mistMiracle:Object.freeze({
   A:Object.freeze(['m020','i003','w016','d003']),
