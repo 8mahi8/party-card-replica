@@ -11,7 +11,7 @@
 - **既存エンジンを再利用**：`legacy-adapter`/型付き`foundation`/ `ordered-attack`/ `basic-resolution`/ `effect-runner`の`afterHit:inflictAffliction`をFlashとMistに共通化。スーパーミラー反射の最終被弾者にだけ付与。霧の他者HP/MP/¥秘匿と貝がら治癒は前回の共通処理を流用。多人数の未調査の霧ターゲット、未検証の連結は拒否。
 - **試遊**：オンライン研究版に26個目の`mistGun`固定手札セット。Nodeの実効果・反射・防御・治療・旧閃光回帰テストと、2独立WebKitタブ・模擬RTDBの攻撃→霧→治療タップ試験を追加。単体HTML3本を開発branch内で再生成。**本物Firebaseと学校iPad Safariはこのカードでは未検証**。
 - **研究台帳**：**185種類／446参考枠、complete:false**。本番抽選は禁止。G7原作研究の続きであり、原作全再現・学校公開版の完成ではない。
-- **CI実測**：Node / Chromium / WebKitの最新Run確認は別途追記。最終HEADは固定の旧数値ではなくPR #1およびActionsから再取得すること。
+- **CI実測**：**Node 1,118/1,118合格** [run 41338726891](https://github.com/8mahi8/party-card-replica/actions/runs/41338726891)、**Chromium 28/28合格** [run 41338727075](https://github.com/8mahi8/party-card-replica/actions/runs/41338727075)、**WebKit模擬RTDB2画面323/323＋既存UI339/339合格** [run 41338635208](https://github.com/8mahi8/party-card-replica/actions/runs/41338635208)。後続コミットでは火防具テスト期待値と資料のみを変更。最終HEADはPR #1、現時点のCIを再取得すること。
 - **次**：WebKitまで成功を確認後、原作実測が必要な多人数／全体攻撃系を無理に実装せず、原作裏付けの強い次の効果を追加。引き続きGitHub開発branchのみを更新、学校HTML、Firebase Rules・認証、GitHub mainは変更しない。
 - 詳細：[V2_G7_MIST_GUN_2026-11-02.md](docs/V2_G7_MIST_GUN_2026-11-02.md)。
 
