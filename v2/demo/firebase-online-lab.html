@@ -120,6 +120,7 @@ main{padding:0 6px 8px}.brandline{margin:0 -6px}
 <option value="windMiracles">奇跡・風と天国風の災い</option>
 <option value="learnedTrial">習得済み奇跡・攻撃と防御</option>
 <option value="resourceMiracles">奇跡〈泉〉〈財宝〉・自己資源回復</option>
+<option value="cleansingMiracles">奇跡〈音色〉〈歌声〉・災い解除</option>
 <option value="sale">取引「売る」・受け入れと反射</option>
 <option value="buy">取引「買う」・購入と見送り</option>
 <option value="exchange">取引「両替」・HP/MP/¥振替</option>
@@ -258,6 +259,11 @@ const LAB_PRESETS=Object.freeze({
   A:Object.freeze(['m015','m016','i003','w016']),
   B:Object.freeze(['w027','d003','d018','m013']),
   mpA:25,rngSeed:71
+ }),
+ cleansingMiracles:Object.freeze({
+  A:Object.freeze(['m017','m018','i003','w016']),
+  B:Object.freeze(['m013','w016','d003','i002']),
+  mpA:25,diseaseA:'fever',rngSeed:71
  }),
  learnedTrial:Object.freeze({
   A:Object.freeze(['w016','i003','d003','m013']),
@@ -449,7 +455,8 @@ function render(){
  // Preview the printed stats, NOT a resolved damage estimate: elements,
  // reflections, multi-hits and special effects belong to the battle engine.
  const selectedIds=[...selection].filter(id=>!id.startsWith('l:')),
-  itemEffect=selection.size===1?
+  itemEffect=selection.size===1&&
+   catalog.get(cardsById.get(selectedIds[0])?.definitionId)?.family==='item'?
    catalog.get(cardsById.get(selectedIds[0])?.definitionId)?.effects.find(
     e=>e.when==='onDeclare'&&['restoreResource','flipHpRisk','sweepHand','forgetLearned','heavenHerb','cleanseAfflictions'].includes(e.type)):null;
  const saleIds=[...selection].filter(id=>!id.startsWith('l:'));
@@ -463,6 +470,9 @@ function render(){
  const resourceCast=firstCastDef?.family==='miracle'&&firstCastDef.effects.some(e=>
   e.when==='onDeclare'&&e.type==='restoreResource');
  const resourceInfo=resourceCast?firstCastDef.effects.find(e=>e.type==='restoreResource'):null;
+ const cleansingCast=firstCastDef?.family==='miracle'&&firstCastDef.effects.some(e=>
+  e.when==='onDeclare'&&e.type==='cleanseAfflictions');
+ const cleansingInfo=cleansingCast?firstCastDef.effects.find(e=>e.type==='cleanseAfflictions'):null;
  const tradeOnly=selection.size===1&&!([...selection][0]||'').startsWith('l:')?
   catalog.get(cardsById.get([...selection][0])?.definitionId):null;
  const buyValid=tradeOnly?.effects.some(e=>e.when==='onDeclare'&&e.type==='requestBuy'&&e.params.kind==='buy');
@@ -473,6 +483,9 @@ function render(){
     e.params.mode==='reflect'&&e.params.scope==='any');
  $('selectionTotal').textContent=resourceInfo?
    (resourceInfo.params.resource==='hp'?'HP':'¥')+'+'+resourceInfo.params.amount+
+   ' · MP'+firstCastDef.stats.mpCost+'（自身へ使う・手番終了）':
+  cleansingInfo?
+   (cleansingInfo.params.scope==='minor'?'風邪・熱病を治す':'病系の災いをすべて治す')+
    ' · MP'+firstCastDef.stats.mpCost+'（自身へ使う・手番終了）':
   saleDefense?
    (mirrorChoice?'スーパーミラーで取引を跳ね返す':'価格を確認して売買を受け入れる'):
@@ -572,8 +585,8 @@ function render(){
  const standalone=learnedAlone?catalog.get(first.slice(2)):null;
  const canCastAlone=!learnedAlone||((standalone?.stats.attack??0)>0||
   standalone?.effects.some(e=>e.when==='onDeclare'&&
-   ['inflictDisease','restoreResource'].includes(e.type)));
- $('attack').textContent=resourceCast?'奇跡を使う':'攻撃する';
+   ['inflictDisease','restoreResource','cleanseAfflictions'].includes(e.type)));
+ $('attack').textContent=(resourceCast||cleansingCast)?'奇跡を使う':'攻撃する';
  $('attack').disabled=!usable||!selection.size||!canCastAlone||
   (catalog.get(cardsById.get(selectedIds[0])?.definitionId)?.family==='trade');
  $('useItem').disabled=!usable||!itemEffect;
@@ -629,9 +642,9 @@ async function send(type,accept=null){
   const card=first?.startsWith('l:')?first.slice(2):
     view.players.find(p=>p.id===seat)?.hand?.find(c=>c.instanceId===first)?.definitionId;
   const def=catalog.get(card);
-  const ownResourceCast=def?.family==='miracle'&&def.effects.some(e=>
-    e.when==='onDeclare'&&e.type==='restoreResource');
-  command.targetId=ownResourceCast?seat:(seat==='A'?'B':'A');
+  const selfSupportCast=def?.family==='miracle'&&def.effects.some(e=>
+    e.when==='onDeclare'&&['restoreResource','cleanseAfflictions'].includes(e.type));
+  command.targetId=selfSupportCast?seat:(seat==='A'?'B':'A');
  }
  waiting=true;pendingId=command.commandId;pendingCommand=command;
  feedback('操作を送信しています…');render();
