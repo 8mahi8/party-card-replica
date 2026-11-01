@@ -115,6 +115,7 @@ main{padding:0 6px 8px}.brandline{margin:0 -6px}
 <option value="magicalStaff">マジカルステッキ・残MP×2（単独攻撃）</option>
 <option value="recoilSword">邪神の大剣・与ダメ分の自傷と反射</option>
 <option value="mistMiracle">奇跡〈霧〉・相手のHP/MP/¥が見えなくなる</option>
+<option value="dreamMiracle">奇跡〈夢〉・状態付与／歌声で解除（偽装抽選は研究中）</option>
 <option value="dark">闇属性と高防御</option>
 <option value="recovery">HP・MP回復と反撃</option>
 <option value="support">相手への回復と反射</option>
@@ -220,6 +221,11 @@ const LAB_PRESETS=Object.freeze({
   A:Object.freeze(['m020','i003','w016','d003']),
   B:Object.freeze(['i017','d018','w016','d003']),
   mpA:15,rngSeed:71
+ }),
+ dreamMiracle:Object.freeze({
+  A:Object.freeze(['m021','i003','w016','d003']),
+  B:Object.freeze(['i017','i018','d018','i002']),
+  mpA:10,rngSeed:71
  }),
  flashDefense:Object.freeze({
   A:Object.freeze(['w027','w016','d003','i006']),
@@ -399,7 +405,8 @@ function render(){
   for(const affliction of p.afflictions||[]){
    const badge=document.createElement('span');badge.className='disease';
    badge.textContent=affliction==='flash'?'災い：閃光（防御は神器1つ）':
-    affliction==='mist'?'災い：霧（相手の情報が見えない）':affliction;
+    affliction==='mist'?'災い：霧（相手の情報が見えない）':
+    affliction==='dream'?'災い：夢（授かった神器の偽装抽選は研究中）':affliction;
    e.append(badge);
   }
   stats.append(e);
