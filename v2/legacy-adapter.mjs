@@ -9,7 +9,7 @@ import {VERIFIED_BASIC_CARDS,PARTIAL_CARD_SOURCE} from '../src/verified-basic-ca
 const KNOWN_KEYS=new Set([
   'id','referenceName','kind','category','slot','element','attack','guard',
   'attackBonus','price','weight','reaction','reactionScope','stopScope',
-  'role','boost','plusAttack','mpCost','effect','attackElementOverride','discardPolicy','tradeAction','hpAbsorb','repeatHits','restoreAmount','resourceGain','cleanseScope','diseaseOnHit','afflictionOnHit','disease','otherAffliction'
+  'role','boost','plusAttack','mpCost','effect','attackElementOverride','discardPolicy','tradeAction','hpAbsorb','repeatHits','restoreAmount','resourceGain','cleanseScope','diseaseOnHit','afflictionOnHit','disease','otherAffliction','mpAttack'
 ]);
 const CATEGORY_BY_KIND=Object.freeze({weapon:'weapon_single',armor:'armor_normal',miracle:'miracle',defense_item:'item',support_item:'item',trade:'trade'});
 const mk=(when,type,params={})=>({when,type,params});
@@ -74,6 +74,16 @@ export function convertLegacyCard(card,{ruleset=PARTIAL_CARD_SOURCE}={}) {
       if(card.hpAbsorb!==true||card.slot!=='main')
         throw new Error('Unverified HP absorption definition');
       effects.push(mk('afterHit','absorbHp',{amount:'damage'}));
+    }
+    if(card.mpAttack!==undefined){
+      if(card.mpAttack!==true||card.slot!=='main'||card.attack!==0||
+         card.element!=='none'||card.guard!==undefined||
+         card.hpAbsorb!==undefined||card.repeatHits!==undefined||
+         card.diseaseOnHit!==undefined||card.afflictionOnHit!==undefined||
+         card.attackElementOverride!==undefined||card.stopScope!==undefined||
+         card.reaction!==undefined)
+        throw new Error('Unverified MP-powered weapon definition');
+      effects.push(mk('onDeclare','spendMpForAttack',{multiplier:2}));
     }
     if(card.attackElementOverride!==undefined){
       if(card.slot!=='addon'||!['fire','water'].includes(card.attackElementOverride)||
