@@ -15,6 +15,7 @@ import {previewBuyOfferFixture} from './trade-buy.mjs';
 import {previewExchangeFixture} from './trade-exchange.mjs';
 import {previewSelfSaleFixture} from './trade-self-sale.mjs';
 import {dreamVisibleDefinitionIdFixture} from './dream-appearance.mjs';
+import {assertOtherAfflictions} from './disease-rules.mjs';
 
 const ID=/^[a-zA-Z0-9._:-]{1,80}$/;
 const MAX_PLAYERS=9;
@@ -196,7 +197,7 @@ export function createStagingRoom({seats,firstSeatId,rulesetId='lab-v2',rngSeed=
     if(!Array.isArray(p.handDefinitionIds)||p.handDefinitionIds.length>MAX_HAND)
       throw new Error('Invalid starting hand');
     const hand=p.handDefinitionIds.map(definitionId=>createInstance(definitionId,serial++,catalog));
-    return {id:p.id,hp:40,mp:10,money:20,hand,learned:[],disease:null};
+    return {id:p.id,hp:40,mp:10,money:20,hand,learned:[],disease:null,afflictions:[]};
   });
   return {
     schemaVersion:2,rulesetId,revision:0,phase:'turn',
@@ -465,6 +466,12 @@ export function applyStagingCommand(state,command,catalog,{authorizedSeatId}={})
         learned?.family!=='miracle'||!learned.playModes.includes('defend'))
         throw new Error('Defensive miracle not learned');
     }
+    // Source-backed Flash: defense is restricted to a SINGLE chosen artifact,
+    // whether it is a physical card or a learned miracle. Passing uses zero.
+    // Validate before staging so failed attempts cannot alter the revision.
+    if(assertOtherAfflictions(actor.afflictions).includes('flash')&&
+       (sequence?sequence.length:selected.length+(learned?1:0))>1)
+      throw new Error('Flash affliction allows only one defense artifact');
     pending={...state.pending,defense:{playerId:actor.id,
       instanceIds:sequence?sequence.filter(x=>x.instanceId).map(x=>x.instanceId)
         :selected.map(x=>x.instanceId),
@@ -531,7 +538,8 @@ export function viewStagingRoom(state,viewerId,catalog=null) {
     schemaVersion:2,rulesetId:state.rulesetId,revision:state.revision,
     phase:state.phase,activePlayerId:state.activePlayerId,
     players:state.players.map(q=>({
-      id:q.id,hp:q.hp,mp:q.mp,money:q.money,disease:q.disease??null,handCount:q.hand.length,
+      id:q.id,hp:q.hp,mp:q.mp,money:q.money,disease:q.disease??null,
+      afflictions:assertOtherAfflictions(q.afflictions),handCount:q.hand.length,
       ...(q.id===p.id?{hand:q.hand.map(x=>({instanceId:x.instanceId,
          definitionId:dreamVisibleDefinitionIdFixture(q,x,catalog)})),learned:[...q.learned]}:{})
     })),
