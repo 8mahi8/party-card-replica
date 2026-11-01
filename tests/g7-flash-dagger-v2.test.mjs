@@ -71,8 +71,8 @@ test('declaration alone cannot inflict Flash; unguarded damaging hit does',()=>{
  assert.equal(A.read().players[1].hand,undefined);
 });
 test('a completely blocked light attack does not apply Flash',()=>{
- const {A,B}=room({b:['i001','d001','w016','i002']});
- declare(A);defend(B,['i001','d001']);
+ const {A,B}=room({b:['i001','d003','w016','i002']});
+ declare(A);defend(B,['i001','d003']);
  assert.equal(B.read().players[1].hp,40);
  assert.deepEqual(B.read().players[1].afflictions,[]);
 });
