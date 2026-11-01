@@ -343,6 +343,27 @@ export function runEffectQueueFixture(state,catalog,queue,{
          consumedInstanceId:recovery.consumedInstanceId,
          consumedDefinitionId:recovery.consumedDefinitionId});
      }
+   } else if(effect.type==='recoil'){
+     const pending=state.pending,original=who(state,pending?.originalAttackerId);
+     const authentic=pending?.attackContext?.recoilsHp===true||
+       (pending?.attackContext===undefined &&
+        pending?.attackInstanceIds?.length===1&&
+        catalog.get(original.hand.find(x=>
+          x.instanceId===pending.attackInstanceIds[0])?.definitionId)?.effects.some(e=>
+          e.when==='afterHit'&&e.type==='recoilHp'&&e.params.amount==='damage'));
+     const hit=queue.filter(e=>e.type==='hit');
+     if(pending?.type!=='attack'||!authentic||
+        Object.keys(effect).length!==3||
+        effect.playerId!==(pending.sourceId??pending.originalAttackerId)||
+        !positiveCount(effect.damage)||hit.length!==1||
+        hit[0].damage!==effect.damage||
+        queue.filter(e=>e.type==='recoil').length!==1)
+       fail('HP recoil requires an authentic resolved strike');
+     const source=who(s,effect.playerId),before=source.hp;
+     source.hp=Math.max(0,source.hp-effect.damage);
+     events.push({type:'recoilHp',playerId:source.id,damage:effect.damage,
+       hpBefore:before,hpAfter:source.hp});
+     if(source.hp===0&&before>0)resolveIllnessZeroHp(source,before);
    } else if(effect.type==='castDisease'){
      const p=who(s,effect.targetId),pending=state.pending;
      if(Object.keys(effect).length!==4||pending?.type!=='attack'||
