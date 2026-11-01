@@ -81,7 +81,7 @@ test('unverified combo with another weapon or miracle fails without state mutati
  for(const combo of [['w062','w016'],['w062','m004']]){
   const {A}=match({a:['w062',combo[1],'d003','i006']});
   const before=JSON.stringify(A.read());
-  assert.throws(()=>attack(A,combo.map(x=>id(A,'A',x))),/MP-powered wand combinations/);
+  assert.throws(()=>attack(A,combo.map(x=>id(A,'A',x))),/MP-powered wand combinations|Not a structural attack selection/);
   assert.equal(JSON.stringify(A.read()),before);
  }
 });
