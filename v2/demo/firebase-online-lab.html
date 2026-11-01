@@ -112,6 +112,7 @@ main{padding:0 6px 8px}.brandline{margin:0 -6px}
 <option value="flashDefense">閃光・防御は1枚まで／貝がら解除</option>
 <option value="flashDagger">フラッシュダガー・命中で閃光→治療</option>
 <option value="mistGun">霧鉄砲・ダメージで霧→治療</option>
+<option value="magicalStaff">マジカルステッキ・残MP×2（単独攻撃）</option>
 <option value="mistMiracle">奇跡〈霧〉・相手のHP/MP/¥が見えなくなる</option>
 <option value="dark">闇属性と高防御</option>
 <option value="recovery">HP・MP回復と反撃</option>
@@ -205,6 +206,10 @@ const LAB_PRESETS=Object.freeze({
  mistGun:Object.freeze({
   A:Object.freeze(['w061','w016','d001','i006']),
   B:Object.freeze(['i017','d062','w016','i002']),rngSeed:71
+ }),
+ magicalStaff:Object.freeze({
+  A:Object.freeze(['w062','w016','d003','i006']),
+  B:Object.freeze(['d003','d001','i002','w016']),mpA:8,rngSeed:71
  }),
  mistMiracle:Object.freeze({
   A:Object.freeze(['m020','i003','w016','d003']),
@@ -460,7 +465,9 @@ function render(){
    ' ／ スーパーミラーのみ対応可能':
    announced?.cards?.length?
    '相手の攻撃：'+announced.cards.map(c=>names.get(c.definitionId)||c.definitionId).join(' ＋ ')+
-   ' ／ 攻'+announced.printedAttackTotal+'（記載値）':'';
+   ' ／ '+(announced.cards.some(c=>
+     catalog.get(c.definitionId)?.effects.some(e=>e.type==='spendMpForAttack'))?
+      '攻MP×2（宣言時）':'攻'+announced.printedAttackTotal+'（記載値）'):'';
  $('handCount').textContent=selected.length+'枚 / 横にスライド';
  const preview=$('selectionPreview');preview.replaceChildren();
  const cardsById=new Map(selected.map(c=>[c.instanceId,c]));
@@ -536,7 +543,9 @@ function render(){
     itemEffect.type==='sweepHand'?'対象の神器を無作為に最大3枚除去':
     itemEffect.type==='flipHpRisk'?'HP+10 / 10ダメージ（各50%）':
     (itemEffect.params.resource==='hp'?'HP':'MP')+'+'+itemEffect.params.amount+'（最大99）'):
-   index?'カード記載値の合計（参考） · '+(defense?'守 '+guardSum:'攻 '+attackSum)+
+   index?'カード記載値の合計（参考） · '+(defense?'守 '+guardSum:
+     selection.size===1&&firstCastDef?.effects.some(e=>e.type==='spendMpForAttack')?
+      '攻MP×2（宣言時・MP全消費）':'攻 '+attackSum)+
     (mpSum?' · MP '+mpSum:''):'';
 
  const hand=$('hand'),scroll=hand.scrollLeft;
