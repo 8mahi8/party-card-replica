@@ -5,6 +5,15 @@
 
 > **この文書は引き継ぎ入口であり、実装の真実は常に開発ブランチの最新コードとGitHub Actions。** コミットSHA・テスト件数・カード数は作業のたびに変わる。本文の日付や数値を確認せず永久に正しいと扱わないこと。
 
+## 2026-11-02 G7｜奇跡〈霧〉・2人対戦のステータス秘匿と治療【最新】
+
+- **原作出典**：[Piong奇跡一覧](https://w.atwiki.jp/piong/pages/20.html)、[Piong災い一覧](https://w.atwiki.jp/piong/pages/23.html)、[2026年まかろん](https://macarongamemo.com/entry/godfield-artifact)、[初心者ルール](https://godfield-beginner.game-info.wiki/)：〈霧〉**水属性/MP3/参考0.2%**、与えられた本人は**相手HP/MP/¥が見えない**。〈音色〉〈歌声〉・スマイル/ハート貝がらで解除、時間経過では治らない。多人数戦では相手ランダム指定。
+- **今回の実装**：`m020`〈霧〉と型付き`onDeclare:inflictAffliction({affliction:'mist'})`を追加。既存の`miracle-resolution`（阻止/スーパーミラー/MP/習得/精霊/補充）＋`effect-runner`共通キューで原本検証・被効果者を決定。`OTHER_AFFLICTIONS`に`mist`追加、軽症/全治療を共用。**認証済みプレイヤーのviewだけ**相手のHP/MP/¥をnullに伏せ、ホストstateは真値を維持する。オンラインUIは「？」と表示し、治療直後に真値へ戻す。閃光制限や病進行は変更なし。
+- **実装範囲を厳守**：**固定2席の研究ゲーム限定**。霧による多人数のランダム対象・原作の細かい他人の雑貨使用秘匿は今回再現したと主張しない。3席以上に霧を投げる場合は未確認仕様のため拒否。学校Google Sites直接貼付版・main・Firebase Rules・認証変更なし。
+- **テストと試遊**：`tests/g7-mist-miracle-v2.test.mjs`に10ケース（宣言→効果、席別秘匿、内部の正しいダメージ計算、スマイル/ハート治療、反射、精霊、習得済み、奇跡停止、MP不足）。模擬RTDBの2画面WebKitタップテストも追加。**Node 1111/1111 合格** [run 41333764138](https://github.com/8mahi8/party-card-replica/actions/runs/41333764138)、Chromium [run 41333764064](https://github.com/8mahi8/party-card-replica/actions/runs/41333764064) 成功。**WebKitはrun 41333764073の完了ログを確認してから最終判断**。実Firebaseと学校iPad Safariは未検証。
+- **カタログ**：**184種類／445参考枠・`complete:false`**、研究用セット25種類（`mistMiracle`追加）、原作正式確率抽選は禁止。HTML3本はGitHub開発ブランチで再生成済み、ワークフローは手動専用へ戻した。
+- **次**：WebKitの2席実タップを確認し、原作裏付けの強い次のカードまたは多人数ゲームエンジンに進む。ただし推測で本家未確定仕様を追加しない。詳細 [V2_G7_MIST_MIRACLE_2026-11-02.md](docs/V2_G7_MIST_MIRACLE_2026-11-02.md)。
+
 ## 2026-11-02 G7｜奇跡〈吸収〉を実戦研究対戦に実装【最新】
 
 - **開発判断**：全体奇跡〈閃光〉のミス時防御・反射順は二次資料だけでは不明。推測で実戦接続せず、既存エンジンの再利用率が高い、原作単体奇跡〈吸収〉を優先して完成させた。
