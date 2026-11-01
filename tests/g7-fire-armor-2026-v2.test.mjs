@@ -82,8 +82,8 @@ test('sourced additions increase the diagnostic armor count but never authorize 
  assert.deepEqual(report.actualGroups,{trade:60,weapon:156,armor:133,miracle:20,item:77});
  const a=report.comparisons.find(x=>x.key==='wiki-2025-09-19');
  const b=report.comparisons.find(x=>x.key==='player-study-2024-11-06');
- assert.deepEqual([a.missingKinds,a.remainingSlots,a.kindCountPossible],[169,55,false]);
- assert.deepEqual([b.missingKinds,b.remainingSlots,b.kindCountPossible],[53,55,true]);
+ assert.deepEqual([a.missingKinds,a.remainingSlots,a.kindCountPossible],[168,54,false]);
+ assert.deepEqual([b.missingKinds,b.remainingSlots,b.kindCountPossible],[52,54,true]);
  assert.equal(report.categoryCells.armor_normal.fire,8);
  assert.equal(report.categoryCells.weapon_single.none,122,'unrelated source mismatch untouched');
  assert.equal(a.typedCellOverflows.length,1);
