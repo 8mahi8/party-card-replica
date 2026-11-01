@@ -370,6 +370,31 @@ export function runEffectQueueFixture(state,catalog,queue,{
          diseaseBefore:before,diseaseAfter:p.disease,fatal:next.fatal});
        if(next.fatal)resolveIllnessZeroHp(p,p.hp);
      }
+   } else if(effect.type==='castAffliction'){
+     const p=who(s,effect.targetId),pending=state.pending;
+     if(Object.keys(effect).length!==4||pending?.type!=='attack'||
+        pending.targetId!==p.id||effect.affliction!=='mist'||
+        typeof effect.miracleId!=='string'||
+        queue.filter(q=>q?.type==='castAffliction').length!==1)
+       fail('Invalid non-disease miracle action');
+     const miracle=catalog.get(effect.miracleId);
+     if(miracle?.family!=='miracle'||miracle.element!=='water'||
+        miracle.stats.attack!==0||miracle.stats.mpCost!==3||
+        !miracle.effects.some(e=>e.when==='onDeclare'&&
+          e.type==='inflictAffliction'&&e.params.affliction==='mist'))
+       fail('Unrecognized Mist miracle');
+     const original=who(state,pending.originalAttackerId);
+     const declared=pending.attackContext?.miracleId??
+       (pending.attackLearnedDefinitionId??
+         catalog.get(original.hand.find(c=>
+           c.instanceId===pending.attackInstanceIds?.[0])?.definitionId)?.id);
+     if(declared!==miracle.id)fail('Mist miracle not originally declared');
+     if(p.hp>0){
+       const before=assertOtherAfflictions(p.afflictions);
+       p.afflictions=[...new Set([...before,'mist'])];
+       events.push({type:'castAffliction',targetId:p.id,
+         affliction:'mist',before,after:[...p.afflictions]});
+     }
    } else if(effect.type==='inflictDisease'){
      if(Object.keys(effect).length!==3||!['cold','hell'].includes(effect.disease))
        fail('Malformed on-hit illness effect');
