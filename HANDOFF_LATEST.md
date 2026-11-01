@@ -5,6 +5,16 @@
 
 > **この文書は引き継ぎ入口であり、実装の真実は常に開発ブランチの最新コードとGitHub Actions。** コミットSHA・テスト件数・カード数は作業のたびに変わる。本文の日付や数値を確認せず永久に正しいと扱わないこと。
 
+## 2026-11-02 G7｜霧鉄砲（命中後の霧）・研究用2人オンライン【最新】
+
+- **今回の拡張**：原作Piong単体武器（2026-03）、2026まかろん、Piong属性/災いの資料を照合し、`w061`霧鉄砲（水属性・攻3・¥10・参考0.2%）を追加。**HP1以上の実ダメージでのみ霧**を付与。防具で0ダメージなら付与しない。水属性攻撃には**火／光属性**の防具が有効であり、水防具で防ぐ旧テスト案を撤回済み。
+- **既存エンジンを再利用**：`legacy-adapter`/型付き`foundation`/ `ordered-attack`/ `basic-resolution`/ `effect-runner`の`afterHit:inflictAffliction`をFlashとMistに共通化。スーパーミラー反射の最終被弾者にだけ付与。霧の他者HP/MP/¥秘匿と貝がら治癒は前回の共通処理を流用。多人数の未調査の霧ターゲット、未検証の連結は拒否。
+- **試遊**：オンライン研究版に26個目の`mistGun`固定手札セット。Nodeの実効果・反射・防御・治療・旧閃光回帰テストと、2独立WebKitタブ・模擬RTDBの攻撃→霧→治療タップ試験を追加。単体HTML3本を開発branch内で再生成。**本物Firebaseと学校iPad Safariはこのカードでは未検証**。
+- **研究台帳**：**185種類／446参考枠、complete:false**。本番抽選は禁止。G7原作研究の続きであり、原作全再現・学校公開版の完成ではない。
+- **CI実測**：Node / Chromium / WebKitの最新Run確認は別途追記。最終HEADは固定の旧数値ではなくPR #1およびActionsから再取得すること。
+- **次**：WebKitまで成功を確認後、原作実測が必要な多人数／全体攻撃系を無理に実装せず、原作裏付けの強い次の効果を追加。引き続きGitHub開発branchのみを更新、学校HTML、Firebase Rules・認証、GitHub mainは変更しない。
+- 詳細：[V2_G7_MIST_GUN_2026-11-02.md](docs/V2_G7_MIST_GUN_2026-11-02.md)。
+
 ## 2026-11-02 G7｜奇跡〈霧〉・2人対戦のステータス秘匿と治療【最新】
 
 - **原作出典**：[Piong奇跡一覧](https://w.atwiki.jp/piong/pages/20.html)、[Piong災い一覧](https://w.atwiki.jp/piong/pages/23.html)、[2026年まかろん](https://macarongamemo.com/entry/godfield-artifact)、[初心者ルール](https://godfield-beginner.game-info.wiki/)：〈霧〉**水属性/MP3/参考0.2%**、与えられた本人は**相手HP/MP/¥が見えない**。〈音色〉〈歌声〉・スマイル/ハート貝がらで解除、時間経過では治らない。多人数戦では相手ランダム指定。
