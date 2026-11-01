@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import {RESEARCH_CATALOG_CONTRACT} from './helpers/research-catalog-contract.mjs';
 import {VERIFIED_BASIC_CARDS} from '../src/verified-basic-cards.mjs';
 import {CATEGORY_DISTRIBUTION,ELEMENTS} from '../src/rules.mjs';
 import {auditCatalog,createAuditedDraw} from '../src/catalog-audit.mjs';
@@ -14,18 +15,18 @@ test('two independently sourced incompatible full-deck reference totals are reco
   [[353,500],[237,500]]);
  for(const claim of HISTORICAL_DECK_CLAIMS)
   assert.equal(Object.values(claim.groups).reduce((a,b)=>a+b,0),500);
- assert.deepEqual([report.unique,report.slots],[185,446]);
+ assert.deepEqual([report.unique,report.slots],[RESEARCH_CATALOG_CONTRACT.unique,RESEARCH_CATALOG_CONTRACT.slots]);
  assert.deepEqual(report.actualGroups,
-  {trade:60,weapon:156,armor:133,miracle:20,item:77});
+  {trade:60,weapon:157,armor:133,miracle:20,item:77});
 });
 
 test('2025 353-kind claim has an impossible remaining count even ignoring categories',()=>{
- assert.equal(old.remainingSlots,54);
- assert.equal(old.missingKinds,168);
+ assert.equal(old.remainingSlots,53);
+ assert.equal(old.missingKinds,167);
  assert.equal(old.maxPossibleKinds,239);
  assert.equal(old.kindCountPossible,false);
- assert.equal(newerStudy.remainingSlots,54);
- assert.equal(newerStudy.missingKinds,52);
+ assert.equal(newerStudy.remainingSlots,53);
+ assert.equal(newerStudy.missingKinds,51);
  assert.equal(newerStudy.maxPossibleKinds,239);
  assert.equal(newerStudy.kindCountPossible,true,
   '237 is arithmetically plausible, not authenticated');
@@ -55,9 +56,9 @@ test('2025 typed reference already overflows neutral weapon single-slot budget b
  const row=CATEGORY_DISTRIBUTION.weapon_single;
  assert.equal(ELEMENTS.length,7);
  assert.equal(row.reduce((a,b)=>a+b,0),152);
- assert.equal(Object.values(report.categoryCells.weapon_single).reduce((a,b)=>a+b,0),156);
+ assert.equal(Object.values(report.categoryCells.weapon_single).reduce((a,b)=>a+b,0),157);
  assert.deepEqual(newerStudy.groupRows.map(r=>[r.group,r.remaining]),
-  [['trade',0],['weapon',25],['armor',14],['miracle',10],['item',5]]);
+  [['trade',0],['weapon',24],['armor',14],['miracle',10],['item',5]]);
 });
 
 test('diagnostic never authorizes fake weighted draws or mutates audited source definitions',()=>{
