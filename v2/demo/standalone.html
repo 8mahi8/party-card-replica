@@ -566,6 +566,8 @@ const VERIFIED_BASIC_CARDS = Object.freeze([
   Object.freeze({id:'m019',referenceName:'吸収',kind:'miracle',role:'attack',category:'miracle',element:'light',attack:10,mpCost:10,hpAbsorb:true,price:0,weight:1}),
   // Piong (2026-09) + Macaron (2026): Water MP3 Mist affliction.
   Object.freeze({id:'m020',referenceName:'霧',kind:'miracle',role:'afflictOther',otherAffliction:'mist',category:'miracle',element:'water',mpCost:3,price:0,weight:1}),
+  // Piong and Macaron 2026: wood MP6; disguises only NEW draws, not held cards.
+  Object.freeze({id:'m021',referenceName:'夢',kind:'miracle',role:'afflictOther',otherAffliction:'dream',category:'miracle',element:'wood',mpCost:6,price:0,weight:1}),
   // Source: Piong other artifacts (updated 2026-10-24), GFGA 2024,
   // Macaron 2026. Only plain HP/MP recovery, no status-creating herbs.
   // Weight 12/8/4/1 means 2.4/1.6/0.8/0.2% of 500.
@@ -675,7 +677,7 @@ function freezeEffect(effect) {
   if(effect.type==='inflictAffliction'&&
      (Object.keys(params).length!==1||
       !((effect.when==='afterHit'&&['flash','mist'].includes(params.affliction))||
-        (effect.when==='onDeclare'&&params.affliction==='mist'))))
+        (effect.when==='onDeclare'&&['mist','dream'].includes(params.affliction)))))
     throw new Error('Invalid inflictAffliction effect data');
   if(effect.type==='heavenHerb'&&
      (effect.when!=='onDeclare'||Object.keys(params).length!==2||
@@ -1186,10 +1188,11 @@ function convertLegacyCard(card,{ruleset=PARTIAL_CARD_SOURCE}={}) {
         effects.push(mk('afterHit','absorbHp',{amount:'damage'}));
       }
     } else if(card.role==='afflictOther') {
-      if(card.id!=='m020'||card.element!=='water'||card.attack!==undefined||
-         card.mpCost!==3||card.otherAffliction!=='mist')
+      if(card.attack!==undefined||
+         !((card.id==='m020'&&card.element==='water'&&card.mpCost===3&&card.otherAffliction==='mist')||
+           (card.id==='m021'&&card.element==='wood'&&card.mpCost===6&&card.otherAffliction==='dream')))
         throw new Error('Unverified other-affliction miracle definition');
-      modes.push('cast');effects.push(mk('onDeclare','inflictAffliction',{affliction:'mist'}));
+      modes.push('cast');effects.push(mk('onDeclare','inflictAffliction',{affliction:card.otherAffliction}));
     } else if(card.role==='resource') {
       if(card.element!=='none'||card.attack!==undefined||
          !['hp','money'].includes(card.resourceGain)||card.restoreAmount!==10||
@@ -1684,7 +1687,7 @@ function planDiseaseCure(disease,scope){
  * non-disease afflictions. This array permits a future independently sourced
  * status without redefining the four-stage illness progression.
  */
-const OTHER_AFFLICTIONS=Object.freeze(['flash','mist']);
+const OTHER_AFFLICTIONS=Object.freeze(['flash','mist','dream']);
 function assertOtherAfflictions(value){
  if(value===undefined)return [];
  if(!Array.isArray(value)||value.some(v=>!OTHER_AFFLICTIONS.includes(v))||
@@ -1697,8 +1700,9 @@ function planOtherAfflictionCure(value,scope){
  if(!['minor','all'].includes(scope))throw new Error('Invalid affliction cure scope');
  // Both Smile and Heart cure Flash in the original; more statuses require
  // explicit original-backed membership before they can be added here.
- // Mist is a minor affliction, cured by Melody and Smile Shell.
- const after=before.filter(v=>!(['flash','mist'].includes(v)&&['minor','all'].includes(scope)));
+ // Mist is minor; Dream is major (Heart Shell / Song, not Smile/Melody).
+ const after=before.filter(v=>!(scope==='all'||
+  (scope==='minor'&&['flash','mist'].includes(v))));
  return Object.freeze({before,after,cured:before.length!==after.length});
 }
 
@@ -2931,6 +2935,10 @@ function runEffectQueueFixture(state,catalog,queue,{
      const other=planOtherAfflictionCure(p.afflictions,effect.scope);
      p.disease=plan.disease;
      p.afflictions=other.after;
+     // Dream cure reveals any host-fixed research aliases immediately.
+     // Physical artifact definition IDs remain unchanged.
+     if(other.before.includes('dream')&&!other.after.includes('dream'))
+       p.dreamDisguises=[];
      events.push({type:'cleanseAfflictions',playerId:p.id,
        scope:effect.scope,diseaseBefore:plan.before,
        diseaseAfter:plan.disease,curedDisease:plan.cured,
@@ -3110,27 +3118,28 @@ function runEffectQueueFixture(state,catalog,queue,{
    } else if(effect.type==='castAffliction'){
      const p=who(s,effect.targetId),pending=state.pending;
      if(Object.keys(effect).length!==4||pending?.type!=='attack'||
-        pending.targetId!==p.id||effect.affliction!=='mist'||
+        pending.targetId!==p.id||!['mist','dream'].includes(effect.affliction)||
         typeof effect.miracleId!=='string'||
         queue.filter(q=>q?.type==='castAffliction').length!==1)
        fail('Invalid non-disease miracle action');
      const miracle=catalog.get(effect.miracleId);
-     if(miracle?.family!=='miracle'||miracle.element!=='water'||
-        miracle.stats.attack!==0||miracle.stats.mpCost!==3||
+     if(miracle?.family!=='miracle'||miracle.stats.attack!==0||
+        !((effect.affliction==='mist'&&miracle.element==='water'&&miracle.stats.mpCost===3)||
+          (effect.affliction==='dream'&&miracle.element==='wood'&&miracle.stats.mpCost===6))||
         !miracle.effects.some(e=>e.when==='onDeclare'&&
-          e.type==='inflictAffliction'&&e.params.affliction==='mist'))
-       fail('Unrecognized Mist miracle');
+          e.type==='inflictAffliction'&&e.params.affliction===effect.affliction))
+       fail('Unrecognized non-disease affliction miracle');
      const original=who(state,pending.originalAttackerId);
      const declared=pending.attackContext?.miracleId??
        (pending.attackLearnedDefinitionId??
          catalog.get(original.hand.find(c=>
            c.instanceId===pending.attackInstanceIds?.[0])?.definitionId)?.id);
-     if(declared!==miracle.id)fail('Mist miracle not originally declared');
+     if(declared!==miracle.id)fail('Affliction miracle not originally declared');
      if(p.hp>0){
        const before=assertOtherAfflictions(p.afflictions);
-       p.afflictions=[...new Set([...before,'mist'])];
+       p.afflictions=[...new Set([...before,effect.affliction])];
        events.push({type:'castAffliction',targetId:p.id,
-         affliction:'mist',before,after:[...p.afflictions]});
+         affliction:effect.affliction,before,after:[...p.afflictions]});
      }
    } else if(effect.type==='inflictDisease'){
      if(Object.keys(effect).length!==3||!['cold','hell'].includes(effect.disease))
@@ -4961,10 +4970,12 @@ function compileSoloMiracleResolution(state,catalog) {
  const otherAffliction=miracle.effects.length===1&&
    miracle.effects[0].when==='onDeclare'&&
    miracle.effects[0].type==='inflictAffliction'&&
-   miracle.effects[0].params.affliction==='mist'&&
-   miracle.stats.attack===0&&miracle.stats.mpCost===3&&miracle.element==='water';
+   ['mist','dream'].includes(miracle.effects[0].params.affliction)&&
+   miracle.stats.attack===0&&
+   ((miracle.effects[0].params.affliction==='mist'&&miracle.stats.mpCost===3&&miracle.element==='water')||
+    (miracle.effects[0].params.affliction==='dream'&&miracle.stats.mpCost===6&&miracle.element==='wood'));
  if(otherAffliction&&state.players.length!==2)
-   fail('Mist targeting outside two-seat research not implemented');
+   fail('Non-disease curse targeting outside two-seat research not implemented');
  const resourceEffect=miracle.effects.length===1&&miracle.effects[0].when==='onDeclare'&&
   miracle.effects[0].type==='restoreResource'&&miracle.element==='none'&&
   miracle.stats.attack===0&&miracle.effects[0].params.amount===10&&
@@ -5051,7 +5062,7 @@ function compileSoloMiracleResolution(state,catalog) {
          scope:miracle.effects[0].params.scope})]:
      otherAffliction?
        (stopped?[]:[item('castAffliction',{targetId:target.id,
-         miracleId:miracle.id,affliction:'mist'})]):
+         miracleId:miracle.id,affliction:miracle.effects[0].params.affliction})]):
      affliction?
        (stopped?[]:[item('castDisease',{targetId:target.id,
          miracleId:miracle.id,disease:miracle.effects[0].params.disease})]):
