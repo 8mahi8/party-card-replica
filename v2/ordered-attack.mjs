@@ -67,7 +67,7 @@ export function compileOrderedWeaponAttack(state,catalog){
   let weaponAttack=0,attackElement='none',mainCount=0,weaponCount=0;
   let aura=null,plusCount=0,additive=0,lastWasMiracle=false,hasArmorBonus=false,itemBonus=0;
   let learnedDrawCount=0,mirageCount=0;
-  let forcedAttackElement=null,absorbsHp=false,hitCount=1,diseaseOnHit=null;
+  let forcedAttackElement=null,absorbsHp=false,hitCount=1,diseaseOnHit=null,afflictionOnHit=null;
   let wandPosition=-1,auraPosition=-1;
   const casts=[],selectedKinds=[];
   const miracles=[];
@@ -105,6 +105,11 @@ export function compileOrderedWeaponAttack(state,catalog){
            ['cold','hell'].includes(eff.params.disease)){
           if(diseaseOnHit!==null)fail('Multiple disease weapons not verified');
           diseaseOnHit=eff.params.disease;continue;
+        }
+        if(eff.type==='inflictAffliction'&&eff.when==='afterHit'&&
+           def.playModes.includes('mainAttack')&&eff.params.affliction==='flash'){
+          if(afflictionOnHit!==null)fail('Multiple on-hit afflictions unverified');
+          afflictionOnHit='flash';continue;
         }
         if(eff.type==='absorbHp'&&eff.when==='afterHit'&&
            eff.params.amount==='damage'&&def.family==='weapon'){
@@ -177,6 +182,11 @@ export function compileOrderedWeaponAttack(state,catalog){
     }
   }
   if(!weaponCount)fail('Attack requires a weapon');
+  if(afflictionOnHit!==null&&
+    (hitCount!==1||mirageCount>0||absorbsHp||aura||plusCount||
+     hasArmorBonus||itemBonus||miracles.length>0||forcedAttackElement!==null||
+     weaponCount!==1||diseaseOnHit!==null))
+    fail('On-hit affliction combinations require original verification');
   if(diseaseOnHit!==null&&
     (hitCount!==1||mirageCount>0||absorbsHp||aura||plusCount||
      hasArmorBonus||itemBonus||miracles.length>0||forcedAttackElement!==null||weaponCount!==1))
@@ -220,7 +230,7 @@ export function compileOrderedWeaponAttack(state,catalog){
     attack,element:forcedAttackElement??(aura||mirageCount?'none':attackElement),attackKind:'weapon',
     instanceIds:Object.freeze(selected.filter(x=>x.instance).map(x=>x.instance.instanceId)),
     payableMP,learnedDrawCount,learnedMiracles:Object.freeze(learnedMiracles),
-    hasModifiers:miracles.length>0,absorbsHp,diseaseOnHit,hitCount,mirageCount,
+    hasModifiers:miracles.length>0,absorbsHp,diseaseOnHit,afflictionOnHit,hitCount,mirageCount,
     selectedKinds:Object.freeze(selectedKinds)
   });
 }
