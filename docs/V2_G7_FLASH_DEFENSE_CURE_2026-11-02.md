@@ -24,4 +24,10 @@
 
 ## 検証の記録
 
-この文書は機能実装時の技術判断。**CIが終了したら成功・失敗とrun IDを最新引き継ぎ文へ追記する。** 学校実機検証をCI合格と混同しない。
+**最終コード HEAD `bc75066577b5` で確認済み。**
+
+- Node.js：**1,069 / 1,069 PASS**、[GitHub Actions run 41327568466](https://github.com/8mahi8/party-card-replica/actions/runs/41327568466)。今回の閃光テスト5件・22セットの追加監査を含む。
+- Chromium：**28 / 28 PASS**、[run 41327568556](https://github.com/8mahi8/party-card-replica/actions/runs/41327568556)。
+- Playwright WebKit：**模擬RTDBオンライン2席303 / 303 PASS**、従来画面**339 / 339 PASS**、[run 41327568691](https://github.com/8mahi8/party-card-replica/actions/runs/41327568691)。追加オンラインシナリオでは閃光で2神器を拒否→1枚防御→スマイルの貝がらで解除→再び2枚防御まで、2独立ブラウザでタップ検証。
+- 単体HTMLをGitHub開発ブランチの `v2/demo/standalone.html` と `v2/demo/firebase-online-standalone.html` に再生成保存済み（buildコミット `0c1526c0`）。ビルド用 workflow は一時起動後**手動専用に復帰**。
+- 途中のCI失敗は、22番目の研究プリセットを反映していない旧テスト、治療説明文の旧期待値、新WebKitテストのルームコード正規表現の二重エスケープ。すべてテスト側を修正し、最終コードで全合格。実際の学校iPadの検証を意味しない。
