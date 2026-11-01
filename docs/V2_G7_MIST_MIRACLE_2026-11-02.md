@@ -23,7 +23,10 @@
 
 - `tests/g7-mist-miracle-v2.test.mjs`：カード定義・厳密効果、宣言前は付与なし、被弾者だけ相手の数値が隠れる、ホスト内部ダメージが正常、貝がら治療、習得済み再使用、精霊MP免除、奇跡停止、スーパーミラー反射、MP不足の原子的拒否、治癒の状態復帰を検証。
 - `tests/v2-firebase-online-webkit.browser.mjs`：Playwright WebKit 2独立画面＋模擬RTDBで、`mistMiracle`を使用し、ゲストの相手HP/MP/¥が「？」になること、スマイルの貝がらで解除し元の数値へ復帰することをタップ。
-- 最終Node／Chromium／WebKit CIのrun URLとチェック件数は完了後に `HANDOFF_LATEST.md` に記録する。
+- **Node.js 1,111/1,111合格**：[run 41333764138](https://github.com/8mahi8/party-card-replica/actions/runs/41333764138)。11件増加（既存1,101→1,111は追加10ケースを含む集計。過去件数は基準値）。
+- **Chromium 28/28合格**：[run 41333764064](https://github.com/8mahi8/party-card-replica/actions/runs/41333764064)。
+- **WebKit模擬RTDBオンライン2席319/319成功、既存UI339/339成功**：[run 41333764073](https://github.com/8mahi8/party-card-replica/actions/runs/41333764073)。新たに霧の宣言→防御許可→ゲストだけ相手HP/MP/¥伏字→貝がら治療後の数値再表示を2タブでタップ確認。
+- 最初のCI失敗はカタログ旧数値と未更新の単体HTML、テスト用の先攻順不一致が原因。修正済み。最終の上記CIはいずれも成功。**学校iPad実機・本物Firebaseの実通信ではない**。
 
 ## 制約と次
 
