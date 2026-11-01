@@ -1538,6 +1538,47 @@ try{
   }finally{await a.close();await b.close();}
  }
  await mistGunTouchTrial();
+
+ // The source-backed MP-powered main weapon is standalone; no unsourced combinations.
+ async function magicalStaffTouchTrial(){
+  const a=await context.newPage(),b=await context.newPage();
+  for(const p of [a,b])p.on('pageerror',e=>errors.push(e.message));
+  try{
+   await a.goto(target);
+   await a.locator('#labPreset').selectOption('magicalStaff');
+   await a.locator('#create').tap();
+   await a.waitForFunction(()=>/\b\d{5}\b/.test(
+    document.querySelector('#roomLabel')?.textContent||''));
+   const code=(await a.locator('#roomLabel').textContent()).match(/\d{5}/)[0];
+   await b.goto(target);
+   await b.locator('#joinCode').fill(code);
+   await b.locator('#join').tap();
+   await b.locator('#hand button').first().waitFor();
+   check((await a.locator('.score').first().textContent()).includes('MP 8'),
+    'staff preset opens with eight actual MP');
+   await a.locator('#hand button').filter({hasText:'マジカルステッキ'}).tap();
+   check((await a.locator('#selectionTotal').textContent()).includes('MP×2'),
+    'staff selector labels the original dynamic power instead of attack zero');
+   await a.locator('#attack').tap();
+   await b.waitForFunction(()=>document.querySelector('#phase')?.textContent
+    .includes('あなたの防御'),null,{timeout:15000});
+   check((await b.locator('body').textContent()).includes('攻MP×2'),
+    'defender sees the declared original MP-scaled attack');
+   await b.locator('#defend').tap();
+   await b.waitForFunction(()=>{
+    const rows=[...document.querySelectorAll('.score')].map(e=>e.textContent||'');
+    return rows[0]?.includes('MP 0')&&rows[1]?.includes('HP 24');
+   },null,{timeout:15000});
+   check((await a.locator('.score').first().textContent()).includes('MP 0'),
+    'staff paid all MP exactly once');
+   check((await b.locator('#phase').textContent()).includes('あなたの攻撃'),
+    'defense resolution advances turn');
+   check(await b.evaluate(()=>document.documentElement.scrollWidth<=
+    document.documentElement.clientWidth+2),
+    'staff view fits compact 390px embedded screen');
+  }finally{await a.close();await b.close();}
+ }
+ await magicalStaffTouchTrial();
  check(errors.length===0,'all preset trials have no script errors');
  console.log('FIREBASE_ONLINE_WEBKIT_SUCCESS checks='+checks+
   ' two tabs with mock RTDB, viewport=390x430');
