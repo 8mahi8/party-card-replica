@@ -19,7 +19,6 @@ const KEY='godfieldV2LabRooms';
 const wait={timeout:25000};
 let server,browser,a,b,currentCode=null,currentHostId=null,checks=0;
 const check=(ok,msg)=>{if(!ok)throw Error(msg);checks++};
-const clone=x=>JSON.parse(JSON.stringify(x));
 async function room(code){
  const response=await fetch(DB+'/'+KEY+'/'+code+'.json',{
   cache:'no-store',signal:AbortSignal.timeout(15000)});
@@ -37,18 +36,6 @@ async function cleanup(){
   check(response.ok,'only this newly created test room was cleaned');
  }
  currentCode=null;currentHostId=null;
-}
-async function waitNextTurn(id){
- await Promise.all([a,b].map(p=>p.waitForFunction(id=>{
-  const phase=document.querySelector('#phase')?.textContent||'';
-  const expected=id===window.__g7Seat?'あなたの攻撃':'相手の攻撃待ち';
-  // If labels differ between host and guest, server state is definitive.
-  return phase.includes('攻撃')&&!phase.includes('防御');
- },id,wait)));
- const live=await room(currentCode);
- check(live.views.A.activePlayerId===id&&live.views.B.activePlayerId===id,
-  'real Firebase projections agree on whose turn it is');
- return live;
 }
 async function trial(miracleId,mpCost){
  try{
