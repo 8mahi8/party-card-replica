@@ -113,6 +113,7 @@ main{padding:0 6px 8px}.brandline{margin:0 -6px}
 <option value="flashDagger">フラッシュダガー・命中で閃光→治療</option>
 <option value="mistGun">霧鉄砲・ダメージで霧→治療</option>
 <option value="magicalStaff">マジカルステッキ・残MP×2（単独攻撃）</option>
+<option value="recoilSword">邪神の大剣・与ダメ分の自傷と反射</option>
 <option value="mistMiracle">奇跡〈霧〉・相手のHP/MP/¥が見えなくなる</option>
 <option value="dark">闇属性と高防御</option>
 <option value="recovery">HP・MP回復と反撃</option>
@@ -210,6 +211,10 @@ const LAB_PRESETS=Object.freeze({
  magicalStaff:Object.freeze({
   A:Object.freeze(['w062','w016','d003','i006']),
   B:Object.freeze(['d003','d001','i002','w016']),mpA:8,rngSeed:71
+ }),
+ recoilSword:Object.freeze({
+  A:Object.freeze(['w063','i005','d003','w016']),
+  B:Object.freeze(['d003','d009','i002','w016']),rngSeed:71
  }),
  mistMiracle:Object.freeze({
   A:Object.freeze(['m020','i003','w016','d003']),
