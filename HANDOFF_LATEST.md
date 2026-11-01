@@ -11,7 +11,7 @@
 - **資料**：[まかろん2026](https://macarongamemo.com/entry/godfield-artifact) と [Piong](https://w.atwiki.jp/piong/pages/20.html) を照合。〈吸収〉は光属性・攻10・MP10・与ダメージ分HP回復・参考0.2%。新ID m019 は〈吸収〉に割当。以前の資料に〈閃光〉の仮ID m019 が残っていた場合、現在のID割当と異なるため使わないこと。
 - **実装**：src/verified-basic-cards.mjs → v2/legacy-adapter.mjs (既存の afterHit:absorbHp 型効果) → v2/miracle-resolution.mjs (共通の光属性ダメージ/MP消費/習得/精霊/鏡反射) → v2/effect-runner.mjs (共通のHP吸収・上限99・実際の攻撃元への回復)。元の武器吸収処理を別実装せずに流用。鏡の反射では反射者がHP回復・詠唱者が被弾する。元のMP消費は1回。
 - **試遊**：オンライン研究プリセット24種目 absorbMiracle を追加。2席WebKit模擬RTDBの実タップ反射テストを追加。開発単体HTMLをGitHubで再生成。正規山札ではなく、研究用固定手札を使用。
-- **検証**：新規 tests/g7-absorb-miracle-v2.test.mjs 10ケースを含む **Node 1101/1101合格** [run 41332076268](https://github.com/8mahi8/party-card-replica/actions/runs/41332076268)。Chromium既存画面も合格 [run 41332076394](https://github.com/8mahi8/party-card-replica/actions/runs/41332076394)。WebKit最終ログは完了後に確認。学校実iPad Safariと本物Firebase今回未検証。
+- **検証**：新規 tests/g7-absorb-miracle-v2.test.mjs 10ケースを含む **Node 1101/1101合格** [run 41332076268](https://github.com/8mahi8/party-card-replica/actions/runs/41332076268)。Chromium既存画面も合格 [run 41332076394](https://github.com/8mahi8/party-card-replica/actions/runs/41332076394)。WebKit **模擬RTDBオンライン2席313/313＋既存画面339/339合格** [run 41332076406](https://github.com/8mahi8/party-card-replica/actions/runs/41332076406) （反射〈吸収〉を2画面でタップ検証、ログ確認済）。学校実iPad Safariと本物Firebase今回未検証。
 - **データと権限**：研究台帳183種類・444参考枠、complete:false。Firebase Rules・認証・main・学校Google Sites埋込HTMLは未変更。次は吸収のWebKit最終確認、原作条件が明確な次のカード実装、学校実機試遊。
 - **詳細記録**：[V2_G7_ABSORB_MIRACLE_2026-11-02.md](docs/V2_G7_ABSORB_MIRACLE_2026-11-02.md)。
 ## 2026-11-02 G7｜〈閃光〉の命中後ダメージ／災い付与プレビュー【最新】
