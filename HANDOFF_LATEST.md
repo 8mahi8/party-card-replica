@@ -5,6 +5,15 @@
 
 > **この文書は引き継ぎ入口であり、実装の真実は常に開発ブランチの最新コードとGitHub Actions。** コミットSHA・テスト件数・カード数は作業のたびに変わる。本文の日付や数値を確認せず永久に正しいと扱わないこと。
 
+## 2026-11-02 G7｜〈閃光〉の全体攻撃・命中判定研究【最新】
+
+- **原作照合済み**：〈閃光〉＝光属性・MP3・25%攻1・全体攻撃。ダメージが通った対象だけ閃光を受ける。**全体攻撃は各相手に独立して命中抽選**（[Piong奇跡](https://w.atwiki.jp/piong/pages/20.html)、[まかろん2026神器一覧](https://macarongamemo.com/entry/godfield-artifact)、[全体攻撃の対象別抽選の説明](https://w.atwiki.jp/aniwotawiki/pages/47010.html)）。同じ25%抽選を全員へ流用する実装は原作と異なる。
+- **実装済みの範囲を厳密に区別**：新規 `v2/area-accuracy-research.mjs` は**実戦に未接続の純粋な研究関数**。`planAreaAccuracyResearchFixture` がFFA席の各生存対戦相手に個別の25/50/75%命中抽選を行う。既存host seed RNGを利用。テスト `tests/g7-area-accuracy-research-v2.test.mjs` で決定性・対象除外・入力制約・HP等への副作用がないことを検証。抽選だけでダメージ・閃光状態を発生させない。**奇跡カード `m019` はまだ台帳に追加していないし、オンライン研究用対戦でも使用不可**。
+- **現状のテスト**：追加分を含む **Node 1082/1082 合格** [run 41329641590](https://github.com/8mahi8/party-card-replica/actions/runs/41329641590)。Chromium既存画面成功 [run 41329641593](https://github.com/8mahi8/party-card-replica/actions/runs/41329641593)。**WebKitは実行結果を確認してから追記**。全て既存の原作再現・学校実機検証を意味しない。
+- **未確定・次の実装前に重要**：はずれ時に防御画面が出るか／防御カードを消費するか、複数命中者への個別防御・弾く・反射の順序、チーム戦対象、暗雲の必中処理と乱数消費順は未確認。**画面順序を推測しない。** FFAの座席順抽選は再現可能な研究手順であり、本家内部の乱数順の保証ではない。原作の確認がとれた時点で既存の共通 `staging-room`・`miracle-resolution`・`effect-runner` に繋ぐ。
+- **変更なし**：研究台帳182種類・443参考枠／`complete:false`、固定23試遊セット、Firebase Rules/認証・main・Google Sites学校版。今回の追加はソースと自動テスト、研究文書のみ。
+- **詳細**：[V2_G7_PERCENT_AREA_ACCURACY_RESEARCH_2026-11-02.md](docs/V2_G7_PERCENT_AREA_ACCURACY_RESEARCH_2026-11-02.md)。
+
 ## 2026-11-02 G7｜フラッシュダガー命中後の閃光付与【最新】
 
 - **原作根拠**：[2026年まかろん神器一覧](https://macarongamemo.com/entry/godfield-artifact)・[Piong単体武器一覧](https://w.atwiki.jp/piong/pages/15.html)を照合。フラッシュダガー＝**光属性・攻2・¥15・参考0.2%（1/500）**、**対象に1以上のダメージを与えた場合だけ閃光状態を付与**。現行の本家実操作による一次証拠ではなく、資料研究値。〈閃光〉奇跡は25%全体攻撃のため、今回単体化して実装しない。
