@@ -5,11 +5,20 @@
 
 > **この文書は引き継ぎ入口であり、実装の真実は常に開発ブランチの最新コードとGitHub Actions。** コミットSHA・テスト件数・カード数は作業のたびに変わる。本文の日付や数値を確認せず永久に正しいと扱わないこと。
 
+## 2026-11-02 G7｜奇跡〈吸収〉を実戦研究対戦に実装【最新】
+
+- **開発判断**：全体奇跡〈閃光〉のミス時防御・反射順は二次資料だけでは不明。推測で実戦接続せず、既存エンジンの再利用率が高い、原作単体奇跡〈吸収〉を優先して完成させた。
+- **資料**：[まかろん2026](https://macarongamemo.com/entry/godfield-artifact) と [Piong](https://w.atwiki.jp/piong/pages/20.html) を照合。〈吸収〉は光属性・攻10・MP10・与ダメージ分HP回復・参考0.2%。新ID m019 は〈吸収〉に割当。以前の資料に〈閃光〉の仮ID m019 が残っていた場合、現在のID割当と異なるため使わないこと。
+- **実装**：src/verified-basic-cards.mjs → v2/legacy-adapter.mjs (既存の afterHit:absorbHp 型効果) → v2/miracle-resolution.mjs (共通の光属性ダメージ/MP消費/習得/精霊/鏡反射) → v2/effect-runner.mjs (共通のHP吸収・上限99・実際の攻撃元への回復)。元の武器吸収処理を別実装せずに流用。鏡の反射では反射者がHP回復・詠唱者が被弾する。元のMP消費は1回。
+- **試遊**：オンライン研究プリセット24種目 absorbMiracle を追加。2席WebKit模擬RTDBの実タップ反射テストを追加。開発単体HTMLをGitHubで再生成。正規山札ではなく、研究用固定手札を使用。
+- **検証**：新規 tests/g7-absorb-miracle-v2.test.mjs 10ケースを含む **Node 1101/1101合格** [run 41332076268](https://github.com/8mahi8/party-card-replica/actions/runs/41332076268)。Chromium既存画面も合格 [run 41332076394](https://github.com/8mahi8/party-card-replica/actions/runs/41332076394)。WebKit最終ログは完了後に確認。学校実iPad Safariと本物Firebase今回未検証。
+- **データと権限**：研究台帳183種類・444参考枠、complete:false。Firebase Rules・認証・main・学校Google Sites埋込HTMLは未変更。次は吸収のWebKit最終確認、原作条件が明確な次のカード実装、学校実機試遊。
+- **詳細記録**：[V2_G7_ABSORB_MIRACLE_2026-11-02.md](docs/V2_G7_ABSORB_MIRACLE_2026-11-02.md)。
 ## 2026-11-02 G7｜〈閃光〉の命中後ダメージ／災い付与プレビュー【最新】
 
 - **原作の確定仕様**：〈閃光〉=MP3・光属性・25%全体攻撃・攻1。相手ごとの命中判定後、**実際にダメージが通った生存相手に閃光付与**。Piong・2026まかろん・Game Breeze、属性防御Piongの資料と照合。通常の光属性防具は無効、虹のカーテンで無属性化するとガードできる。
 - **今回のコード**：`v2/flash-miracle-research.mjs`（研究専用）と `tests/g7-flash-miracle-research-v2.test.mjs`（8追加テスト）。前回の独立25%命中判定 `v2/area-accuracy-research.mjs`、既存の `src/rules.mjs`（防御属性・守備・HP計算）を**再利用**。命中／外れ、虹のカーテン、HP0、複数生存者、MP3不足、不正入力を決定的なseedで検証。`wouldInflictFlash` は研究用の**計算結果のみ**。
-- **実戦接続状態**：**まだ使用可能カード・オンライン対戦に接続していない**。手札・MP・HP・災い・ルームrevisionやFirebase書込を変更せず、原作の不明点を勝手に埋めない。〈閃光〉奇跡の正式定義ID `m019` は未登録。前回のフラッシュダガーは別途実戦研究セットに登録済。
+- **実戦接続状態**：**まだ使用可能カード・オンライン対戦に接続していない**。手札・MP・HP・災い・ルームrevisionやFirebase書込を変更せず、原作の不明点を勝手に埋めない。〈閃光〉奇跡は未登録。m019は後続の〈吸収〉に使用したため、〈閃光〉には別IDを使う。前回のフラッシュダガーは別途実戦研究セットに登録済。
 - **原作で未確定の点**：命中しない相手にも防御UIが出るか、手札消費の有無、複数対象の防御／反射／弾く順序、反射後の再抽選、チーム戦、暗雲時の必中。これらが確認できてから共通 `miracle-resolution` と `room-transition` に接続すること。**次の担当は推測で本番向け仕様を決めない。**
 - **自動テスト**：Node **1090/1090 合格** [run 41330453720](https://github.com/8mahi8/party-card-replica/actions/runs/41330453720)、Chromium既存画面成功 [run 41330453736](https://github.com/8mahi8/party-card-replica/actions/runs/41330453736)。WebKit模擬RTDBオンライン2席**310/310合格**＋既存UI**339/339合格** [run 41330512604](https://github.com/8mahi8/party-card-replica/actions/runs/41330512604)（ログ確認済）。今回の新規8テストは**研究用であり、実戦の奇跡詠唱UIを試したものではない**。
 - **変更せず維持**：研究台帳182種類／443参考枠・`complete:false`、23試遊セット、GitHub main、学校Google Sites直接貼付版、Firebase Rulesと認証。詳細 [V2_G7_FLASH_MIRACLE_DAMAGE_PREVIEW_2026-11-02.md](docs/V2_G7_FLASH_MIRACLE_DAMAGE_PREVIEW_2026-11-02.md)。
@@ -17,7 +26,7 @@
 ## 2026-11-02 G7｜〈閃光〉の全体攻撃・命中判定研究【最新】
 
 - **原作照合済み**：〈閃光〉＝光属性・MP3・25%攻1・全体攻撃。ダメージが通った対象だけ閃光を受ける。**全体攻撃は各相手に独立して命中抽選**（[Piong奇跡](https://w.atwiki.jp/piong/pages/20.html)、[まかろん2026神器一覧](https://macarongamemo.com/entry/godfield-artifact)、[全体攻撃の対象別抽選の説明](https://w.atwiki.jp/aniwotawiki/pages/47010.html)）。同じ25%抽選を全員へ流用する実装は原作と異なる。
-- **実装済みの範囲を厳密に区別**：新規 `v2/area-accuracy-research.mjs` は**実戦に未接続の純粋な研究関数**。`planAreaAccuracyResearchFixture` がFFA席の各生存対戦相手に個別の25/50/75%命中抽選を行う。既存host seed RNGを利用。テスト `tests/g7-area-accuracy-research-v2.test.mjs` で決定性・対象除外・入力制約・HP等への副作用がないことを検証。抽選だけでダメージ・閃光状態を発生させない。**奇跡カード `m019` はまだ台帳に追加していないし、オンライン研究用対戦でも使用不可**。
+- **実装済みの範囲を厳密に区別**：新規 `v2/area-accuracy-research.mjs` は**実戦に未接続の純粋な研究関数**。`planAreaAccuracyResearchFixture` がFFA席の各生存対戦相手に個別の25/50/75%命中抽選を行う。既存host seed RNGを利用。テスト `tests/g7-area-accuracy-research-v2.test.mjs` で決定性・対象除外・入力制約・HP等への副作用がないことを検証。抽選だけでダメージ・閃光状態を発生させない。**〈閃光〉奇跡は未登録・オンライン対戦でも使用不可**（m019は後続の〈吸収〉へ割り当て済み）。
 - **現状のテスト**：追加分を含む **Node 1082/1082 合格** [run 41329641590](https://github.com/8mahi8/party-card-replica/actions/runs/41329641590)。Chromium既存画面成功 [run 41329641593](https://github.com/8mahi8/party-card-replica/actions/runs/41329641593)。WebKit **模擬RTDBオンライン2席310/310＋既存UI339/339合格** [run 41329729077](https://github.com/8mahi8/party-card-replica/actions/runs/41329729077)（ログ確認済み）。全て既存の原作再現・学校実機検証を意味しない。
 - **未確定・次の実装前に重要**：はずれ時に防御画面が出るか／防御カードを消費するか、複数命中者への個別防御・弾く・反射の順序、チーム戦対象、暗雲の必中処理と乱数消費順は未確認。**画面順序を推測しない。** FFAの座席順抽選は再現可能な研究手順であり、本家内部の乱数順の保証ではない。原作の確認がとれた時点で既存の共通 `staging-room`・`miracle-resolution`・`effect-runner` に繋ぐ。
 - **変更なし**：研究台帳182種類・443参考枠／`complete:false`、固定23試遊セット、Firebase Rules/認証・main・Google Sites学校版。今回の追加はソースと自動テスト、研究文書のみ。
