@@ -10,7 +10,7 @@ const {byId:catalog,summary}=migrateLegacyCatalog();
 const literal=page.match(/const LAB_PRESETS=(Object\.freeze\(\{[\s\S]*?\}\));/);
 if(!literal)throw Error('Expected source-backed lab presets in online demo');
 const presets=vm.runInNewContext(literal[1]);
-test('online trial room offers twenty-three explicitly named fixture hand sets, never fake random draws',()=>{
+test('online trial room offers twenty-four explicitly named fixture hand sets, never fake random draws',()=>{
  assert.match(page,/<select id="labPreset"/);
  assert.match(page,/<option value="basic">/);
  assert.match(page,/<option value="elements">/);
@@ -28,6 +28,7 @@ test('online trial room offers twenty-three explicitly named fixture hand sets, 
  assert.match(page,/<option value="windMiracles">/);
  assert.match(page,/<option value="learnedTrial">/);
  assert.match(page,/<option value="resourceMiracles">/);
+ assert.match(page,/<option value="absorbMiracle">/);
  assert.match(page,/<option value="cleansingMiracles">/);
  assert.match(page,/<option value="sale">/);
  assert.match(page,/<option value="buy">/);
@@ -40,10 +41,10 @@ test('online trial room offers twenty-three explicitly named fixture hand sets, 
  assert.match(page,/LAB_PRESETS\[\$\('labPreset'\)\.value\]/);
  assert.match(page,/handDefinitionIds:\[\.\.\.preset\.A\]/);
  assert.match(page,/handDefinitionIds:\[\.\.\.preset\.B\]/);
- assert.deepEqual(Object.keys(presets).sort(),['basic','broom','buy','cleansingMiracles','dark','elements','exchange','fireArmor','flashDagger','flashDefense','heaven','illnessAttack','learnedTrial','recovery','resourceMiracles','sale','shells','soap','support','tear','turbulenceBack','turbulenceSelf','windMiracles']);
+ assert.deepEqual(Object.keys(presets).sort(),['absorbMiracle','basic','broom','buy','cleansingMiracles','dark','elements','exchange','fireArmor','flashDagger','flashDefense','heaven','illnessAttack','learnedTrial','recovery','resourceMiracles','sale','shells','soap','support','tear','turbulenceBack','turbulenceSelf','windMiracles']);
  assert.equal(summary.complete,false,'deck not audited for real weighted draws');
 });
-test('all twenty-three fixed presets contain valid catalog definitions and four cards per seat',()=>{
+test('all twenty-four fixed presets contain valid catalog definitions and four cards per seat',()=>{
  for(const [name,hands] of Object.entries(presets)){
   for(const seat of ['A','B']){
    assert.equal(hands[seat].length,4,name+' '+seat);
@@ -147,4 +148,13 @@ test('Flash Dagger research preset supplies an authentic hit weapon and a cure',
  assert.deepEqual([dagger.stats.attack,dagger.element,dagger.stats.price],[2,'light',15]);
  assert.deepEqual(dagger.effects,[{when:'afterHit',type:'inflictAffliction',params:{affliction:'flash'}}]);
  assert.equal(summary.complete,false,'partial catalog remains a non-production research fixture');
+});
+
+test('Absorb miracle trial uses source-backed solo spell, Mirror, Curtain and Spirit',()=>{
+ assert.deepEqual(Array.from(presets.absorbMiracle.A),['m019','i003','w016','d003']);
+ assert.deepEqual(Array.from(presets.absorbMiracle.B),['i002','i001','d003','w016']);
+ assert.equal(presets.absorbMiracle.mpA,25);
+ const m=catalog.get('m019');
+ assert.deepEqual([m.stats.attack,m.stats.mpCost,m.element],[10,10,'light']);
+ assert.deepEqual(m.effects,[{when:'afterHit',type:'absorbHp',params:{amount:'damage'}}]);
 });
