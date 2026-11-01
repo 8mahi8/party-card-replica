@@ -18,6 +18,13 @@
 - `tests/v2-firebase-online-webkit.browser.mjs`に双方の奇跡を物理カードから唱える→相手が攻撃→習得後に再詠唱する2タブ模擬RTDBタップテスト。
 - 台帳は**181種類／442/500参考枠**、`complete:false`を維持し、原作山札のランダム抽選は有効にしていない。
 
+## 検証結果（GitHub Actions）
+
+- Node **1,063/1,063 PASS**：[run 41283655538](https://github.com/8mahi8/party-card-replica/actions/runs/41283655538)。
+- Chromiumブラウザ **PASS**：[run 41283655541](https://github.com/8mahi8/party-card-replica/actions/runs/41283655541)。
+- WebKit **模擬RTDBオンライン2席295/295 PASS＋既存画面339/339 PASS**：[run 41283655493](https://github.com/8mahi8/party-card-replica/actions/runs/41283655493)。物理カードから解除→習得→別プレイヤーの攻撃→習得済み再使用→所持MP・手札を両端末で検査。新奇跡選択時に雑貨ボタンが有効にならないことも確認。
+- 学校iPad実機と今回の奇跡の本物Firebaseでの対戦は未確認。WebKitの自動試験だけで学校公開可とは判断しない。
+
 ## 前回の火属性防具について発見した名称矛盾（重要）
 
 前回資料 `docs/V2_G7_FIRE_ARMOR_2026_2026-10-31.md`では2026年の同一サイト内の資料が一致すると説明したが、再確認すると**実際には違う**。誤った「完全照合済み」の主張を取り消す。
