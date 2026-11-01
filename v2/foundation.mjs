@@ -61,7 +61,7 @@ function freezeEffect(effect) {
   if(effect.type==='inflictAffliction'&&
      (Object.keys(params).length!==1||
       !((effect.when==='afterHit'&&['flash','mist'].includes(params.affliction))||
-        (effect.when==='onDeclare'&&params.affliction==='mist'))))
+        (effect.when==='onDeclare'&&['mist','dream'].includes(params.affliction)))))
     throw new Error('Invalid inflictAffliction effect data');
   if(effect.type==='heavenHerb'&&
      (effect.when!=='onDeclare'||Object.keys(params).length!==2||
