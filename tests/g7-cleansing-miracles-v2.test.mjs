@@ -45,7 +45,7 @@ test('sourced MP2/MP5 minor/all cure miracles are typed and leave the deck incom
   assert.throws(()=>convertLegacyCard({...raw,cleanseScope:'fictional'}),
    /Unverified cleansing miracle definition/);
  }
- assert.deepEqual([summary.unique,summary.slots,summary.complete],[182,443,false]);
+ assert.deepEqual([summary.unique,summary.slots,summary.complete],[183,444,false]);
  assert.equal(summary.unique,RESEARCH_CATALOG_CONTRACT.unique);
  assert.equal(summary.slots,RESEARCH_CATALOG_CONTRACT.slots);
 });
