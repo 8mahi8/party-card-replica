@@ -109,6 +109,7 @@ main{padding:0 6px 8px}.brandline{margin:0 -6px}
 <option value="basic">基本対戦（従来の固定4枚）</option>
 <option value="elements">属性防御（火・水）</option>
 <option value="fireArmor">新しい火属性防具3種・水属性防御</option>
+<option value="flashDefense">閃光・防御は1枚まで／貝がら解除</option>
 <option value="dark">闇属性と高防御</option>
 <option value="recovery">HP・MP回復と反撃</option>
 <option value="support">相手への回復と反射</option>
@@ -192,6 +193,11 @@ const LAB_PRESETS=Object.freeze({
  elements:Object.freeze({
   A:Object.freeze(['w018','w021','d035','d043']),
   B:Object.freeze(['w021','w018','d043','d035'])
+ }),
+ flashDefense:Object.freeze({
+  A:Object.freeze(['w027','w016','d003','i006']),
+  B:Object.freeze(['d001','d003','i017','w016']),
+  afflictionsB:Object.freeze(['flash']),rngSeed:71
  }),
  fireArmor:Object.freeze({
   A:Object.freeze(['w041','d035','w016','i006']),
@@ -358,6 +364,11 @@ function render(){
    ailment.textContent='災い：'+({cold:'風邪',fever:'熱病',hell:'地獄病',heaven:'天国病'}[p.disease]||p.disease);
    e.append(ailment);
   }
+  for(const affliction of p.afflictions||[]){
+   const badge=document.createElement('span');badge.className='disease';
+   badge.textContent=affliction==='flash'?'災い：閃光（防御は神器1つ）':affliction;
+   e.append(badge);
+  }
   stats.append(e);
  }
  const mine=active&&(seat!=='A'||joined),busy=waiting;
@@ -485,7 +496,7 @@ function render(){
    (resourceInfo.params.resource==='hp'?'HP':'¥')+'+'+resourceInfo.params.amount+
    ' · MP'+firstCastDef.stats.mpCost+'（自身へ使う・手番終了）':
   cleansingInfo?
-   (cleansingInfo.params.scope==='minor'?'風邪・熱病を治す':'病系の災いをすべて治す')+
+   (cleansingInfo.params.scope==='minor'?'風邪・熱病・閃光を治す':'対応する災いをすべて治す')+
    ' · MP'+firstCastDef.stats.mpCost+'（自身へ使う・手番終了）':
   saleDefense?
    (mirrorChoice?'スーパーミラーで取引を跳ね返す':'価格を確認して売買を受け入れる'):
@@ -496,7 +507,7 @@ function render(){
    (mirrorChoice?'スーパーミラーで雑貨を反射':'許す／スーパーミラーを選択'):
    itemEffect?
    (itemEffect.type==='cleanseAfflictions'?
-     (itemEffect.params.scope==='minor'?'風邪・熱病を治す':'病系の災いをすべて治す'):
+     (itemEffect.params.scope==='minor'?'風邪・熱病・閃光を治す':'対応する災いをすべて治す'):
     itemEffect.type==='heavenHerb'?'MP+20・天国病（重ねがけで悪化）':
     itemEffect.type==='forgetLearned'?'対象の習得済み奇跡を無作為に最大2つ忘れさせる':
     itemEffect.type==='sweepHand'?'対象の神器を無作為に最大3枚除去':
@@ -594,7 +605,8 @@ function render(){
  $('buy').disabled=!usable||!buyValid;
  $('discard').disabled=!usable||!selection.size||selectedIds.length!==selection.size;
  $('pray').disabled=!usable||player.hand?.some(c=>catalog.get(c.definitionId)?.family==='weapon');
- $('defend').disabled=!usable||((itemDefense||saleDefense)&&selection.size>0&&!mirrorChoice);
+ $('defend').disabled=!usable||((itemDefense||saleDefense)&&selection.size>0&&!mirrorChoice)||
+  (view.phase==='defense'&&player.afflictions?.includes('flash')&&selection.size>1);
  $('defend').textContent=buyDefense?'購入依頼を通す（反射未対応）':
   saleDefense?
    (mirrorChoice?'スーパーミラーで反射':'売買を受け入れる'):
@@ -694,6 +706,13 @@ $('create').addEventListener('click',async()=>{
     if(!['cold','fever','hell','heaven'].includes(disease))
      throw Error('研究用の病設定が不正です');
     initialState.players[index].disease=disease;
+   }
+  }
+  for(const [index,list] of [[0,preset.afflictionsA],[1,preset.afflictionsB]]){
+   if(list!==undefined){
+    if(!Array.isArray(list)||list.some(x=>x!=='flash')||new Set(list).size!==list.length)
+     throw Error('研究用災い設定が不正です');
+    initialState.players[index].afflictions=[...list];
    }
   }
   // Host-owned fixed lab data, never accepted from a guest command.
