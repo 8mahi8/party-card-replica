@@ -12,7 +12,7 @@
 - **実装範囲を厳守**：**固定2席の研究ゲーム限定**。霧による多人数のランダム対象・原作の細かい他人の雑貨使用秘匿は今回再現したと主張しない。3席以上に霧を投げる場合は未確認仕様のため拒否。学校Google Sites直接貼付版・main・Firebase Rules・認証変更なし。
 - **テストと試遊**：`tests/g7-mist-miracle-v2.test.mjs`に10ケース（宣言→効果、席別秘匿、内部の正しいダメージ計算、スマイル/ハート治療、反射、精霊、習得済み、奇跡停止、MP不足）。模擬RTDBの2画面WebKitタップテストも追加。**Node 1111/1111 合格** [run 41333764138](https://github.com/8mahi8/party-card-replica/actions/runs/41333764138)、Chromium [run 41333764064](https://github.com/8mahi8/party-card-replica/actions/runs/41333764064) 成功。**WebKitは模擬RTDBオンライン2席319/319＋既存UI339/339合格** [run 41333764073](https://github.com/8mahi8/party-card-replica/actions/runs/41333764073)（〈霧〉詠唱・相手HP/MP/¥非表示→スマイル貝がら治療・表示復帰を独立2画面のタップで確認し、ログまで検証済み）。実Firebaseと学校iPad Safariは未検証。
 - **カタログ**：**184種類／445参考枠・`complete:false`**、研究用セット25種類（`mistMiracle`追加）、原作正式確率抽選は禁止。HTML3本はGitHub開発ブランチで再生成済み、ワークフローは手動専用へ戻した。
-- **次**：WebKitの2席実タップを確認し、原作裏付けの強い次のカードまたは多人数ゲームエンジンに進む。ただし推測で本家未確定仕様を追加しない。詳細 [V2_G7_MIST_MIRACLE_2026-11-02.md](docs/V2_G7_MIST_MIRACLE_2026-11-02.md)。
+- **次**：原作裏付けの強い次のカードを、既存の共通効果に乗せて実装する。霧の多人数ランダム対象・他者の雑貨使用情報・〈閃光〉の防御/反射は未検証のまま推測実装しない。学校Safari実機で霧の表示・治療を試遊した後、必要な修正を優先する。詳細 [V2_G7_MIST_MIRACLE_2026-11-02.md](docs/V2_G7_MIST_MIRACLE_2026-11-02.md)。
 
 ## 2026-11-02 G7｜奇跡〈吸収〉を実戦研究対戦に実装【最新】
 
