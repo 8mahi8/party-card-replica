@@ -107,6 +107,12 @@ export function convertLegacyCard(card,{ruleset=PARTIAL_CARD_SOURCE}={}) {
           stacking:VERIFIED_IDENTICAL_PLUS_PAIRS.has(card.id)?'identicalPair':'single'
         }));
       } else if(card.plusAttack!==undefined)throw new Error('Unknown plus-attack flag');
+      if(card.hpAbsorb!==undefined){
+        if(card.hpAbsorb!==true||card.element!=='light'||
+          card.attack!==10||card.mpCost!==10||card.plusAttack!==undefined)
+          throw new Error('Unverified absorbing miracle definition');
+        effects.push(mk('afterHit','absorbHp',{amount:'damage'}));
+      }
     } else if(card.role==='resource') {
       if(card.element!=='none'||card.attack!==undefined||
          !['hp','money'].includes(card.resourceGain)||card.restoreAmount!==10||
